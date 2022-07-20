@@ -1,0 +1,12 @@
+body {
+  font-family: "Helvetica Neue",Helvetica,Arial,sans-serif;
+  font-size: 14px;
+  line-height: 1.42857143;
+  color: #333;
+}
+tr.border_bottom td {
+  border-bottom:1pt solid black;
+  margin-bottom: 10px;
+}
+
+tr:hover td {background-color:#e6e6e6;}
