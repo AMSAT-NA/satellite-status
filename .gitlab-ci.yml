@@ -23,6 +23,7 @@ stages:
 
 test-php-version:
   stage: test
+  image: php:stable
   rules:
     - when: always
   script:
