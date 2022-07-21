@@ -20,7 +20,14 @@ stages:
 - incremental rollout 100%
 - performance
 - cleanup
+
+test-php-version:
+  stage: test
+  script:
+    - php --version
+
 sast:
   stage: test
+
 include:
 - template: Auto-DevOps.gitlab-ci.yml
