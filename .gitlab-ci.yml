@@ -24,12 +24,11 @@ stages:
 test-php-version:
   stage: test
   # Use latest version of php/alpine for testing.
-  image: alpine:latest
+  image: php:alpine
   rules:
     - when: always
   script:
-    - which php
-    - /bin/php --version
+    - php --version
 
 sast:
   stage: test
