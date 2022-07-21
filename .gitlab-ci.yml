@@ -23,6 +23,8 @@ stages:
 
 test-php-version:
   stage: test
+  rules:
+    - when: always
   script:
     - php --version
 
