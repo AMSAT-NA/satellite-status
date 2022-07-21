@@ -23,7 +23,8 @@ stages:
 
 test-php-version:
   stage: test
-  image: php:stable
+  # Use latest version of php/alpine for testing.
+  image: alpine:latest
   rules:
     - when: always
   script:
