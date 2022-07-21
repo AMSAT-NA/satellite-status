@@ -28,7 +28,8 @@ test-php-version:
   rules:
     - when: always
   script:
-    - php --version
+    - which php
+    - /bin/php --version
 
 sast:
   stage: test
