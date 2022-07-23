@@ -21,17 +21,41 @@ stages:
 - performance
 - cleanup
 
-test-php-version:
+# jobs for build stage
+# Override default 'build' job
+build:
+  stage: build
+  script: 
+    - "echo 'Create the package...'"
+    - "tar -czf * package.tgz"
+
+# jobs for test stage
+# Override default 'test' job
+test:
   stage: test
-  # Use latest version of php/alpine for testing.
-  image: php:alpine
+  script:
+    - "echo 'Extract the package...'"
+    - "tar -zxf package.tgz"
+
+sast:
+  stage: test
+
+check-php-syntax:
+    stage: test
+    image: php:alpine  # Use latest version of php:alpine for testing.
+    script:
+        - php -l config.php
+        - php -l index.php
+        - php -l info.php
+        - php -l submit.php
+
+check-php-version:
+  stage: test
+  image: php:alpine # Use latest version of php:alpine for testing.
   rules:
     - when: always
   script:
     - php --version
-
-sast:
-  stage: test
 
 include:
 - template: Auto-DevOps.gitlab-ci.yml

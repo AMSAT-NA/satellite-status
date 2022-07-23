@@ -33,10 +33,12 @@ This is a project space for development of the Satellite Status Page and API, ho
 ## License
 - TBD
 
-## Project status
+## Project Status
 2022 July 20: The beginning of open/public development for this tool.
 
 ***
+
+
 
 ## GitLab Recommended Steps for New Projects
 
