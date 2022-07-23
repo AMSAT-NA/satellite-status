@@ -28,18 +28,19 @@ build:
   script: 
     - echo 'Create the package...'
     - export PKGNAME=`echo "$CI_COMMIT_SHORT_SHA"_package.tgz`
-    - tar --exclude .* -czf $PKGNAME  *
+    - tar --exclude .* --exclude $PKGNAME -czf $PKGNAME ./*
   artifacts:
     paths:
-      - ./$PKGNAME
+      - $PKGNAME
   
 # jobs for test stage
 # Override default 'test' job
 test:
   stage: test
   script:
-    - "echo 'Extract the package...'"
-    - "tar -zxf package.tgz"
+    - echo 'Extract the package...'
+    - export PKGNAME=`echo "$CI_COMMIT_SHORT_SHA"_package.tgz`
+    - tar -zxf $PKGNAME.tgz
 
 sast:
   stage: test
@@ -60,6 +61,10 @@ check-php-version:
     - when: always
   script:
     - php --version
+
+# Override default 'container_scanning' job
+container_scanning:
+  stage: test
 
 include:
 - template: Auto-DevOps.gitlab-ci.yml
