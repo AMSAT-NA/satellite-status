@@ -67,7 +67,7 @@ check-php-version:
 # Disable default 'container_scanning' job
 container_scanning:
   stage: test
-  when: never
+  when: manual
 
 include:
 - template: Auto-DevOps.gitlab-ci.yml
