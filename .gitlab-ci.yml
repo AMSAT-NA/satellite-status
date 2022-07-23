@@ -28,7 +28,7 @@ build:
   script: 
     - echo 'Create the package...'
     - export PKGNAME=`echo ${CI_COMMIT_SHORT_SHA}_package`
-    - tar --exclude=.*,$PKGNAME.tgz -P -czf $PKGNAME.tgz .
+    - tar --exclude=.*,$PKGNAME.tgz -czf $PKGNAME.tgz .
   artifacts:
     paths:
       - ${CI_COMMIT_SHORT_SHA}_package.tgz
@@ -38,7 +38,8 @@ build:
 test:
   stage: test
   script:
-    - echo 'this is the test job.'
+    - echo 'this is the test job, see if package (artifact) is present'
+    - ls -la
 
 sast:
   stage: test
