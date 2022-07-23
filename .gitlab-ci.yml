@@ -29,6 +29,7 @@ build:
     - echo 'Create the package...'
     - export PKGNAME=`echo "$CI_COMMIT_SHORT_SHA"_package`
     - tar --exclude .* --exclude $PKGNAME.tgz -czf $PKGNAME.tgz .
+    - ls -la
   artifacts:
     paths:
       - $PKGNAME.tgz
@@ -41,6 +42,7 @@ test:
     - echo 'Extract the package...'
     - export PKGNAME=`echo "$CI_COMMIT_SHORT_SHA"_package`
     - tar -zxf $PKGNAME.tgz
+    - ls -la
 
 sast:
   stage: test
@@ -62,9 +64,10 @@ check-php-version:
   script:
     - php --version
 
-# Override default 'container_scanning' job
+# Disable default 'container_scanning' job
 container_scanning:
   stage: test
+  when: never
 
 include:
 - template: Auto-DevOps.gitlab-ci.yml
