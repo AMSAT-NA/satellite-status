@@ -32,12 +32,14 @@ build:
     - ls -la
   artifacts:
     paths:
-      - satellite-status/$PKGNAME.tgz
+      - 'satellite-status/$PKGNAME.tgz'
   
 # jobs for test stage
 # Default 'test' job
 test:
   stage: test
+  script:
+    - echo 'this is the test job.'
 
 sast:
   stage: test
