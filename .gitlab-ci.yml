@@ -33,7 +33,7 @@ build:
     - pwd
   artifacts:
     paths:
-      - ./${CI_COMMIT_SHORT_SHA}_package.tgz'
+      - ${CI_COMMIT_SHORT_SHA}_package.tgz
   
 # jobs for test stage
 # Default 'test' job
