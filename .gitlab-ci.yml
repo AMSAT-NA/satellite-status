@@ -32,17 +32,12 @@ build:
     - ls -la
   artifacts:
     paths:
-      - $CI_COMMIT_SHORT_SHA_package.tgz
+      - satellite-status/$PKGNAME.tgz
   
 # jobs for test stage
-# Override default 'test' job
+# Default 'test' job
 test:
   stage: test
-  script:
-    - ls -la
-    - echo 'Extract the package...'
-    - export PKGNAME=`echo "$CI_COMMIT_SHORT_SHA"_package`
-    - tar -zxf $PKGNAME.tgz
 
 sast:
   stage: test
