@@ -26,12 +26,9 @@ stages:
 build:
   stage: build
   script: 
-    - "echo ------[DEBUG]-----"
-    - ls -la
-    - "echo ------[DEBUG]-----"
-    - "echo 'Create the package...'"
+    - echo 'Create the package...'
     - export PKGNAME=`echo "$CI_COMMIT_SHORT_SHA"_package.tgz`
-    - "tar -czf $PKGNAME *"
+    - tar --exclude .* -czf $CI_PROJECT_DIR/$PKGNAME  *
   artifacts:
     paths:
       - $PKGNAME
