@@ -28,10 +28,10 @@ build:
   script: 
     - echo 'Create the package...'
     - export PKGNAME=`echo "$CI_COMMIT_SHORT_SHA"_package.tgz`
-    - tar --exclude .* -czf $CI_PROJECT_DIR/$PKGNAME  *
+    - tar --exclude .* -czf $PKGNAME  *
   artifacts:
     paths:
-      - $PKGNAME
+      - ./$PKGNAME
   
 # jobs for test stage
 # Override default 'test' job
