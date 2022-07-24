@@ -27,8 +27,7 @@ build:
   stage: build
   script: 
     - echo 'Create the package...'
-    - export PKGNAME=`echo ${CI_COMMIT_SHORT_SHA}_package`
-    - tar --exclude=.*,$PKGNAME.tgz -czf $PKGNAME.tgz .
+    - tar -C .. --exclude .git .gitignore .gitlab-ci.yml CHANGELOG README.md -czf ${CI_COMMIT_SHORT_SHA}_package.tgz ${CI_PROJECT_NAME}
   artifacts:
     paths:
       - ${CI_COMMIT_SHORT_SHA}_package.tgz
@@ -38,7 +37,7 @@ build:
 test:
   stage: test
   script:
-    - echo 'this is the test job, see if package (artifact) is present'
+    - echo 'this is the test job.'
     - ls -la
 
 sast:
@@ -52,6 +51,9 @@ check-php-syntax:
         - php -l index.php
         - php -l info.php
         - php -l submit.php
+        - php -l api/v1/config.php
+        - php -l api/v1/index.php
+        - php -l api/v1/sat_info.php
 
 check-php-version:
   stage: test
@@ -60,6 +62,7 @@ check-php-version:
     - when: always
   script:
     - php --version
+    - phplint --version
 
 # Disable default 'container_scanning' job
 container_scanning:
