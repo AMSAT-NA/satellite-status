@@ -46,23 +46,21 @@ test:
     - ls -la
 
 check-php-syntax:
-    stage: test
-    image: php:alpine  # Use latest version of php:alpine for testing.
-    script:
-        # install phplint to speed this up?
-        - php -l config.php
-        - php -l index.php
-        - php -l info.php
-        - php -l submit.php
-        - php -l api/v1/config.php
-        - php -l api/v1/index.php
-        - php -l api/v1/sat_info.php
+  stage: test
+  image: php:alpine  # Use latest version of php:alpine for testing.
+  script:
+    # install phplint to speed this up?
+    - php -l config.php
+    - php -l index.php
+    - php -l info.php
+    - php -l submit.php
+    - php -l api/v1/config.php
+    - php -l api/v1/index.php
+    - php -l api/v1/sat_info.php
 
 check-php-version:
   stage: test
   image: php:alpine # Use latest version of php:alpine for testing.
-  rules:
-    - when: always
   script:
     - php --version
 
@@ -73,4 +71,4 @@ container_scanning:
   when: manual
 
 include:
-- template: Auto-DevOps.gitlab-ci.yml
+  - template: Auto-DevOps.gitlab-ci.yml
