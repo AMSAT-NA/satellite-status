@@ -27,12 +27,15 @@ build:
   stage: build
   script: 
     - echo 'Create the package...'
-    - tar -C .. --exclude ${CI_PROJECT_NAME}/.git,${CI_PROJECT_NAME}/.gitignore,${CI_PROJECT_NAME}/.gitlab-ci.yml,${CI_PROJECT_NAME}/CHANGELOG,${CI_PROJECT_NAME}/README.md -czf ${CI_COMMIT_SHORT_SHA}_package.tgz ${CI_PROJECT_NAME}
+    - "tar -C .. -czf ${CI_COMMIT_SHORT_SHA}_package.tgz ${CI_PROJECT_NAME} \
+        --exclude ${CI_PROJECT_NAME}/.git \
+        --exclude ${CI_PROJECT_NAME}/.gitignore \
+        --exclude ${CI_PROJECT_NAME}/.gitlab-ci.yml \
+        --exclude ${CI_PROJECT_NAME}/CHANGELOG \
+        --exclude ${CI_PROJECT_NAME}/README.md"
   artifacts:
     paths:
       - ${CI_COMMIT_SHORT_SHA}_package.tgz
-      - CHANGELOG
-      - README.md
   
 # jobs for test stage
 # Default 'test' job
@@ -42,13 +45,11 @@ test:
     - echo 'this is the test job.'
     - ls -la
 
-sast:
-  stage: test
-
 check-php-syntax:
     stage: test
     image: php:alpine  # Use latest version of php:alpine for testing.
     script:
+        # install phplint to speed this up?
         - php -l config.php
         - php -l index.php
         - php -l info.php
@@ -64,10 +65,9 @@ check-php-version:
     - when: always
   script:
     - php --version
-    - apt update && apt -y install phplint
-    - phplint --version
 
 # Disable default 'container_scanning' job
+# Can use this if we end up deploying as docker image vs. static code
 container_scanning:
   stage: test
   when: manual
