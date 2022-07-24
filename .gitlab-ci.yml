@@ -27,7 +27,7 @@ build:
   stage: build
   script: 
     - echo 'Create the package...'
-    - tar -C .. --exclude .git .gitignore .gitlab-ci.yml CHANGELOG README.md -czf ${CI_COMMIT_SHORT_SHA}_package.tgz ${CI_PROJECT_NAME}
+    - tar -C .. --exclude ${CI_PROJECT_NAME}/.git ${CI_PROJECT_NAME}/.gitignore ${CI_PROJECT_NAME}/.gitlab-ci.yml ${CI_PROJECT_NAME}/CHANGELOG ${CI_PROJECT_NAME}/README.md -czf ${CI_COMMIT_SHORT_SHA}_package.tgz ${CI_PROJECT_NAME}
   artifacts:
     paths:
       - ${CI_COMMIT_SHORT_SHA}_package.tgz
