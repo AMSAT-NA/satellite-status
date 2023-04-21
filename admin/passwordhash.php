@@ -1,6 +1,6 @@
 <?php
 
-include("config.php");
+include("../config.php");
 
 $password = "MgGI3GNwJ4VfCPS1EEw7aQCSYJ7JuYKC";
 $password_hashed = password_hash($password, PASSWORD_DEFAULT);

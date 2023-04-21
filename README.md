@@ -9,12 +9,12 @@ This is a project space for development of the Satellite Status Page and API, ho
 - Obtain a (test) database with satellite status information from AMSAT.
   -- In the future, we hope to have a production database available for all to use.
 - Import database into MySQL/MariaDB server.
-- Update the three config.php files with your MariaDB/MySQL database host, name, credentials, etc.
+- Update the config.php file with your MariaDB/MySQL database host, name, credentials, etc.
 - Start MySQL/MariaDB server.
 - Start web server.
 
 ## Usage
-- Visit [SITEURL] to see the data.
+- Visit $SITEURL (configured in config.php) to see the data.
 - Utilize the API.
 
 ## Support (in order of preference)

@@ -1,6 +1,6 @@
 <?php
 date_default_timezone_set('UTC');
-require("config.php");
+require("../../config.php");
 
 header('Content-Type: application/json');
 

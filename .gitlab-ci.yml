@@ -31,7 +31,6 @@ build:
         --exclude ${CI_PROJECT_NAME}/.git \
         --exclude ${CI_PROJECT_NAME}/.gitignore \
         --exclude ${CI_PROJECT_NAME}/.gitlab-ci.yml \
-        --exclude ${CI_PROJECT_NAME}/CHANGELOG \
         --exclude ${CI_PROJECT_NAME}/README.md"
   artifacts:
     paths:
@@ -54,7 +53,6 @@ check-php-syntax:
     - php -l index.php
     - php -l info.php
     - php -l submit.php
-    - php -l api/v1/config.php
     - php -l api/v1/index.php
     - php -l api/v1/sat_info.php
 

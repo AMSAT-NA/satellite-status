@@ -2,7 +2,7 @@
 // Start the session
 session_start();
 
-include("config.php");
+include("../config.php");
 
 // if not logged in redirect back to login page.
 if($_SESSION["auth_status"] != true) {
