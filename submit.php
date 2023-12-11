@@ -18,8 +18,8 @@ if ($submit)
  $SatHour=getFormData("SatHour");
  $SatYear=getFormData("SatYear");
  $SatPeriod=getFormData("SatPeriod");
- $SatCall=getFormData("SatCall");
- $SatGridSquare = standardizedGridSquare(getFormData("SatGridSquare"));
+ $SatCall=trim(getFormData("SatCall"));
+ $SatGridSquare = standardizedGridSquare(trim(getFormData("SatGridSquare")));
  $Confirm=getFormData("Confirm");
  
  $callSignParser = new CallSignParser($SatCall);
