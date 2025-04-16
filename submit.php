@@ -235,15 +235,15 @@ function callSignComponentIsValid($callSignComponent) {
     || preg_match("/^[nN]\d\D*\d/", $callSignComponent)
     || preg_match("/^[nN][a-km-zA-KM-Z]\D*\d\D*\d/", $callSignComponent);
     $pmWithMoreThanOneDigit = preg_match("/^pm\d\d+/i", $callSignComponent);
-    $callTooLong = strlen($callSignComponent) > 8
+    $callTooLong = strlen($callSignComponent) > 10
     || (strlen($callSignComponent) > 6 &&
         !(
             preg_match("/^i\d{5}[a-zA-Z][a-zA-Z]$/", $callSignComponent) // i12345AB is an Italian SWL callsign
-            || preg_match("/^nl\d{5}$/", $callSignComponent) // NL12345 is Dutch SWL call
-            || preg_match("/^pa\d{5}$/", $callSignComponent) // PA12345 is a SWL call
-            || preg_match("/^onl\d{4}$/", $callSignComponent) // ONL1234 is a SWL call
-            || preg_match("/^onl\d{5}$/", $callSignComponent) // ONL12345 is a SWL call
-            || preg_match("/^[Vv][Kk]\d[fF][a-zA-Z]{3}$/", $callSignComponent) // Australian "Foundation" licenses
+            || preg_match("/^nl\d{5}$/i", $callSignComponent) // NL12345 is Dutch SWL call
+            || preg_match("/^pa\d{5}$/i", $callSignComponent) // PA12345 is a SWL call
+            || preg_match("/^onl\d{4,5}$/i", $callSignComponent) // ONL1234 or ONL12345is a SWL call
+            || preg_match("/^oe\d{4,8}$/i", $callSignComponent) // OE60200755 is Austrian SWL Call
+            || preg_match("/^vk\d[f][a-zA-Z]{3}$/i", $callSignComponent) // Australian "Foundation" licenses
             )
         );
     $callTooShort = strlen($callSignComponent) < 4;
