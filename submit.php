@@ -50,6 +50,15 @@ if ($submit)
      exit;
  }
  
+ // Error if time/date submitted is in the future (Assumed to be UTC, as that is specified on the page)
+ $SubmittedDateTime = $SatYear . "-" . $SatMonth . "-" . $SatDay . "T" . $SatHour . ":00:00+0000";
+ $CurrentDateTime = gmdate(DATE_ISO8601);
+ if ($SubmittedDateTime > $CurrentDateTime) {
+    echo "<br><br><div style=\" font-family: Helvetica,Arial,sans-serif;padding: 10px; font-size:20px; width: 50%; margin: 0 auto; color: #a94442;background-color: #f2dede;border-color: #ebccd1;\">The time heard you entered does not appear to be valid</div>";
+    echo "<br><br><center><a href=\"index.php\">Go back</a></center>";
+    exit;
+ }
+
  // Error if grid square doesn't look like a grid square
  if ($SatGridSquare != "" && !gridSquareIsValid($SatGridSquare)) {
      echo "<br><br><div style=\" font-family: Helvetica,Arial,sans-serif;padding: 10px; font-size:20px; width: 50%; margin: 0 auto; color: #a94442;background-color: #f2dede;border-color: #ebccd1;\">The grid square you entered does not appear to be valid</div>";
@@ -203,7 +212,7 @@ function getPost($var, $default = null) {
 function dispelMagicQuotes(&$var) {
     static $magic_quotes;
     if (!isset($magic_quotes)) {
-        $magic_quotes = get_magic_quotes_gpc();
+        $magic_quotes = false;
     }
     if ($magic_quotes) {
         if (!is_array($var)) {

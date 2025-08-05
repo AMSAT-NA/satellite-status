@@ -771,16 +771,16 @@ $conn->close();
 </select>
 ,
 <select name=SatDay>
-<?php printf("<option value=%s>%s", date("j"), date("j")); ?>
-<option value="1">1
-<option value="2">2
-<option value="3">3
-<option value="4">4
-<option value="5">5
-<option value="6">6
-<option value="7">7
-<option value="8">8
-<option value="9">9
+<?php printf("<option value=%s>%s", date("d"), date("d")); ?>
+<option value="01">01
+<option value="02">02
+<option value="03">03
+<option value="04">04
+<option value="05">05
+<option value="06">06
+<option value="07">07
+<option value="08">08
+<option value="09">09
 <option value="10">10
 <option value="11">11
 <option value="12">12
@@ -815,17 +815,17 @@ $conn->close();
 <td><font size=4><b>Time Heard (UTC)</b></font></td>
 <td>
 <select name=SatHour>
-<?php printf("<option value=%s>%s", date("G"), date("G")); ?>
-<option value="0">00
-<option value="1">01
-<option value="2">02
-<option value="3">03
-<option value="4">04
-<option value="5">05
-<option value="6">06
-<option value="7">07
-<option value="8">08
-<option value="9">09
+<?php printf("<option value=%s>%s", date("H"), date("H")); ?>
+<option value="00">00
+<option value="01">01
+<option value="02">02
+<option value="03">03
+<option value="04">04
+<option value="05">05
+<option value="06">06
+<option value="07">07
+<option value="08">08
+<option value="09">09
 <option value="10">10
 <option value="11">11
 <option value="12">12
