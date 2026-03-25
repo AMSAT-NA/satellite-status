@@ -43,7 +43,7 @@ others and keep it current every time you access a bird.
 </center>
 
 <br><center>
-<table border=0><tr><td bgcolor="4169E1"><b>Transponder/Repeater active</b></td><td bgcolor="yellow"><b>Telemetry/Beacon only</b></td><td bgcolor="red"><b>No signal</b></td><td bgcolor="orange"><b>Conflicting reports</b></td><td bgcolor="#9900FF"><b>ISS Crew (Voice) Active</b></td></tr></table>
+<table border=0><tr><td style="background-color: #648fff; color: white;"><b>Satellite Active</b></td><td style="background-color: #ffb000; color: black;"><b>Telemetry/Beacon only</b></td><td style="background-color: #dc267f; color: white;"><b>No signal</b></td><td style="background-color: #fe6100; color: black;"><b>Conflicting reports</b></td><td style="background-color: #785ef0; color: black;"><b>ISS Crew (Voice) Active</b></td></tr></table>
 </center>
 
 <!--- BEGIN MAIN SAT CHART -->
@@ -609,27 +609,27 @@ while ($aRow)
     if ($nCrew > 0) // Most crew
     {
         $majReport = $nCrew + $nHeard;
-        $color = "#9900FF";
+        $color = "#785ef0";
     }
     else if ($nHeard > $nNotHeard && $nHeard > $nTelemetry) // Most heard
     {
         $majReport = $nHeard;
-        $color = "#4169E1";
+        $color = "#648fff";
     }
     else if ($nNotHeard > $nHeard && $nNotHeard > $nTelemetry) // Most not heard
     {
         $majReport = $nNotHeard;
-        $color = "red";
+        $color = "#dc267f";
     }
 	else if ($nTelemetry > $nNotHeard && $nTelemetry > $nHeard) // Most telemetry
     {
         $majReport = $nTelemetry;
-        $color = "yellow";
+        $color = "#ffb000";
     }
     else if ($nTelemetry + $nNotHeard + $nHeard >= 1) // Conflicting
     {
         $majReport = '_';
-        $color = "orange";
+        $color = "#fe6100";
     }
     else
     {
@@ -744,8 +744,8 @@ $conn->close();
 <tr>
 <td><font size=4><b>Status Report</b></font></td>
 <td>
-<input type=radio name=SatReport value="Heard" id="uplinkAndDownlinkActiveRadio"><label for="uplinkAndDownlinkActiveRadio">Uplink and Downlink Active</label>
-<br><input type=radio name=SatReport value="Telemetry Only" id="telemetryOnlyRadio"><label for="telemetryOnlyRadio">Downlink Only</label>
+<input type=radio name=SatReport value="Heard" id="satelliteActiveRadio"><label for="satelliteActiveRadio">Satellite Active</label>
+<br><input type=radio name=SatReport value="Telemetry Only" id="telemetryOnlyRadio"><label for="telemetryOnlyRadio">Telemetry/Beacon Only</label>
 <br><input type=radio name=SatReport value="Not Heard" id="notHeardRadio"><label for="notHeardRadio">Not Heard</label>
 <br><input type=radio name=SatReport value="Crew Active" id="crewActiveRadio"><label for="crewActiveRadio">ISS Crew (Voice) Active</label>
 </td>
@@ -901,6 +901,10 @@ printf("<option value=%s>%s", $SPeriod, $PName); ?>
 
 <div class="paypal_button">
 <form action="https://www.paypal.com/cgi-bin/webscr" method="post" target="_top"><input name="cmd" type="hidden" value="_s-xclick"> <input name="hosted_button_id" type="hidden" value="8KAAKMU2TXUQ4"> <span style="font-size:24px;">Support AMSAT</span> <br><br><input alt="PayPal - The safer, easier way to pay online!" border="0" name="submit" src="https://www.paypalobjects.com/en_US/i/btn/btn_donate_LG.gif" type="image">&nbsp;</form>
+</div>
+
+<div class="contact_support">
+<span style="font-size:18px;">Questions? E-mail support at: webmaster@amsat.org</span>
 </div>
 
 <!--- main layout table-->
