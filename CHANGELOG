@@ -5,3 +5,4 @@ API: https://www.amsat.org/status/api
 CHANGE LOG:
 2022-07-19: Status page and API shifted to open development. Initial commit to AMSAT Gitlab instance.
 2023-04-21: Consolidate config.php references to single config file (in root folder).
+2025-03-25: Update color pallete to IBM Colorblind Safe Palette
