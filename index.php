@@ -43,7 +43,7 @@ others and keep it current every time you access a bird.
 </center>
 
 <br><center>
-<table border=0><tr><td style="background-color: #648fff; color: white;"><b>Satellite Active</b></td><td style="background-color: #ffb000; color: black;"><b>Telemetry/Beacon only</b></td><td style="background-color: #dc267f; color: white;"><b>No signal</b></td><td style="background-color: #fe6100; color: black;"><b>Conflicting reports</b></td><td style="background-color: #785ef0; color: black;"><b>ISS Crew (Voice) Active</b></td></tr></table>
+<table border=0><tr><td style="background-color: #648fff; color: white;"><b>Satellite Active</b></td><td style="background-color: #ffb000; color: black;"><b>Telemetry/Beacon only</b></td><td style="background-color: #dc267f; color: black;"><b>No signal</b></td><td style="background-color: #fe6100; color: black;"><b>Conflicting reports</b></td><td style="background-color: #785ef0; color: white;"><b>ISS Crew (Voice) Active</b></td></tr></table>
 </center>
 
 <!--- BEGIN MAIN SAT CHART -->
@@ -638,7 +638,7 @@ while ($aRow)
     }
 
     // Finally print cell
-    echo("<td width=9 bgcolor=\"" . $color . "\"><a href=javascript:void(0) onMouseOver=docTips.show('a" .
+    echo("<td width=9 bgcolor=\"" . $color . "\"><a href=javascript:void(0) style=\"text-decoration:none\" onMouseOver=docTips.show('a" .
         $idNum . "') onMouseOut=docTips.hide()>" . $majReport . "</a></td>\n");
     $nCurColumn++;
 
