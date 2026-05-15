@@ -5,12 +5,8 @@ session_start();
 // Include files
 include("../config.php");
 
-// if not logged in redirect back to login page.
-if($_SESSION["auth_status"] != true) {
-  header('Location: '.$siteUrl.'/admin/index.php');}
-
-$username = htmlspecialchars($_POST['username']);
-$password = htmlspecialchars($_POST['password']);
+$username = $_POST['username'] ?? '';
+$password = $_POST['password'] ?? '';
 
 // Create connection
 $conn = new mysqli($mysqlHost, $mysqlUsername, $mysqlPassword, $mysqlDatabase);
@@ -19,24 +15,23 @@ if ($conn->connect_error) {
     die("Connection failed: " . $conn->connect_error);
 }
 
-$sql = "SELECT username, password FROM users WHERE username = '$username'";
-$result = $conn->query($sql);
+$stmt = $conn->prepare("SELECT username, password FROM users WHERE username = ?");
+$stmt->bind_param("s", $username);
+$stmt->execute();
+$result = $stmt->get_result();
+$row = $result->fetch_assoc();
 
-if ($result->num_rows > 0) {
-    // output data of each row
-    while($row = $result->fetch_assoc()) {
-        if (password_verify($password, $row["password"])) {
-          $_SESSION["auth_status"] = true;
-          $_SESSION["auth_username"] = $row["username"];
+if ($row !== null && password_verify($password, $row["password"])) {
+    $_SESSION["auth_status"] = true;
+    $_SESSION["auth_username"] = $row["username"];
 
-          header('Location: '.$siteUrl.'/admin/dashboard.php');
-        } else {
-            echo 'Invalid password.';
-        }
-    }
+    header('Location: '.$siteUrl.'/admin/dashboard.php');
+    exit;
 } else {
-    echo "Login Failed, Username incorrect.";
+    echo 'Login failed. Username or password is incorrect.';
 }
+
+$stmt->close();
 $conn->close();
 
 ?>
