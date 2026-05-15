@@ -66,7 +66,9 @@ if ($submit)
      exit;
  }
 
-# An attempt to prevent SQL injection attack JBF 02 APR 2017
+# Reject callsigns containing characters that aren't valid in amateur radio
+# callsigns. Prepared statements below render this safe against SQL injection
+# regardless; this remains as input validation.
  if(preg_match("/[\\\\\"~`=<>|'_+.,!@#\$%^&\*\(\)\{\}\[\]]/",$SatCall)){
     echo "<br><br><div style=\" font-family: Helvetica,Arial,sans-serif;padding: 10px; font-size:20px; width: 50%; margin: 0 auto; color: #a94442;background-color: #f2dede;border-color: #ebccd1;\">Only special characters - and / allowed in callsign.</div>";
     exit;
@@ -77,11 +79,13 @@ if ($submit)
  // Check to see if the satellite name matches
  if($SatName != "") {
    $conn = new mysqli($mysqlHost,$mysqlUsername,$mysqlPassword,$mysqlDatabase);
-   $sql = "SELECT html_element_name FROM satellite_name WHERE html_element_name = '".$SatName."'";
 
-   $result = $conn->query($sql);
-
-   $rowcount=mysqli_num_rows($result);
+   $stmt = $conn->prepare("SELECT html_element_name FROM satellite_name WHERE html_element_name = ?");
+   $stmt->bind_param("s", $SatName);
+   $stmt->execute();
+   $result = $stmt->get_result();
+   $rowcount = $result->num_rows;
+   $stmt->close();
 
    if ($rowcount != 1) {
      echo "<br><br><div style=\" font-family: Helvetica,Arial,sans-serif;padding: 10px; font-size:20px; width: 50%; margin: 0 auto; color: #a94442;background-color: #f2dede;border-color: #ebccd1;\">Satellite Name does not match.</div>";
@@ -101,20 +105,35 @@ if ($submit)
    {
      if($SatReport!="")
        {
-         $sql = sprintf("select id from satellite where name='%s' AND longname='%s' AND day='%s-%s-%s' AND hour='%s' AND period='%s' AND callsign='%s'",$SatName, $SatName, $SatYear, $SatMonth, $SatDay, $SatHour, $SatPeriod, $SatCall, $SatReport);
+         $day = sprintf('%04d-%02d-%02d', (int)$SatYear, (int)$SatMonth, (int)$SatDay);
 
-         $result = mysqli_query($db, $sql);
+         $dupStmt = mysqli_prepare($db,
+             "SELECT id FROM satellite " .
+             "WHERE name=? AND longname=? AND day=? AND hour=? AND period=? AND callsign=?");
+         mysqli_stmt_bind_param($dupStmt, "sssiis",
+             $SatName, $SatName, $day, $SatHour, $SatPeriod, $SatCall);
+         mysqli_stmt_execute($dupStmt);
+         $result = mysqli_stmt_get_result($dupStmt);
+
          while ($value = mysqli_fetch_array($result))
 	   {
 	     echo "<center><br>It appears that you have already made a report for this satellite for the selected time period.";
              echo "<br>This report will replace the previous one.<center>";
 
-             $sql = sprintf("delete from satellite where id='%s'",$value[0]);
-             mysqli_query($db, $sql);
+             $delStmt = mysqli_prepare($db, "DELETE FROM satellite WHERE id=?");
+             mysqli_stmt_bind_param($delStmt, "i", $value[0]);
+             mysqli_stmt_execute($delStmt);
+             mysqli_stmt_close($delStmt);
            }
+         mysqli_stmt_close($dupStmt);
 
-	 $sql = sprintf("INSERT INTO satellite VALUES ('%s','%s',NULL, NULL, '%s-%s-%s','%s','%s','%s','%s',NULL, '%s')",$SatName, $SatName, $SatYear, $SatMonth, $SatDay, $SatHour, $SatPeriod, $SatCall, $SatReport, $SatGridSquare);
-	 $result = mysqli_query($db, $sql);
+         $insStmt = mysqli_prepare($db,
+             "INSERT INTO satellite (name, longname, day, hour, period, callsign, report, grid_square) " .
+             "VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+         mysqli_stmt_bind_param($insStmt, "sssiisss",
+             $SatName, $SatName, $day, $SatHour, $SatPeriod, $SatCall, $SatReport, $SatGridSquare);
+         $result = mysqli_stmt_execute($insStmt);
+         mysqli_stmt_close($insStmt);
 
 	 setcookie("amsatCallsign", $SatCall);
 	 echo "<br><br><center>Thank you for your submission</center>" ;
@@ -198,30 +217,11 @@ function getFormData($var, $default = null) {
 }
 
 function getGet($var, $default = null) {
-    return (array_key_exists($var, $_GET))
-        ? dispelMagicQuotes($_GET[$var])
-        : $default;
+    return $_GET[$var] ?? $default;
 }
 
 function getPost($var, $default = null) {
-    return (array_key_exists($var, $_POST))
-        ? dispelMagicQuotes($_POST[$var])
-        : $default;
-}
-
-function dispelMagicQuotes(&$var) {
-    static $magic_quotes;
-    if (!isset($magic_quotes)) {
-        $magic_quotes = false;
-    }
-    if ($magic_quotes) {
-        if (!is_array($var)) {
-            $var = stripslashes($var);
-        } else {
-            array_walk($var, 'dispelMagicQuotes');
-        }
-    }
-    return str_replace("'", "\\'", $var);
+    return $_POST[$var] ?? $default;
 }
 
 /**
