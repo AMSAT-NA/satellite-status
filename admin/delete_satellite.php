@@ -5,36 +5,38 @@ session_start();
 // Include files
 include("../config.php");
 
-// if not logged in redirect back to login page.
-if($_SESSION["auth_status"] != true) {
-  header('Location: '.$siteUrl.'/admin/index.php');
+// Block unauthenticated access. The previous version called header() without
+// exit;, which let script execution fall through to the DELETE below --
+// meaning any anonymous GET could delete a satellite_name row.
+if (empty($_SESSION["auth_status"])) {
+    header('Location: '.$siteUrl.'/admin/index.php');
+    exit;
 }
 
-$satelliteID = htmlspecialchars($_GET['id']);
+$satelliteID = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
 
-if($satelliteID != "") {
-  $conn = new mysqli($mysqlHost, $mysqlUsername, $mysqlPassword, $mysqlDatabase);
-  // Check connection
-  if ($conn->connect_error) {
-      die("Connection failed: " . $conn->connect_error);
-  }
+if ($satelliteID === false || $satelliteID === null) {
+    echo "Error.";
+    echo "<p><a href=\"".$siteUrl."/admin/manage_satellites.php\">Return to Manage Satellite</a></p>";
+    exit;
+}
 
-  // sql to delete a record
-  $sql = "DELETE FROM satellite_name WHERE id = $satelliteID";
+$conn = new mysqli($mysqlHost, $mysqlUsername, $mysqlPassword, $mysqlDatabase);
+if ($conn->connect_error) {
+    die("Connection failed: " . $conn->connect_error);
+}
 
-  if ($conn->query($sql) === TRUE) {
-      echo "Satellite deleted successfully";
-      echo "<p><a href=\"".$siteUrl."/admin/manage_satellites.php\">Return to Manage Satellite</a></p>";
-  } else {
-      echo "Error deleting record: " . $conn->error;
-      echo "<p><a href=\"".$siteUrl."/admin/manage_satellites.php\">Return to Manage Satellite</a></p>";
-  }
+$stmt = $conn->prepare("DELETE FROM satellite_name WHERE id = ?");
+$stmt->bind_param("i", $satelliteID);
 
-  $conn->close();
-
+if ($stmt->execute()) {
+    echo "Satellite deleted successfully";
 } else {
-  echo "Error.";
-  echo "<p><a href=\"".$siteUrl."/admin/manage_satellites.php\">Return to Manage Satellite</a></p>";
+    error_log("delete_satellite: " . $stmt->error);
+    echo "Error deleting record.";
 }
+echo "<p><a href=\"".$siteUrl."/admin/manage_satellites.php\">Return to Manage Satellite</a></p>";
 
+$stmt->close();
+$conn->close();
 ?>
