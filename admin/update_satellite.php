@@ -5,34 +5,40 @@ session_start();
 // Include files
 include("../config.php");
 
-// if not logged in redirect back to login page.
-if($_SESSION["auth_status"] != true) {
-  header('Location: '.$siteUrl.'/admin/index.php');
+// Block unauthenticated access. The previous version called header() without
+// exit;, which let script execution fall through to the UPDATE below.
+if (empty($_SESSION["auth_status"])) {
+    header('Location: '.$siteUrl.'/admin/index.php');
+    exit;
 }
 
-$satelliteID = htmlspecialchars($_POST['sat_id']);
-$satelliteName = htmlspecialchars($_POST['satellite_name']);
-$satelliteHTMLName = htmlspecialchars($_POST['html_satellite_name']);
-$satelliteWebsite = htmlspecialchars($_POST['website']);
+$satelliteID       = filter_input(INPUT_POST, 'sat_id', FILTER_VALIDATE_INT);
+$satelliteName     = $_POST['satellite_name']      ?? '';
+$satelliteHTMLName = $_POST['html_satellite_name'] ?? '';
+$satelliteWebsite  = $_POST['website']             ?? '';
 
-if($satelliteID != "") {
-  $conn = new mysqli($mysqlHost, $mysqlUsername, $mysqlPassword, $mysqlDatabase);
-  // Check connection
-  if ($conn->connect_error) {
-      die("Connection failed: " . $conn->connect_error);
-  }
-
-  $sql = "UPDATE satellite_name SET name='$satelliteName', html_element_name='$satelliteHTMLName', website='$satelliteWebsite'  WHERE id = $satelliteID";
-
-  if ($conn->query($sql) === TRUE) {
-      echo $satelliteName." updated successfully";
-      echo "<p><a href=\"".$siteUrl."/admin/manage_satellites.php\">Return to Manage Satellite</a></p>";
-  } else {
-      echo "Error updating: " .  $satelliteName. " " . $conn->error;
-      echo "<p><a href=\"".$siteUrl."/admin/manage_satellites.php\">Return to Manage Satellite</a></p>";
-  }
-
-  $conn->close();
+if ($satelliteID === false || $satelliteID === null) {
+    echo "Error.";
+    echo "<p><a href=\"".$siteUrl."/admin/manage_satellites.php\">Return to Manage Satellite</a></p>";
+    exit;
 }
 
+$conn = new mysqli($mysqlHost, $mysqlUsername, $mysqlPassword, $mysqlDatabase);
+if ($conn->connect_error) {
+    die("Connection failed: " . $conn->connect_error);
+}
+
+$stmt = $conn->prepare("UPDATE satellite_name SET name = ?, html_element_name = ?, website = ? WHERE id = ?");
+$stmt->bind_param("sssi", $satelliteName, $satelliteHTMLName, $satelliteWebsite, $satelliteID);
+
+if ($stmt->execute()) {
+    echo htmlspecialchars($satelliteName, ENT_QUOTES, 'UTF-8') . " updated successfully";
+} else {
+    error_log("update_satellite: " . $stmt->error);
+    echo "Error updating " . htmlspecialchars($satelliteName, ENT_QUOTES, 'UTF-8') . ".";
+}
+echo "<p><a href=\"".$siteUrl."/admin/manage_satellites.php\">Return to Manage Satellite</a></p>";
+
+$stmt->close();
+$conn->close();
 ?>
