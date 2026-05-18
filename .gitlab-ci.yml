@@ -51,7 +51,6 @@ check-php-syntax:
     # install phplint to speed this up?
     - php -l config.php
     - php -l index.php
-    - php -l info.php
     - php -l submit.php
     - php -l api/v1/index.php
     - php -l api/v1/sat_info.php
