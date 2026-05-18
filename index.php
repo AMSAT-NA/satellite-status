@@ -497,6 +497,8 @@ if ($aRow)
 
 // Print rows in satellite status table
 $conn = new mysqli($mysqlHost, $mysqlUsername, $mysqlPassword, $mysqlDatabase);
+// Prepared once and re-executed per row inside the loop below.
+$websiteLookup = $conn->prepare("SELECT website FROM satellite_name WHERE html_element_name = ?");
 while ($aRow)
 {
     if (!$bSameName)
@@ -506,9 +508,9 @@ while ($aRow)
         // We're on a new row, so reset current column number
         $nCurColumn = 0;
 
-        $resultwebsiteSQL = "SELECT html_element_name, website FROM satellite_name WHERE html_element_name = '".$aRow["name"]."'";
-
-        $resultwebsite = mysqli_query($conn, $resultwebsiteSQL);
+        $websiteLookup->bind_param("s", $aRow["name"]);
+        $websiteLookup->execute();
+        $resultwebsite = $websiteLookup->get_result();
 
         if ($resultwebsite->num_rows > 0) {
             // output data of each row
@@ -656,6 +658,7 @@ while ($aRow)
 }
 
 // Disconnect from database
+$websiteLookup->close();
 $conn->close();
 
 

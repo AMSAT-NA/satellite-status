@@ -5,9 +5,10 @@ session_start();
 // Include files
 include("../config.php");
 
-// if not logged in redirect back to login page.
-if($_SESSION["auth_status"] != true) {
+// Block unauthenticated access.
+if (empty($_SESSION["auth_status"])) {
   header('Location: '.$siteUrl.'/admin/index.php');
+  exit;
 }
 ?>
 
@@ -49,12 +50,12 @@ if($_SESSION["auth_status"] != true) {
           while($row = $result->fetch_assoc()) {
       ?>
         <tr class="border_bottom">
-          <td><?php echo $row["name"]; ?></td>
-          <td><?php echo $row["html_element_name"]; ?></td>
-          <td><a href="<?php echo $row["website"]; ?>" target="_blank"><?php echo $row["website"]; ?></a></td>
+          <td><?php echo htmlspecialchars($row["name"], ENT_QUOTES, 'UTF-8'); ?></td>
+          <td><?php echo htmlspecialchars($row["html_element_name"], ENT_QUOTES, 'UTF-8'); ?></td>
+          <td><a href="<?php echo htmlspecialchars($row["website"] ?? '', ENT_QUOTES, 'UTF-8'); ?>" target="_blank"><?php echo htmlspecialchars($row["website"] ?? '', ENT_QUOTES, 'UTF-8'); ?></a></td>
           <td>
-            <a href="<?php echo $siteUrl; ?>/admin/edit_satellite.php?id=<?php echo $row["id"]; ?>">Edit</a>
-            <a href="<?php echo $siteUrl; ?>/admin/delete_satellite.php?id=<?php echo $row["id"]; ?>" onclick="return confirm_alert(this);">Delete</a>
+            <a href="<?php echo htmlspecialchars($siteUrl, ENT_QUOTES, 'UTF-8'); ?>/admin/edit_satellite.php?id=<?php echo (int)$row["id"]; ?>">Edit</a>
+            <a href="<?php echo htmlspecialchars($siteUrl, ENT_QUOTES, 'UTF-8'); ?>/admin/delete_satellite.php?id=<?php echo (int)$row["id"]; ?>" onclick="return confirm_alert(this);">Delete</a>
           </td>
         </tr>
 
