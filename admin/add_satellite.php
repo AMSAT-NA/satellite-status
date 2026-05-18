@@ -4,9 +4,10 @@ session_start();
 
 include("../config.php");
 
-// if not logged in redirect back to login page.
-if($_SESSION["auth_status"] != true) {
+// Block unauthenticated access.
+if (empty($_SESSION["auth_status"])) {
   header('Location: '.$siteUrl.'/admin/index.php');
+  exit;
 }
 ?>
 <!DOCTYPE html>
