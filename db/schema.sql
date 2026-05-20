@@ -1,45 +1,57 @@
 -- AMSAT Satellite Status Page -- database schema
 --
--- This schema is reverse-engineered from the SQL queries in the codebase
--- (submit.php, index.php, api/v1/sat_info.php, admin/*.php). It has not yet
--- been confirmed against production -- please correct anything that differs
--- from what the live database actually has.
---
--- What to check during review:
---   * Column types (lengths in particular)
---   * Indexes the production DB has that aren't represented here
---   * Whether `satellite.legacy1` / `satellite.legacy2` exist in production,
---     and if so, what they're actually called and used for. The code paths
---     that used to insert NULL into them positionally have been refactored
---     to use explicit column lists, so they're no longer written by the
---     application; they're kept here in case production has them as NOT NULL
---     with some default.
+-- Mirrors the production schema as of 2026-05-20 (MariaDB 10.11.14).
+-- Derived from a mysqldump --no-data of the live database, with the
+-- dump preamble, DROP TABLE / IF EXISTS statements, and AUTO_INCREMENT
+-- state values removed. Column order, types, defaults, character sets,
+-- and storage engines mirror production exactly -- please keep them in
+-- sync if you change the live schema.
 
-CREATE TABLE satellite (
-  name        VARCHAR(64)  NOT NULL,
-  longname    VARCHAR(128) NOT NULL,
-  id          INT AUTO_INCREMENT PRIMARY KEY,
-  legacy1     INT NULL,
-  day         DATE         NOT NULL,
-  hour        TINYINT      NOT NULL,
-  period      TINYINT      NOT NULL,
-  callsign    VARCHAR(16)  NOT NULL,
-  report      VARCHAR(32)  NOT NULL,
-  legacy2     INT NULL,
-  grid_square VARCHAR(8)   NULL,
-  INDEX idx_name_day (name, day)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE `satellite` (
+  `name`        char(25)                                                                DEFAULT NULL,
+  `longname`    char(25)                                                                DEFAULT NULL,
+  `upmode`      enum('A','B','J','K','L','S','T','V','U','C','X')                       DEFAULT NULL,
+  `downmode`    enum('A','B','J','K','L','S','T','V','U','C','X')                       DEFAULT NULL,
+  `day`         date                                                                    DEFAULT NULL,
+  `hour`        int(11)                                                                 DEFAULT NULL,
+  `period`      int(11)                                                                 DEFAULT NULL,
+  `callsign`    char(15)                                                                DEFAULT NULL,
+  `report`      enum('Heard','Not Heard','Telemetry Only','Crew Active')                DEFAULT NULL,
+  `id`          int(11)                                                                 NOT NULL AUTO_INCREMENT,
+  `grid_square` varchar(6)                                                              DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
 
-CREATE TABLE satellite_name (
-  id                INT AUTO_INCREMENT PRIMARY KEY,
-  name              VARCHAR(64)  NOT NULL,
-  html_element_name VARCHAR(64)  NOT NULL,
-  website           VARCHAR(255) NULL,
-  UNIQUE KEY uniq_html (html_element_name)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE `satellite_name` (
+  `id`                int(11)      NOT NULL AUTO_INCREMENT,
+  `name`              varchar(255) NOT NULL,
+  `html_element_name` varchar(255) NOT NULL,
+  `website`           varchar(255) NOT NULL,
+  `date_changed`      timestamp    NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
 
-CREATE TABLE users (
-  id       INT AUTO_INCREMENT PRIMARY KEY,
-  username VARCHAR(64)  NOT NULL UNIQUE,
-  password VARCHAR(255) NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+-- Legacy table preserved on the live database. Not read or written by
+-- the current application code; kept here so a fresh dev environment
+-- mirrors production.
+CREATE TABLE `satellite_old` (
+  `name`        char(10)                                                                 CHARACTER SET utf8mb3 COLLATE utf8mb3_general_ci DEFAULT NULL,
+  `longname`    char(25)                                                                 CHARACTER SET utf8mb3 COLLATE utf8mb3_general_ci DEFAULT NULL,
+  `upmode`      enum('A','B','J','K','L','S','T','V','U','C','X')                        CHARACTER SET utf8mb3 COLLATE utf8mb3_general_ci DEFAULT NULL,
+  `downmode`    enum('A','B','J','K','L','S','T','V','U','C','X')                        CHARACTER SET utf8mb3 COLLATE utf8mb3_general_ci DEFAULT NULL,
+  `day`         date                                                                     DEFAULT NULL,
+  `hour`        int(11)                                                                  DEFAULT NULL,
+  `period`      int(11)                                                                  DEFAULT NULL,
+  `callsign`    char(15)                                                                 CHARACTER SET utf8mb3 COLLATE utf8mb3_general_ci DEFAULT NULL,
+  `report`      enum('Heard','Not Heard','Telemetry Only','Crew Active')                 CHARACTER SET utf8mb3 COLLATE utf8mb3_general_ci DEFAULT NULL,
+  `id`          int(11)                                                                  NOT NULL DEFAULT 0,
+  `grid_square` varchar(6)                                                               CHARACTER SET utf8mb3 COLLATE utf8mb3_general_ci DEFAULT NULL
+) ENGINE=MyISAM DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
+
+CREATE TABLE `users` (
+  `id`       int(11)      NOT NULL AUTO_INCREMENT,
+  `username` varchar(255) NOT NULL,
+  `password` varchar(255) NOT NULL,
+  `email`    varchar(255) NOT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
