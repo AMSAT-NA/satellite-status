@@ -28,6 +28,14 @@ include("config.php");
 </head>
 
 <body link="black" alink="black" vlink="black">
+<!-- Survey banner -- remove when the next-version survey closes. -->
+<div style="background:#dcecff;border-bottom:1px solid #648fff;padding:8px 16px;margin-bottom:24px;text-align:center;font-family:Helvetica,Arial,sans-serif;font-size:14px;">
+  Help shape the next version of this page.
+  <a href="https://forms.gle/hWmtAt52ALpvhFU29" target="_blank" rel="noopener"
+     style="display:inline-block;background:#648fff;color:white;text-decoration:none;padding:4px 12px;margin-left:8px;border-radius:3px;font-weight:bold;">
+    Take our survey &rarr;
+  </a>
+</div>
 <center><font size=5><b>AMSAT Live OSCAR Satellite Status Page</b></font></center>
 <br>
 

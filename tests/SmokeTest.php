@@ -17,6 +17,15 @@ final class SmokeTest extends TestCase
         $this->assertStringContainsString('AO-91', (string) $resp->getBody());
     }
 
+    public function testSurveyBannerIsPresentOnIndex(): void
+    {
+        $body = (string) $this->newGuestClient()->get('/')->getBody();
+
+        $this->assertStringContainsString('Help shape the next version', $body);
+        $this->assertStringContainsString('Take our survey', $body);
+        $this->assertStringContainsString('https://forms.gle/hWmtAt52ALpvhFU29', $body);
+    }
+
     public function testApiSatInfoReturnsJsonArray(): void
     {
         $resp = $this->newGuestClient()->get('/api/v1/sat_info.php', [
