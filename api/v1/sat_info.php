@@ -5,11 +5,11 @@ require("../../config.php");
 header('Content-Type: application/json');
 
 // name parameter is mandatory, if not set return an empty array
-$sat_name = htmlspecialchars($_GET["name"]);
-if(!isset($sat_name) || $sat_name == ""){
+if (!isset($_GET["name"]) || $_GET["name"] === "") {
     echo json_encode([]);
-    exit();   
+    exit();
 }
+$sat_name = htmlspecialchars($_GET["name"]);
 
 define("MIN_HOURS", 1);
 define("MAX_HOURS", 96);

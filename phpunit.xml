@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
+         bootstrap="tests/bootstrap.php"
+         colors="true"
+         failOnWarning="true"
+         failOnRisky="true"
+         beStrictAboutOutputDuringTests="true"
+         cacheDirectory=".phpunit.cache">
+    <testsuites>
+        <testsuite name="all">
+            <directory>tests</directory>
+        </testsuite>
+    </testsuites>
+    <php>
+        <env name="TEST_BASE_URL" value="http://localhost:8080"/>
+        <env name="TEST_DB_HOST"  value="127.0.0.1"/>
+        <env name="TEST_DB_PORT"  value="3307"/>
+        <env name="TEST_DB_USER"  value="satstatus"/>
+        <env name="TEST_DB_PASS"  value="satstatus"/>
+        <env name="TEST_DB_NAME"  value="satstatus"/>
+    </php>
+</phpunit>
