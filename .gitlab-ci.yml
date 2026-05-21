@@ -61,6 +61,49 @@ check-php-version:
   script:
     - php --version
 
+phpunit:
+  stage: test
+  image: php:8.2-cli
+  services:
+    - name: mariadb:11
+      alias: mariadb
+  variables:
+    # MariaDB service container
+    MARIADB_ROOT_PASSWORD: testrootpw
+    MARIADB_DATABASE:      satstatus
+    MARIADB_USER:          satstatus
+    MARIADB_PASSWORD:      satstatus
+    # Picked up by tests/fixtures/config.test.php and tests/TestCase.php
+    TEST_BASE_URL: "http://127.0.0.1:8000"
+    TEST_DB_HOST:  mariadb
+    TEST_DB_PORT:  "3306"
+    TEST_DB_USER:  satstatus
+    TEST_DB_PASS:  satstatus
+    TEST_DB_NAME:  satstatus
+  before_script:
+    - apt-get update -yqq
+    - apt-get install -yqq --no-install-recommends git unzip default-mysql-client
+    - docker-php-ext-install mysqli
+    # Wait for MariaDB to accept connections.
+    - until mysql -h mariadb -usatstatus -psatstatus -e "SELECT 1" >/dev/null 2>&1; do sleep 1; done
+    # Load the committed schema.
+    - mysql -h mariadb -usatstatus -psatstatus satstatus < db/schema.sql
+    # Composer + dev deps.
+    - curl -sS https://getcomposer.org/installer | php -- --quiet
+    - php composer.phar install --no-progress --no-interaction
+    # Point the app at the test DB and start the web server in the background.
+    - cp tests/fixtures/config.test.php config.php
+    - php -S 127.0.0.1:8000 -t . >/tmp/php-server.log 2>&1 &
+    # Wait for the web server to start responding.
+    - until curl -sS -o /dev/null http://127.0.0.1:8000/; do sleep 1; done
+  script:
+    - vendor/bin/phpunit --colors=never
+  artifacts:
+    when: on_failure
+    paths:
+      - /tmp/php-server.log
+    expire_in: 1 week
+
 # Disable default 'container_scanning' job
 # Can use this if we end up deploying as docker image vs. static code
 container_scanning:

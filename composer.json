@@ -1,0 +1,21 @@
+{
+    "name": "amsat/satellite-status",
+    "description": "AMSAT Satellite Status Page and API",
+    "type": "project",
+    "license": "proprietary",
+    "require-dev": {
+        "phpunit/phpunit": "^10.5",
+        "guzzlehttp/guzzle": "^7.8"
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "AmsatStatus\\Tests\\": "tests/"
+        }
+    },
+    "config": {
+        "sort-packages": true
+    },
+    "scripts": {
+        "test": "phpunit --colors=auto"
+    }
+}
