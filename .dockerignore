@@ -1,0 +1,4 @@
+.git
+.claude
+vendor
+docker/mysql/data
