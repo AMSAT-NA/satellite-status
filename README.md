@@ -13,6 +13,26 @@ This is a project space for development of the Satellite Status Page and API, ho
 - Start MySQL/MariaDB server.
 - Start web server.
 
+## Local Docker
+Run the app and a seeded MariaDB database locally:
+
+```sh
+docker compose up -d --build
+```
+
+Then visit:
+- App: http://localhost:8080
+- API docs: http://localhost:8080/api/
+- API example: http://localhost:8080/api/v1/satellites.php
+- MariaDB: `localhost:3307`, database `satellite_status`, user `satellite`, password `satellite`
+
+The admin login is `admin` / `password` for local development only.
+Stop the stack with:
+
+```sh
+docker compose down
+```
+
 ## Usage
 - Visit $SITEURL (configured in config.php) to see the data.
 - Utilize the API.

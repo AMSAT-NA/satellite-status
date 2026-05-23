@@ -1,0 +1,38 @@
+services:
+  web:
+    build: .
+    ports:
+      - "8080:80"
+    environment:
+      SITE_URL: http://localhost:8080
+      MYSQL_HOST: db
+      MYSQL_USER: satellite
+      MYSQL_PASSWORD: satellite
+      MYSQL_DATABASE: satellite_status
+    volumes:
+      - .:/var/www/html
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: mariadb:11.4
+    environment:
+      MARIADB_ROOT_PASSWORD: root
+      MARIADB_DATABASE: satellite_status
+      MARIADB_USER: satellite
+      MARIADB_PASSWORD: satellite
+    ports:
+      - "3307:3306"
+    volumes:
+      - db-data:/var/lib/mysql
+      - ./db/schema.sql:/docker-entrypoint-initdb.d/001-schema.sql:ro
+      - ./docker/mysql/init/002-seed.sql:/docker-entrypoint-initdb.d/002-seed.sql:ro
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  db-data:
