@@ -557,13 +557,13 @@ while ($aRow)
     // Check status of current row
     switch ($aRow["report"])
     {
-        case "Sat/Mode Active":
+        case "Heard":
             $nHeard = 1;
             break;
         case "Not Heard":
             $nNotHeard = 1;
             break;
-        case "TLM/Beacon Only":
+        case "Telemetry Only":
             $nTelemetry = 1;
             break;
         case "Crew Active":
@@ -582,7 +582,7 @@ while ($aRow)
         // As long as we keep finding data for the same cell, keep retrieving rows
         while ($bSameName && $bSameColumn)
         {
-            if ($aRow["report"] == 'Satellite Active')
+            if ($aRow["report"] == 'Heard')
             {
                 $nHeard++;
             }
@@ -755,7 +755,7 @@ $conn->close();
 <tr>
 <td><font size=4><b>Status Report</b></font></td>
 <td>
-<input type=radio name=SatReport value="Satellite Active" id="satelliteActiveRadio"><label for="satelliteActiveRadio">Sat/Mode Active</label>
+<input type=radio name=SatReport value="Heard" id="satelliteActiveRadio"><label for="satelliteActiveRadio">Sat/Mode Active</label>
 <br><input type=radio name=SatReport value="Telemetry Only" id="telemetryOnlyRadio"><label for="telemetryOnlyRadio">TLM/Beacon Only</label>
 <br><input type=radio name=SatReport value="Not Heard" id="notHeardRadio"><label for="notHeardRadio">Not Heard</label>
 </td>
