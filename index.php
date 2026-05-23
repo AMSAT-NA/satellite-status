@@ -51,7 +51,7 @@ others and keep it current every time you access a bird.
 </center>
 
 <br><center>
-<table border=0><tr><td style="background-color: #648fff; color: white;"><b>Satellite Active</b></td><td style="background-color: #ffb000; color: black;"><b>Telemetry/Beacon only</b></td><td style="background-color: #dc267f; color: black;"><b>No signal</b></td><td style="background-color: #fe6100; color: black;"><b>Conflicting reports</b></td></tr></table>
+<table border=0><tr><td style="background-color: #648fff; color: white;"><b>Sat/Mode Active</b></td><td style="background-color: #ffb000; color: black;"><b>TLM/Beacon only</b></td><td style="background-color: #dc267f; color: black;"><b>Not Heard</b></td><td style="background-color: #fe6100; color: black;"><b>Conflicting reports</b></td></tr></table>
 </center>
 
 <!--- BEGIN MAIN SAT CHART -->
@@ -557,13 +557,13 @@ while ($aRow)
     // Check status of current row
     switch ($aRow["report"])
     {
-        case "Heard":
+        case "Sat/Mode Active":
             $nHeard = 1;
             break;
         case "Not Heard":
             $nNotHeard = 1;
             break;
-        case "Telemetry Only":
+        case "TLM/Beacon Only":
             $nTelemetry = 1;
             break;
         case "Crew Active":
@@ -582,7 +582,7 @@ while ($aRow)
         // As long as we keep finding data for the same cell, keep retrieving rows
         while ($bSameName && $bSameColumn)
         {
-            if ($aRow["report"] == 'Heard')
+            if ($aRow["report"] == 'Sat/Mode Active')
             {
                 $nHeard++;
             }
@@ -590,7 +590,7 @@ while ($aRow)
             {
                 $nNotHeard++;
             }
-            else if ($aRow["report"] == 'Telemetry Only')
+            else if ($aRow["report"] == 'TLM/Beacon Only')
             {
                 $nTelemetry++;
             }
@@ -755,8 +755,8 @@ $conn->close();
 <tr>
 <td><font size=4><b>Status Report</b></font></td>
 <td>
-<input type=radio name=SatReport value="Heard" id="satelliteActiveRadio"><label for="satelliteActiveRadio">Satellite Active</label>
-<br><input type=radio name=SatReport value="Telemetry Only" id="telemetryOnlyRadio"><label for="telemetryOnlyRadio">Telemetry/Beacon Only</label>
+<input type=radio name=SatReport value="Sat/Mode Active" id="satelliteActiveRadio"><label for="satelliteActiveRadio">Satellite Active</label>
+<br><input type=radio name=SatReport value="TLM/Beacon Only" id="telemetryOnlyRadio"><label for="telemetryOnlyRadio">Telemetry/Beacon Only</label>
 <br><input type=radio name=SatReport value="Not Heard" id="notHeardRadio"><label for="notHeardRadio">Not Heard</label>
 </td>
 </tr>
