@@ -51,7 +51,7 @@ others and keep it current every time you access a bird.
 </center>
 
 <br><center>
-<table border=0><tr><td style="background-color: #648fff; color: white;"><b>Satellite Active</b></td><td style="background-color: #ffb000; color: black;"><b>Telemetry/Beacon only</b></td><td style="background-color: #dc267f; color: black;"><b>No signal</b></td><td style="background-color: #fe6100; color: black;"><b>Conflicting reports</b></td><td style="background-color: #785ef0; color: white;"><b>ISS Crew (Voice) Active</b></td></tr></table>
+<table border=0><tr><td style="background-color: #648fff; color: white;"><b>Satellite Active</b></td><td style="background-color: #ffb000; color: black;"><b>Telemetry/Beacon only</b></td><td style="background-color: #dc267f; color: black;"><b>No signal</b></td><td style="background-color: #fe6100; color: black;"><b>Conflicting reports</b></td></tr></table>
 </center>
 
 <!--- BEGIN MAIN SAT CHART -->
@@ -758,7 +758,6 @@ $conn->close();
 <input type=radio name=SatReport value="Heard" id="satelliteActiveRadio"><label for="satelliteActiveRadio">Satellite Active</label>
 <br><input type=radio name=SatReport value="Telemetry Only" id="telemetryOnlyRadio"><label for="telemetryOnlyRadio">Telemetry/Beacon Only</label>
 <br><input type=radio name=SatReport value="Not Heard" id="notHeardRadio"><label for="notHeardRadio">Not Heard</label>
-<br><input type=radio name=SatReport value="Crew Active" id="crewActiveRadio"><label for="crewActiveRadio">ISS Crew (Voice) Active</label>
 </td>
 </tr>
 
@@ -925,7 +924,7 @@ printf("<option value=%s>%s", $SPeriod, $PName); ?>
 <hr>
 <br>
 <center>
-&copy; Radio Amateur Satellite Corporation (AMSAT-NA).
+&copy; Radio Amateur Satellite Corporation (AMSAT).
 <p>Based on the original idea of David Carr, KD5QGR & Bob Bruninga, WB4APR</p>
 <br>
 </body>
