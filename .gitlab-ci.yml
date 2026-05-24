@@ -63,7 +63,7 @@ check-php-version:
 
 phpunit:
   stage: test
-  image: php:8.2-cli
+  image: php:8.3-cli
   services:
     - name: mariadb:11
       alias: mariadb
