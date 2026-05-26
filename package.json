@@ -1,0 +1,15 @@
+{
+  "name": "satellite-status",
+  "version": "1.0.0",
+  "description": "Satellite Status Page and API",
+  "scripts": {
+    "test:frontend": "playwright test"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "UNLICENSED",
+  "type": "commonjs",
+  "devDependencies": {
+    "@playwright/test": "^1.60.0"
+  }
+}

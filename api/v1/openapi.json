@@ -1,0 +1,424 @@
+{
+    "openapi": "3.0.3",
+    "info": {
+        "title": "AMSAT Satellite Status API",
+        "description": "Public API for amateur satellite status reports.",
+        "version": "1.0.0"
+    },
+    "servers": [
+        {
+            "url": "/api/v1",
+            "description": "Current host"
+        }
+    ],
+    "paths": {
+        "/catalog.php": {
+            "get": {
+                "tags": [
+                    "Catalog"
+                ],
+                "summary": "List satellites with links and optional report statistics.",
+                "operationId": "getCatalog",
+                "parameters": [
+                    {
+                        "name": "name",
+                        "in": "query",
+                        "description": "Exact satellite API name.",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "include_stats",
+                        "in": "query",
+                        "description": "Include report count and latest report timestamp.",
+                        "required": false,
+                        "schema": {
+                            "type": "boolean"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Catalog response.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/Satellite"
+                                            }
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Satellite not found."
+                    }
+                }
+            }
+        },
+        "/reports.php": {
+            "get": {
+                "tags": [
+                    "Reports"
+                ],
+                "summary": "Search recent satellite reports.",
+                "operationId": "getReports",
+                "parameters": [
+                    {
+                        "name": "name",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "hours",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer",
+                            "maximum": 720,
+                            "minimum": 1
+                        }
+                    },
+                    {
+                        "name": "since",
+                        "in": "query",
+                        "schema": {
+                            "type": "string",
+                            "format": "date-time"
+                        }
+                    },
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer",
+                            "maximum": 500,
+                            "minimum": 1
+                        }
+                    },
+                    {
+                        "name": "callsign",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "grid_square",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "status",
+                        "in": "query",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "Heard",
+                                "Telemetry Only",
+                                "Not Heard",
+                                "Crew Active"
+                            ]
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Report search response.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/Report"
+                                            }
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid filter."
+                    },
+                    "404": {
+                        "description": "Satellite not found."
+                    }
+                }
+            },
+            "post": {
+                "tags": [
+                    "Reports"
+                ],
+                "summary": "Submit a satellite status report.",
+                "operationId": "createReport",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ReportCreate"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Report created."
+                    },
+                    "422": {
+                        "description": "Validation failed."
+                    }
+                }
+            }
+        },
+        "/summary.php": {
+            "get": {
+                "tags": [
+                    "Reports"
+                ],
+                "summary": "Summarize report activity by satellite and report status.",
+                "operationId": "getSummary",
+                "parameters": [
+                    {
+                        "name": "hours",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer",
+                            "maximum": 720,
+                            "minimum": 1
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Summary response."
+                    }
+                }
+            }
+        },
+        "/statuses.php": {
+            "get": {
+                "tags": [
+                    "Metadata"
+                ],
+                "summary": "List canonical report status values.",
+                "operationId": "getStatuses",
+                "responses": {
+                    "200": {
+                        "description": "Status values response."
+                    }
+                }
+            }
+        },
+        "/health.php": {
+            "get": {
+                "tags": [
+                    "Metadata"
+                ],
+                "summary": "Check API and database availability.",
+                "operationId": "getHealth",
+                "responses": {
+                    "200": {
+                        "description": "API and database are reachable."
+                    },
+                    "503": {
+                        "description": "Database is unavailable."
+                    }
+                }
+            }
+        },
+        "/satellites.php": {
+            "get": {
+                "tags": [
+                    "Legacy"
+                ],
+                "summary": "Legacy-compatible satellite catalog array.",
+                "operationId": "getLegacySatellites",
+                "responses": {
+                    "200": {
+                        "description": "Plain JSON array of satellites."
+                    }
+                }
+            }
+        },
+        "/sat_info.php": {
+            "get": {
+                "tags": [
+                    "Legacy"
+                ],
+                "summary": "Legacy-compatible satellite report array.",
+                "operationId": "getLegacySatInfo",
+                "parameters": [
+                    {
+                        "name": "name",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "hours",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer",
+                            "maximum": 96,
+                            "minimum": 1
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Plain JSON array of reports."
+                    }
+                }
+            }
+        }
+    },
+    "components": {
+        "schemas": {
+            "ErrorResponse": {
+                "properties": {
+                    "error": {
+                        "properties": {
+                            "code": {
+                                "type": "string",
+                                "example": "invalid_parameter"
+                            },
+                            "message": {
+                                "type": "string"
+                            },
+                            "status": {
+                                "type": "integer",
+                                "example": 400
+                            }
+                        },
+                        "type": "object"
+                    }
+                },
+                "type": "object"
+            },
+            "ReportCreate": {
+                "required": [
+                    "name",
+                    "report",
+                    "callsign",
+                    "reported_at"
+                ],
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "example": "AO-91"
+                    },
+                    "report": {
+                        "type": "string",
+                        "enum": [
+                            "Heard",
+                            "Telemetry Only",
+                            "Not Heard",
+                            "Crew Active"
+                        ],
+                        "example": "Heard"
+                    },
+                    "callsign": {
+                        "type": "string",
+                        "example": "N0CALL"
+                    },
+                    "grid_square": {
+                        "type": "string",
+                        "example": "EM48"
+                    },
+                    "reported_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                },
+                "type": "object"
+            },
+            "Report": {
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "name": {
+                        "type": "string",
+                        "example": "AO-91"
+                    },
+                    "satellite_display_name": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "reported_time": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "callsign": {
+                        "type": "string"
+                    },
+                    "report": {
+                        "type": "string"
+                    },
+                    "grid_square": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "period": {
+                        "type": "integer"
+                    }
+                },
+                "type": "object"
+            },
+            "Satellite": {
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "name": {
+                        "type": "string",
+                        "example": "AO-91"
+                    },
+                    "display_name": {
+                        "type": "string",
+                        "example": "AO-91 Mode U/v FM"
+                    },
+                    "website": {
+                        "type": "string"
+                    }
+                },
+                "type": "object"
+            }
+        }
+    },
+    "tags": [
+        {
+            "name": "Catalog",
+            "description": "Satellite catalog endpoints"
+        },
+        {
+            "name": "Reports",
+            "description": "Satellite status report endpoints"
+        },
+        {
+            "name": "Metadata",
+            "description": "API metadata and health endpoints"
+        },
+        {
+            "name": "Legacy",
+            "description": "Compatibility endpoints for existing clients"
+        }
+    ]
+}

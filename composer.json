@@ -4,8 +4,11 @@
     "type": "project",
     "license": "proprietary",
     "require-dev": {
+        "guzzlehttp/guzzle": "^7.8",
         "phpunit/phpunit": "^10.5",
-        "guzzlehttp/guzzle": "^7.8"
+        "symfony/finder": "^7.0",
+        "symfony/yaml": "^7.0",
+        "zircote/swagger-php": "^5.8"
     },
     "autoload-dev": {
         "psr-4": {
@@ -16,6 +19,7 @@
         "sort-packages": true
     },
     "scripts": {
+        "openapi": "openapi --bootstrap api/v1/openapi_spec.php --version 3.0.3 --format json --output api/v1/openapi.json api/v1/openapi_spec.php",
         "test": "phpunit --colors=auto"
     }
 }

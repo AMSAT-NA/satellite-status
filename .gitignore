@@ -368,3 +368,7 @@ FodyWeavers.xsd
 # PHPUnit
 /.phpunit.cache/
 /.phpunit.result.cache
+
+# Playwright
+/test-results/
+/playwright-report/

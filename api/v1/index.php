@@ -1,5 +1,21 @@
 <?php
 
-echo("Send a query like :  amsat.org/status/api/v1/sat_info.php?name=AO-91&hours=24 and you will get the last 24 hours of reports for AO-91 in JSON format.   The hours parameter is optional, if you omit it you will get the last 96 hours of reports.  The name of the satellite must match the string shown on amsat.org/status ,  i.e AO-91 works, but AO-92 does not ... use AO-92_L/v or AO-92_U/v  instead.");
-echo("This API is not stable yet ... we are still working on the time, and it seems a query for the list of available satellites is in order.   For the moment, all reports show half past the hour that they were in.");
-exit();
+declare(strict_types=1);
+
+require_once __DIR__ . '/lib/bootstrap.php';
+
+header('Content-Type: text/plain; charset=utf-8');
+
+echo "AMSAT Satellite Status API v" . API_VERSION . "\n\n";
+echo "Documentation: " . rtrim((string) $siteUrl, '/') . "/api/\n";
+echo "OpenAPI:       " . api_self_url('openapi.php') . "\n\n";
+echo "Primary endpoints:\n";
+echo "  GET  " . api_self_url('catalog.php') . "\n";
+echo "  GET  " . api_self_url('reports.php?name=AO-91&hours=24') . "\n";
+echo "  POST " . api_self_url('reports.php') . "\n";
+echo "  GET  " . api_self_url('summary.php?hours=24') . "\n";
+echo "  GET  " . api_self_url('statuses.php') . "\n";
+echo "  GET  " . api_self_url('health.php') . "\n\n";
+echo "Legacy compatibility:\n";
+echo "  GET  " . api_self_url('satellites.php') . "\n";
+echo "  GET  " . api_self_url('sat_info.php?name=AO-91&hours=24') . "\n";

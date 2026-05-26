@@ -48,18 +48,24 @@ check-php-syntax:
   stage: test
   image: php:alpine  # Use latest version of php:alpine for testing.
   script:
-    # install phplint to speed this up?
-    - php -l config.php
-    - php -l index.php
-    - php -l submit.php
-    - php -l api/v1/index.php
-    - php -l api/v1/sat_info.php
+    - find . -path './vendor' -prune -o -path './node_modules' -prune -o -name '*.php' -print -exec php -l {} \;
 
 check-php-version:
   stage: test
   image: php:alpine # Use latest version of php:alpine for testing.
   script:
     - php --version
+
+composer-platform-php83:
+  stage: test
+  image: php:8.3-cli
+  before_script:
+    - apt-get update -yqq
+    - apt-get install -yqq --no-install-recommends git unzip
+    - curl -sS https://getcomposer.org/installer | php -- --quiet
+    - php composer.phar install --no-progress --no-interaction
+  script:
+    - php composer.phar check-platform-reqs
 
 phpunit:
   stage: test
@@ -102,6 +108,54 @@ phpunit:
     when: on_failure
     paths:
       - /tmp/php-server.log
+    expire_in: 1 week
+
+playwright:
+  stage: test
+  image: mcr.microsoft.com/playwright:v1.60.0-noble
+  services:
+    - name: mariadb:11
+      alias: mariadb
+  variables:
+    # MariaDB service container
+    MARIADB_ROOT_PASSWORD: testrootpw
+    MARIADB_DATABASE:      satstatus
+    MARIADB_USER:          satstatus
+    MARIADB_PASSWORD:      satstatus
+    # Browser test target
+    PLAYWRIGHT_BASE_URL: "http://127.0.0.1:8000"
+    TEST_BASE_URL: "http://127.0.0.1:8000"
+    TEST_DB_HOST:  mariadb
+    TEST_DB_PORT:  "3306"
+    TEST_DB_USER:  satstatus
+    TEST_DB_PASS:  satstatus
+    TEST_DB_NAME:  satstatus
+  before_script:
+    - apt-get update -yqq
+    - apt-get install -yqq --no-install-recommends curl default-mysql-client git php-cli php-mbstring php-mysql php-xml unzip
+    # Wait for MariaDB to accept connections.
+    - until mysql -h mariadb -usatstatus -psatstatus -e "SELECT 1" >/dev/null 2>&1; do sleep 1; done
+    # Load the committed schema.
+    - mysql -h mariadb -usatstatus -psatstatus satstatus < db/schema.sql
+    # Load the same baseline data used by the local Docker database.
+    - mysql -h mariadb -usatstatus -psatstatus satstatus < docker/mysql/init/002-seed.sql
+    # Composer + dev deps for Swagger/OpenAPI and app bootstrap.
+    - curl -sS https://getcomposer.org/installer | php -- --quiet
+    - php composer.phar install --no-progress --no-interaction
+    # Point the app at the test DB and start the web server in the background.
+    - cp tests/fixtures/config.test.php config.php
+    - php -S 127.0.0.1:8000 -t . >php-server.log 2>&1 &
+    # Wait for the web server to start responding.
+    - until curl -sS -o /dev/null http://127.0.0.1:8000/; do sleep 1; done
+    - npm ci
+  script:
+    - npm run test:frontend
+  artifacts:
+    when: always
+    paths:
+      - php-server.log
+      - playwright-report/
+      - test-results/
     expire_in: 1 week
 
 # Disable default 'container_scanning' job
