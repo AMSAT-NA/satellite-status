@@ -33,9 +33,46 @@ Stop the stack with:
 docker compose down
 ```
 
+## Testing
+Run the PHP integration tests inside the Docker web container:
+
+```sh
+docker compose exec -T web sh -lc 'TEST_BASE_URL=http://localhost TEST_DB_HOST=db TEST_DB_PORT=3306 TEST_DB_USER=satellite TEST_DB_PASS=satellite TEST_DB_NAME=satellite_status vendor/bin/phpunit --colors=never'
+```
+
+Run the browser compatibility tests:
+
+```sh
+npm install
+npx playwright install chromium
+npm run test:frontend
+```
+
 ## Usage
 - Visit $SITEURL (configured in config.php) to see the data.
 - Utilize the API.
+
+## API
+The public API lives under `$SITEURL/api/v1` and is documented at
+`$SITEURL/api/index.php`. Public Swagger documentation is available at
+`$SITEURL/api/docs.php`.
+
+Available API surfaces:
+- `GET /api/v1/catalog.php` lists satellites with links and optional report statistics.
+- `GET /api/v1/reports.php` searches recent reports by satellite, time window, callsign, grid square, and status.
+- `POST /api/v1/reports.php` submits a status report using JSON or form data.
+- `GET /api/v1/summary.php` returns report counts by satellite and status.
+- `GET /api/v1/statuses.php` lists the canonical report values.
+- `GET /api/v1/health.php` checks API and database availability.
+- `GET /api/v1/openapi.php` returns the OpenAPI 3.0 document.
+- `GET /api/v1/satellites.php` remains available as a legacy-compatible satellite catalog array.
+- `GET /api/v1/sat_info.php` remains available as a legacy-compatible report array.
+
+Example:
+
+```sh
+curl "$SITEURL/api/v1/reports.php?name=AO-91&hours=24&limit=25"
+```
 
 ## Support (in order of preference)
 1. Create an Issue on the Project's GitLab page
