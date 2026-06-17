@@ -1,17 +1,28 @@
 ## Name
-Satellite Status Page and API
+Satellite Status App and API
 
 ## Description
-This is a project space for development of the Satellite Status Page and API, hosted at https://www.amsat.org/status.
+This is a project space for development of the Satellite Status App and API, hosted at https://www.amsat.org/status.
 
 ## Installation
-- Copy all contents to a web enabled server.
-- Obtain a (test) database with satellite status information from AMSAT.
-  -- In the future, we hope to have a production database available for all to use.
-- Import database into MySQL/MariaDB server.
-- Update the config.php file with your MariaDB/MySQL database host, name, credentials, etc.
-- Start MySQL/MariaDB server.
-- Start web server.
+
+**Requires:** Docker
+
+The app is configured entirely via environment variables — there is no config file to edit.
+
+| Variable | Description |
+|---|---|
+| `SITE_URL` | Fully-qualified public URL of the site (e.g. `https://www.amsat.org/status`) |
+| `MYSQL_HOST` | Database hostname |
+| `MYSQL_USER` | Database username |
+| `MYSQL_PASSWORD` | Database password |
+| `MYSQL_DATABASE` | Database name |
+
+Pass these to the container at runtime (e.g. via `docker run -e`, `docker compose`, or your orchestrator's secret/env injection).
+
+The database schema is in `db/schema.sql`. Apply it to a MariaDB/MySQL instance before first run.
+
+For local development, see the [Local Docker](#local-docker) section below — `docker compose up` wires everything together automatically.
 
 ## Local Docker
 Run the app and a seeded MariaDB database locally:
@@ -75,48 +86,13 @@ curl "$SITEURL/api/v1/reports.php?name=AO-91&hours=24&limit=25"
 ```
 
 ## Support (in order of preference)
-1. Create an Issue on the Project's GitLab page
+1. Create an Issue on the [Project's GitHub page](https://github.com/AMSAT-NA/satellite-status/issues)
 2. Post in AMSAT Discord Server #open-source-dev channel.
 3. E-mail IT@amsat.org
 
-## Roadmap
-- TBD
-
 ## Contributing
-- All ideas/contributions are open to discussion. 
-
-## Authors and acknowledgment
+- All ideas/contributions are open to discussion. Join us in the AMSAT Discord channel #open-source-dev.
+- PRs for break/fix also welcome!
 
 ## License
 - TBD
-
-## Project Status
-2022 July 20: The beginning of open/public development for this tool.
-
-***
-
-
-
-## GitLab Recommended Steps for New Projects
-
-## Integrate with your tools
-
-- [ ] [Set up project integrations](https://gitlab.amsat.org/open-source/satellite-status/-/settings/integrations)
-
-## Collaborate with your team
-
-- [ ] [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-- [ ] [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-- [ ] [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-- [ ] [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-- [ ] [Automatically merge when pipeline succeeds](https://docs.gitlab.com/ee/user/project/merge_requests/merge_when_pipeline_succeeds.html)
-
-## Test and Deploy
-
-Use the built-in continuous integration in GitLab.
-
-- [ ] [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/index.html)
-- [ ] [Analyze your code for known vulnerabilities with Static Application Security Testing(SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-- [ ] [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-- [ ] [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-- [ ] [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)

@@ -1,0 +1,192 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+
+jobs:
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create package
+        run: |
+          SHORT_SHA="${GITHUB_SHA::8}"
+          REPO="${GITHUB_REPOSITORY##*/}"
+          cd "$GITHUB_WORKSPACE/.."
+          tar \
+            --exclude="${REPO}/.git" \
+            --exclude="${REPO}/.gitignore" \
+            --exclude="${REPO}/.github" \
+            --exclude="${REPO}/README.md" \
+            -czf "/tmp/${SHORT_SHA}_package.tgz" \
+            "${REPO}"
+
+      - name: Upload package
+        uses: actions/upload-artifact@v4
+        with:
+          name: package-${{ github.sha }}
+          path: /tmp/*_package.tgz
+
+  check-php-syntax:
+    runs-on: ubuntu-latest
+    container: php:alpine
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check PHP syntax
+        run: find . -path './vendor' -prune -o -path './node_modules' -prune -o -name '*.php' -print -exec php -l {} \;
+
+  check-php-version:
+    runs-on: ubuntu-latest
+    container: php:alpine
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check PHP version
+        run: php --version
+
+  composer-platform:
+    runs-on: ubuntu-latest
+    container: php:cli
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: |
+          apt-get update -yqq
+          apt-get install -yqq --no-install-recommends git unzip
+          curl -sS https://getcomposer.org/installer | php -- --quiet
+          php composer.phar install --no-progress --no-interaction
+      - name: Check platform requirements
+        run: php composer.phar check-platform-reqs
+
+  phpunit:
+    runs-on: ubuntu-latest
+    container: php:cli
+    services:
+      mariadb:
+        image: mariadb:11
+        env:
+          MARIADB_ROOT_PASSWORD: testrootpw
+          MARIADB_DATABASE: satstatus
+          MARIADB_USER: satstatus
+          MARIADB_PASSWORD: satstatus
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+    env:
+      TEST_BASE_URL: "http://127.0.0.1:8000"
+      TEST_DB_HOST: mariadb
+      TEST_DB_PORT: "3306"
+      TEST_DB_USER: satstatus
+      TEST_DB_PASS: satstatus
+      TEST_DB_NAME: satstatus
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          apt-get update -yqq
+          apt-get install -yqq --no-install-recommends git unzip default-mysql-client
+          docker-php-ext-install mysqli
+
+      - name: Wait for MariaDB
+        run: until mysql -h mariadb -usatstatus -psatstatus -e "SELECT 1" >/dev/null 2>&1; do sleep 1; done
+
+      - name: Load schema
+        run: mysql -h mariadb -usatstatus -psatstatus satstatus < db/schema.sql
+
+      - name: Install Composer dependencies
+        run: |
+          curl -sS https://getcomposer.org/installer | php -- --quiet
+          php composer.phar install --no-progress --no-interaction
+
+      - name: Start PHP dev server
+        run: |
+          cp tests/fixtures/config.test.php config.php
+          php -S 127.0.0.1:8000 -t . tests/fixtures/router.php >/tmp/php-server.log 2>&1 &
+          until curl -sS -o /dev/null http://127.0.0.1:8000/; do sleep 1; done
+
+      - name: Run PHPUnit
+        run: vendor/bin/phpunit --colors=never
+
+      - name: Upload PHP server log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phpunit-php-server-log
+          path: /tmp/php-server.log
+          retention-days: 7
+
+  playwright:
+    runs-on: ubuntu-latest
+    container: mcr.microsoft.com/playwright:v1.60.0-noble
+    services:
+      mariadb:
+        image: mariadb:11
+        env:
+          MARIADB_ROOT_PASSWORD: testrootpw
+          MARIADB_DATABASE: satstatus
+          MARIADB_USER: satstatus
+          MARIADB_PASSWORD: satstatus
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+    env:
+      PLAYWRIGHT_BASE_URL: "http://127.0.0.1:8000"
+      TEST_BASE_URL: "http://127.0.0.1:8000"
+      TEST_DB_HOST: mariadb
+      TEST_DB_PORT: "3306"
+      TEST_DB_USER: satstatus
+      TEST_DB_PASS: satstatus
+      TEST_DB_NAME: satstatus
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          apt-get update -yqq
+          apt-get install -yqq --no-install-recommends curl default-mysql-client git php-cli php-mbstring php-mysql php-xml unzip
+
+      - name: Wait for MariaDB
+        run: until mysql -h mariadb -usatstatus -psatstatus -e "SELECT 1" >/dev/null 2>&1; do sleep 1; done
+
+      - name: Load schema
+        run: mysql -h mariadb -usatstatus -psatstatus satstatus < db/schema.sql
+
+      - name: Load seed data
+        run: mysql -h mariadb -usatstatus -psatstatus satstatus < docker/mysql/init/002-seed.sql
+
+      - name: Install Composer dependencies
+        run: |
+          curl -sS https://getcomposer.org/installer | php -- --quiet
+          php composer.phar install --no-progress --no-interaction
+
+      - name: Start PHP dev server
+        run: |
+          cp tests/fixtures/config.test.php config.php
+          php -S 127.0.0.1:8000 -t . tests/fixtures/router.php >php-server.log 2>&1 &
+          until curl -sS -o /dev/null http://127.0.0.1:8000/; do sleep 1; done
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: Run Playwright tests
+        run: npm run test:frontend
+
+      - name: Upload test artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-results
+          path: |
+            php-server.log
+            playwright-report/
+            test-results/
+          retention-days: 7
