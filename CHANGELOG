@@ -10,3 +10,6 @@ CHANGE LOG:
 2026-05-23:
     - Removed "ISS Crew Active" status option. (Issue #13)
     - Updated status table legend, tool tip, and report types to be in sync
+2026-06-17:
+    - Migrated repository from GitLab to GitHub
+    - CI pipeline ported to GitHub Actions (PHPUnit + Playwright test suites, build artifact)
