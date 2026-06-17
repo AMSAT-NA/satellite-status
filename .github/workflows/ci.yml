@@ -18,17 +18,19 @@ jobs:
           SHORT_SHA="${GITHUB_SHA::8}"
           REPO="${GITHUB_REPOSITORY##*/}"
           cd "$GITHUB_WORKSPACE/.."
-          tar -czf "${REPO}/${SHORT_SHA}_package.tgz" "${REPO}" \
-            --exclude "${REPO}/.git" \
-            --exclude "${REPO}/.gitignore" \
-            --exclude "${REPO}/.github" \
-            --exclude "${REPO}/README.md"
+          tar \
+            --exclude="${REPO}/.git" \
+            --exclude="${REPO}/.gitignore" \
+            --exclude="${REPO}/.github" \
+            --exclude="${REPO}/README.md" \
+            -czf "/tmp/${SHORT_SHA}_package.tgz" \
+            "${REPO}"
 
       - name: Upload package
         uses: actions/upload-artifact@v4
         with:
           name: package-${{ github.sha }}
-          path: "*_package.tgz"
+          path: /tmp/*_package.tgz
 
   check-php-syntax:
     runs-on: ubuntu-latest
@@ -106,7 +108,7 @@ jobs:
       - name: Start PHP dev server
         run: |
           cp tests/fixtures/config.test.php config.php
-          php -S 127.0.0.1:8000 -t . >/tmp/php-server.log 2>&1 &
+          php -S 127.0.0.1:8000 -t . tests/fixtures/router.php >/tmp/php-server.log 2>&1 &
           until curl -sS -o /dev/null http://127.0.0.1:8000/; do sleep 1; done
 
       - name: Run PHPUnit
@@ -169,7 +171,7 @@ jobs:
       - name: Start PHP dev server
         run: |
           cp tests/fixtures/config.test.php config.php
-          php -S 127.0.0.1:8000 -t . >php-server.log 2>&1 &
+          php -S 127.0.0.1:8000 -t . tests/fixtures/router.php >php-server.log 2>&1 &
           until curl -sS -o /dev/null http://127.0.0.1:8000/; do sleep 1; done
 
       - name: Install Node dependencies
