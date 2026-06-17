@@ -44,7 +44,7 @@ mattered) to Docker-based deployment. In a containerized world, the runtime PHP 
 controlled by the `Dockerfile`, not the host. CI should verify that the code is valid and tests
 pass against current PHP, not mirror a soon-to-be-retired host version.
 
-The `Dockerfile` (which currently uses `php:8.2-apache`) remains the authoritative source of the
+The `Dockerfile` (which uses `php:apache`) remains the authoritative source of the
 production runtime environment.
 
 ### No PHP_VERSION workflow variable
