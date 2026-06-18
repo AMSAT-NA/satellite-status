@@ -7,7 +7,7 @@ require_once __DIR__ . '/lib/bootstrap.php';
 header('Content-Type: text/plain; charset=utf-8');
 
 echo "AMSAT Satellite Status API v" . API_VERSION . "\n\n";
-echo "Documentation: " . rtrim((string) $siteUrl, '/') . "/api/\n";
+echo "Documentation: " . rtrim((string) $siteUrl, '/') . "/api/v1/overview.php\n";
 echo "OpenAPI:       " . api_self_url('openapi.php') . "\n\n";
 echo "Primary endpoints:\n";
 echo "  GET  " . api_self_url('catalog.php') . "\n";

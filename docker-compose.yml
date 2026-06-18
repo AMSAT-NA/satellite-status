@@ -1,6 +1,8 @@
 services:
-  web:
-    build: .
+  frontend:
+    build:
+      context: ./frontend/v1
+      dockerfile: Dockerfile
     ports:
       - "8080:80"
     environment:
@@ -10,7 +12,25 @@ services:
       MYSQL_PASSWORD: satellite
       MYSQL_DATABASE: satellite_status
     volumes:
-      - .:/var/www/html
+      - ./frontend/v1:/var/www/html
+    depends_on:
+      db:
+        condition: service_healthy
+
+  api:
+    build:
+      context: ./api/v1
+      dockerfile: Dockerfile
+    ports:
+      - "8081:80"
+    environment:
+      SITE_URL: http://localhost:8081
+      MYSQL_HOST: db
+      MYSQL_USER: satellite
+      MYSQL_PASSWORD: satellite
+      MYSQL_DATABASE: satellite_status
+    volumes:
+      - ./api/v1:/var/www/html/api/v1
     depends_on:
       db:
         condition: service_healthy
@@ -27,7 +47,7 @@ services:
     volumes:
       - db-data:/var/lib/mysql
       - ./db/schema.sql:/docker-entrypoint-initdb.d/001-schema.sql:ro
-      - ./docker/mysql/init/002-seed.sql:/docker-entrypoint-initdb.d/002-seed.sql:ro
+      - ./db/seed.sql:/docker-entrypoint-initdb.d/002-seed.sql:ro
     healthcheck:
       test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
       interval: 5s

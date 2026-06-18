@@ -4,6 +4,24 @@ Satellite Status App and API
 ## Description
 This is a project space for development of the Satellite Status App and API, hosted at https://www.amsat.org/status.
 
+## Repository structure
+
+```
+satellite-status/
+├── frontend/v1/          # PHP frontend (status page, submit form, admin)
+│   └── Dockerfile        # builds the frontend container
+├── api/
+│   └── v1/               # PHP REST API
+│       ├── Dockerfile    # builds the API container
+│       ├── overview.php  # HTML API documentation
+│       ├── docs.php      # Swagger UI
+│       └── acknowledgements.php
+├── db/schema.sql         # database schema
+├── db/seed.sql           # local dev seed data
+├── tests/                # PHPUnit + Playwright test suites
+└── docker-compose.yml    # local dev stack
+```
+
 ## Installation
 
 **Requires:** Docker
@@ -12,7 +30,7 @@ The app is configured entirely via environment variables — there is no config 
 
 | Variable | Description |
 |---|---|
-| `SITE_URL` | Fully-qualified public URL of the site (e.g. `https://www.amsat.org/status`) |
+| `SITE_URL` | Fully-qualified public URL of the service (e.g. `https://www.amsat.org/status` for the frontend, or the API base URL for the API container) |
 | `MYSQL_HOST` | Database hostname |
 | `MYSQL_USER` | Database username |
 | `MYSQL_PASSWORD` | Database password |
@@ -25,19 +43,27 @@ The database schema is in `db/schema.sql`. Apply it to a MariaDB/MySQL instance 
 For local development, see the [Local Docker](#local-docker) section below — `docker compose up` wires everything together automatically.
 
 ## Local Docker
-Run the app and a seeded MariaDB database locally:
+
+The local stack runs three containers: `frontend`, `api`, and `db`.  Frontend
+and API are on **separate ports** for simplicity — no local routing proxy is
+needed.
 
 ```sh
 docker compose up -d --build
 ```
 
 Then visit:
-- App: http://localhost:8080
-- API docs: http://localhost:8080/api/
-- API example: http://localhost:8080/api/v1/satellites.php
-- MariaDB: `localhost:3307`, database `satellite_status`, user `satellite`, password `satellite`
+
+| Service | URL |
+|---|---|
+| Frontend (status page) | http://localhost:8080 |
+| API documentation | http://localhost:8081/api/v1/overview.php |
+| API Swagger UI | http://localhost:8081/api/v1/docs.php |
+| API example | http://localhost:8081/api/v1/satellites.php |
+| MariaDB | `localhost:3307`, database `satellite_status`, user `satellite`, password `satellite` |
 
 The admin login is `admin` / `password` for local development only.
+
 Stop the stack with:
 
 ```sh
@@ -45,10 +71,18 @@ docker compose down
 ```
 
 ## Testing
-Run the PHP integration tests inside the Docker web container:
+
+Run the PHPUnit integration tests (starts a local PHP dev server; no Docker required):
 
 ```sh
-docker compose exec -T web sh -lc 'TEST_BASE_URL=http://localhost TEST_DB_HOST=db TEST_DB_PORT=3306 TEST_DB_USER=satellite TEST_DB_PASS=satellite TEST_DB_NAME=satellite_status vendor/bin/phpunit --colors=never'
+# install deps first (once)
+curl -sS https://getcomposer.org/installer | php -- --quiet
+php composer.phar install
+
+cp tests/fixtures/config.test.php frontend/v1/config.php
+cp tests/fixtures/config.test.php api/v1/config.php
+php -S 127.0.0.1:8000 -t . tests/fixtures/router.php &
+vendor/bin/phpunit --colors=auto
 ```
 
 Run the browser compatibility tests:
@@ -60,13 +94,12 @@ npm run test:frontend
 ```
 
 ## Usage
-- Visit $SITEURL (configured in config.php) to see the data.
-- Utilize the API.
+- Visit `$SITE_URL` (set via environment variable) to see the status page.
+- Utilize the API at `$SITE_URL/api/v1`.
 
 ## API
-The public API lives under `$SITEURL/api/v1` and is documented at
-`$SITEURL/api/index.php`. Public Swagger documentation is available at
-`$SITEURL/api/docs.php`.
+The public API lives under `/api/v1` and is documented at `/api/v1/overview.php`.
+Public Swagger documentation is available at `/api/v1/docs.php`.
 
 Available API surfaces:
 - `GET /api/v1/catalog.php` lists satellites with links and optional report statistics.
@@ -82,7 +115,7 @@ Available API surfaces:
 Example:
 
 ```sh
-curl "$SITEURL/api/v1/reports.php?name=AO-91&hours=24&limit=25"
+curl "$SITE_URL/api/v1/reports.php?name=AO-91&hours=24&limit=25"
 ```
 
 ## Support (in order of preference)
