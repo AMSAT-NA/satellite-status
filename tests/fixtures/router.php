@@ -3,23 +3,25 @@
 //
 // After the versioned-layout restructure, frontend files live under
 // frontend/v1/ and API files live under api/.  This router maps:
-//   /api/...  → served normally from ./api/ (already under the document root)
-//   /*        → served from ./frontend/v1/
+//   /api/...  → served normally from the document root (api/ is there)
+//   /*        → served from frontend/v1/
 //
-// PHP resolves relative includes (include "config.php", include "../config.php")
-// relative to the including file's own directory, so the duplicated
-// frontend/v1/config.php and api/v1/config.php each resolve correctly once
-// the file is included from its actual location.
+// All file paths are anchored to this file's __DIR__ rather than the CWD
+// so that chdir() calls within one request do not break the next.
 //
-// PHP 8.5 changed the built-in server so that `return false` still falls back
-// to the directory's index.php for missing files. We explicitly detect missing
-// paths and emit 404 ourselves so security regression tests stay meaningful.
+// Before including a frontend PHP file we chdir() to its own directory.
+// This is required because PHP resolves relative include paths (e.g.
+// include("../config.php")) against the CWD when the including file was
+// itself included by a router script, rather than served directly.
+
+$repoRoot = realpath(__DIR__ . '/../..');
 
 $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 
-// API paths are under ./api/ which sits at the document root.
+// API paths: the api/ tree sits under the document root — serve normally.
+// Emit 404 explicitly for missing paths so security regression tests hold.
 if (strpos($path, '/api') === 0) {
-    $file = '.' . $path;
+    $file = $repoRoot . $path;
     if (is_file($file) || is_dir($file)) {
         return false;
     }
@@ -29,28 +31,33 @@ if (strpos($path, '/api') === 0) {
     exit;
 }
 
-// Frontend paths: map to ./frontend/v1/
-$frontendFile = './frontend/v1' . ($path === '/' ? '/index.php' : $path);
+// Frontend paths: map to frontend/v1/
+$frontendFile = $repoRoot . '/frontend/v1' . ($path === '/' ? '/index.php' : $path);
 
 if (is_file($frontendFile)) {
     $ext = strtolower(pathinfo($frontendFile, PATHINFO_EXTENSION));
     if ($ext === 'php') {
-        // Normalise $_SERVER so PHP_SELF reflects the request URI, matching
-        // what the built-in server sets when serving the file directly.
+        // Normalise $_SERVER so PHP_SELF reflects the request URI.
         $_SERVER['PHP_SELF']    = $path;
         $_SERVER['SCRIPT_NAME'] = $path;
+        // chdir to the file's own directory so include("../config.php") etc.
+        // inside frontend PHP files resolve against that file's location.
+        // Restore the repo root afterwards for any subsequent requests that
+        // run in the same PHP process.
+        chdir(dirname($frontendFile));
         include $frontendFile;
+        chdir($repoRoot);
     } else {
         // Static asset: output with correct Content-Type.
         static $mimeMap = [
-            'css'  => 'text/css',
-            'js'   => 'application/javascript',
-            'png'  => 'image/png',
-            'jpg'  => 'image/jpeg',
-            'jpeg' => 'image/jpeg',
-            'svg'  => 'image/svg+xml',
-            'ico'  => 'image/x-icon',
-            'woff' => 'font/woff',
+            'css'   => 'text/css',
+            'js'    => 'application/javascript',
+            'png'   => 'image/png',
+            'jpg'   => 'image/jpeg',
+            'jpeg'  => 'image/jpeg',
+            'svg'   => 'image/svg+xml',
+            'ico'   => 'image/x-icon',
+            'woff'  => 'font/woff',
             'woff2' => 'font/woff2',
         ];
         header('Content-Type: ' . ($mimeMap[$ext] ?? 'application/octet-stream'));
@@ -64,7 +71,9 @@ if (is_dir($frontendFile)) {
     if (is_file($indexFile)) {
         $_SERVER['PHP_SELF']    = rtrim($path, '/') . '/index.php';
         $_SERVER['SCRIPT_NAME'] = $_SERVER['PHP_SELF'];
+        chdir(dirname($indexFile));
         include $indexFile;
+        chdir($repoRoot);
         exit;
     }
 }
