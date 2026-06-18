@@ -11,10 +11,11 @@ satellite-status/
 ├── frontend/v1/          # PHP frontend (status page, submit form, admin)
 │   └── Dockerfile        # builds the frontend container
 ├── api/
-│   ├── v1/               # PHP REST API
-│   │   └── Dockerfile    # builds the API container (build context: ./api)
-│   ├── docs.php          # Swagger UI
-│   └── index.php         # API documentation
+│   └── v1/               # PHP REST API
+│       ├── Dockerfile    # builds the API container
+│       ├── overview.php  # HTML API documentation
+│       ├── docs.php      # Swagger UI
+│       └── acknowledgements.php
 ├── db/schema.sql         # database schema
 ├── db/seed.sql           # local dev seed data
 ├── tests/                # PHPUnit + Playwright test suites
@@ -56,8 +57,8 @@ Then visit:
 | Service | URL |
 |---|---|
 | Frontend (status page) | http://localhost:8080 |
-| API documentation | http://localhost:8081/api/ |
-| API Swagger UI | http://localhost:8081/api/docs.php |
+| API documentation | http://localhost:8081/api/v1/overview.php |
+| API Swagger UI | http://localhost:8081/api/v1/docs.php |
 | API example | http://localhost:8081/api/v1/satellites.php |
 | MariaDB | `localhost:3307`, database `satellite_status`, user `satellite`, password `satellite` |
 
@@ -97,8 +98,8 @@ npm run test:frontend
 - Utilize the API at `$SITE_URL/api/v1`.
 
 ## API
-The public API lives under `/api/v1` and is documented at `/api/index.php`.
-Public Swagger documentation is available at `/api/docs.php`.
+The public API lives under `/api/v1` and is documented at `/api/v1/overview.php`.
+Public Swagger documentation is available at `/api/v1/docs.php`.
 
 Available API surfaces:
 - `GET /api/v1/catalog.php` lists satellites with links and optional report statistics.

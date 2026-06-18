@@ -38,7 +38,7 @@ declare(strict_types=1);
 </head>
 <body>
   <nav class="api-docs-nav" aria-label="API documentation links">
-    <a href="./index.php">API overview</a>
+    <a href="./overview.php">API overview</a>
     <a href="./acknowledgements.php">Acknowledgements</a>
   </nav>
   <div id="swagger-ui"></div>
@@ -46,7 +46,7 @@ declare(strict_types=1);
   <script>
     window.addEventListener('load', function () {
       SwaggerUIBundle({
-        url: './v1/openapi.php',
+        url: './openapi.php',
         dom_id: '#swagger-ui',
         deepLinking: true,
         displayOperationId: false,

@@ -377,7 +377,7 @@ test.describe('public frontend/API compatibility', () => {
   });
 
   test('API acknowledgements page is public', async ({ page }) => {
-    const response = await page.goto('/api/acknowledgements.php');
+    const response = await page.goto('/api/v1/acknowledgements.php');
 
     expect(response.status()).toBe(200);
     expect(response.headers()['content-type']).toContain('text/plain');
@@ -404,7 +404,7 @@ test.describe('public frontend/API compatibility', () => {
       }
     });
 
-    await page.goto('/api/docs.php');
+    await page.goto('/api/v1/docs.php');
 
     await expect(page).toHaveTitle(/AMSAT Satellite Status API Docs/);
     await expect(page.getByRole('link', { name: 'Acknowledgements' })).toBeVisible();

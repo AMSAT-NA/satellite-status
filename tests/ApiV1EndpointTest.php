@@ -205,13 +205,13 @@ final class ApiV1EndpointTest extends TestCase
 
     public function testSwaggerDocsPageIsPublic(): void
     {
-        $resp = $this->newGuestClient()->get('/api/docs.php');
+        $resp = $this->newGuestClient()->get('/api/v1/docs.php');
 
         $this->assertSame(200, $resp->getStatusCode());
         $body = (string) $resp->getBody();
         $this->assertStringContainsString('AMSAT Satellite Status API Docs', $body);
         $this->assertStringContainsString('swagger-ui', $body);
-        $this->assertStringContainsString('./v1/openapi.php', $body);
+        $this->assertStringContainsString('./openapi.php', $body);
     }
 
     public function testLegacySatInfoKeepsExactArrayShape(): void

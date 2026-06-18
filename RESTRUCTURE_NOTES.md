@@ -160,6 +160,104 @@ Docker container (where the build context `api/` is copied to
 
 ---
 
+---
+
+## Follow-up: API build-context scope resolution
+
+*(Added during follow-up pass.)*
+
+### What the three unversioned files actually do
+
+After the initial restructure `api/docs.php`, `api/index.php`, and
+`api/acknowledgements.php` remained as unversioned siblings of `api/v1/`.
+The initial notes flagged this as an open question.  Analysis:
+
+- **`api/docs.php`** (Swagger UI) — hard-codes `url: './v1/openapi.php'`.
+  It serves the v1 OpenAPI spec specifically.  It is **v1-specific**.
+
+- **`api/index.php`** (HTML API overview) — calls
+  `require_once __DIR__ . '/v1/lib/bootstrap.php'`, displays `API_VERSION`
+  (1.0.0), and documents v1 endpoints by name.  It is **v1-specific**.
+  Note: `api/v1/index.php` already existed as a separate, machine-readable
+  plain-text endpoint.  The HTML page was therefore moved to
+  `api/v1/overview.php` to avoid the name collision.
+
+- **`api/acknowledgements.php`** (credits page) — static plain-text, no
+  version references in content.  But it links to `./index.php` and
+  `./docs.php` and is part of the v1 documentation set.  Moved with the
+  others.
+
+### Decision: move all three into `api/v1/`, tighten build context
+
+All three files are conceptually part of the v1 documentation surface.
+Leaving them at `api/` as "shared" resources would be misleading: a future
+`api/v2/` would need its own Swagger page (pointing at the v2 OpenAPI spec),
+its own overview, and its own acknowledgements.  Keeping v1 docs at the
+top level would pollute `api/` and require the v2 docs to live somewhere
+inconsistent.
+
+**Files moved:**
+
+| Old path | New path |
+|---|---|
+| `api/docs.php` | `api/v1/docs.php` |
+| `api/index.php` | `api/v1/overview.php` (name collision with existing text endpoint) |
+| `api/acknowledgements.php` | `api/v1/acknowledgements.php` |
+
+**Build context tightened** from `./api` back to `./api/v1` as originally
+specified.  The Dockerfile now does `COPY . /var/www/html/api/v1/`.
+
+**Internal path fixes in moved files:**
+- `docs.php`: `url: './v1/openapi.php'` → `url: './openapi.php'`
+- `overview.php` (was `index.php`): bootstrap require, two HTML links, and
+  two displayed URL strings updated from `/api/...` to `/api/v1/...`
+- `api/v1/index.php` (text endpoint): documentation link updated from
+  `$siteUrl/api/` to `$siteUrl/api/v1/overview.php`
+
+**Test URLs updated:**
+- PHPUnit: `/api/docs.php` → `/api/v1/docs.php`; assertion
+  `./v1/openapi.php` → `./openapi.php`
+- Playwright: `/api/docs.php` → `/api/v1/docs.php`;
+  `/api/acknowledgements.php` → `/api/v1/acknowledgements.php`
+
+### Relative API path audit (frontend → API)
+
+The task required checking whether the frontend's HTML or JS references the
+API via relative paths (e.g. `/api/v1/...`) that would silently resolve to
+port 8080 instead of port 8081 under the two-port local-dev model.
+
+Result: **no relative `/api/...` references found in `frontend/v1/`**.
+The frontend does not call the API at all from browser-side JavaScript.
+Status reports are submitted via a plain HTML form (`POST submit.php`) that
+writes directly to the database; there is no fetch/XHR from the frontend to
+the API.  No fix required.
+
+---
+
+## Follow-up: Docker stack verification
+
+*(Added during follow-up pass.)*
+
+The Claude Code process does not have access to the Docker daemon socket
+(the `matt` user is not in the `docker` group in this WSL2 environment).
+The Docker compose verification items remain pending and must be confirmed
+locally by the repo owner:
+
+```sh
+docker compose down -v          # clean slate
+docker compose up -d --build    # build and start all three containers
+curl http://localhost:8080/      # frontend should return HTML
+curl http://localhost:8081/api/v1/health.php   # API should return JSON
+```
+
+All CI-exercised code paths (PHPUnit + Playwright via the PHP dev-server
+router) are verified green.  The Docker stack uses the same PHP files and
+same environment-variable configuration pattern, so build failures would
+most likely be Dockerfile or compose config issues rather than application
+logic issues.
+
+---
+
 ## Out of scope (not done here)
 
 - No FastAPI, no `api/v2`, no `frontend/v2` scaffolding.

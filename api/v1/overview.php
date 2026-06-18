@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-require_once __DIR__ . '/v1/lib/bootstrap.php';
+require_once __DIR__ . '/lib/bootstrap.php';
 
 $baseUrl = api_base_url();
 ?>
@@ -158,10 +158,10 @@ $baseUrl = api_base_url();
     <table>
       <tr><th>Purpose</th><th>URL</th></tr>
       <tr><td>API root</td><td><code><?php echo htmlspecialchars($baseUrl); ?></code></td></tr>
-      <tr><td>Swagger UI</td><td><a href="../api/docs.php"><code><?php echo htmlspecialchars(rtrim((string) $siteUrl, '/')); ?>/api/docs.php</code></a></td></tr>
+      <tr><td>Swagger UI</td><td><a href="./docs.php"><code><?php echo htmlspecialchars(rtrim((string) $siteUrl, '/')); ?>/api/v1/docs.php</code></a></td></tr>
       <tr><td>OpenAPI JSON</td><td><a href="<?php echo htmlspecialchars($baseUrl); ?>/openapi.php"><code><?php echo htmlspecialchars($baseUrl); ?>/openapi.php</code></a></td></tr>
       <tr><td>Legacy reports</td><td><a href="<?php echo htmlspecialchars($baseUrl); ?>/sat_info.php?name=AO-91&amp;hours=24"><code><?php echo htmlspecialchars($baseUrl); ?>/sat_info.php?name=AO-91&amp;hours=24</code></a></td></tr>
-      <tr><td>Acknowledgements</td><td><a href="../api/acknowledgements.php"><code><?php echo htmlspecialchars(rtrim((string) $siteUrl, '/')); ?>/api/acknowledgements.php</code></a></td></tr>
+      <tr><td>Acknowledgements</td><td><a href="./acknowledgements.php"><code><?php echo htmlspecialchars(rtrim((string) $siteUrl, '/')); ?>/api/v1/acknowledgements.php</code></a></td></tr>
     </table>
   </section>
 
@@ -255,7 +255,7 @@ $baseUrl = api_base_url();
   <section>
     <h2>Acknowledgements</h2>
     <p>
-      See the <a href="../api/acknowledgements.php">API acknowledgements</a> page for contributors who helped
+      See the <a href="./acknowledgements.php">API acknowledgements</a> page for contributors who helped
       design, implement, document, and test this public API.
     </p>
   </section>
