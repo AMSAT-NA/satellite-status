@@ -11,7 +11,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Create package
         run: |
@@ -27,7 +27,7 @@ jobs:
             "${REPO}"
 
       - name: Upload package
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: package-${{ github.sha }}
           path: /tmp/*_package.tgz
@@ -36,7 +36,7 @@ jobs:
     runs-on: ubuntu-latest
     container: php:alpine
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Check PHP syntax
         run: find . -path './vendor' -prune -o -path './node_modules' -prune -o -name '*.php' -print -exec php -l {} \;
 
@@ -44,7 +44,7 @@ jobs:
     runs-on: ubuntu-latest
     container: php:alpine
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Check PHP version
         run: php --version
 
@@ -52,7 +52,7 @@ jobs:
     runs-on: ubuntu-latest
     container: php:cli
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Install dependencies
         run: |
           apt-get update -yqq
@@ -86,7 +86,7 @@ jobs:
       TEST_DB_PASS: satstatus
       TEST_DB_NAME: satstatus
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install system dependencies
         run: |
@@ -117,7 +117,7 @@ jobs:
 
       - name: Upload PHP server log
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: phpunit-php-server-log
           path: /tmp/php-server.log
@@ -148,7 +148,7 @@ jobs:
       TEST_DB_PASS: satstatus
       TEST_DB_NAME: satstatus
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install system dependencies
         run: |
@@ -184,7 +184,7 @@ jobs:
 
       - name: Upload test artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: playwright-results
           path: |
