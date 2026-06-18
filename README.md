@@ -82,7 +82,7 @@ php composer.phar install
 cp tests/fixtures/config.test.php frontend/v1/config.php
 cp tests/fixtures/config.test.php api/v1/config.php
 php -S 127.0.0.1:8000 -t . tests/fixtures/router.php &
-vendor/bin/phpunit --colors=auto
+vendor/bin/phpunit --configuration tests/phpunit.xml --colors=auto
 ```
 
 Run the browser compatibility tests:
@@ -90,7 +90,7 @@ Run the browser compatibility tests:
 ```sh
 npm install
 npx playwright install chromium
-npm run test:frontend
+npx playwright test --config tests/playwright.config.js
 ```
 
 ## Usage

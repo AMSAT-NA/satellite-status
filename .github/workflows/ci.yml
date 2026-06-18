@@ -113,7 +113,7 @@ jobs:
           until curl -sS -o /dev/null http://127.0.0.1:8000/; do sleep 1; done
 
       - name: Run PHPUnit
-        run: vendor/bin/phpunit --colors=never
+        run: vendor/bin/phpunit --configuration tests/phpunit.xml --colors=never
 
       - name: Upload PHP server log
         if: failure()
@@ -180,7 +180,7 @@ jobs:
         run: npm ci
 
       - name: Run Playwright tests
-        run: npm run test:frontend
+        run: npx playwright test --config tests/playwright.config.js
 
       - name: Upload test artifacts
         if: always()
