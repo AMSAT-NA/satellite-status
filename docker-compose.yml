@@ -16,6 +16,12 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 15s
 
   api:
     build:
@@ -34,6 +40,12 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/api/v1/health.php"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 15s
 
   db:
     image: mariadb:11.4
