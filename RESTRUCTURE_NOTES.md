@@ -258,6 +258,73 @@ logic issues.
 
 ---
 
+## Docker Compose smoke-test CI job
+
+*(Added in `ci/docker-compose-smoke-test` branch.)*
+
+### What was added
+
+A new `docker-compose-smoke` job in `.github/workflows/ci.yml` that:
+
+1. Runs `docker compose up -d --build --wait` — builds all three images from
+   scratch and blocks until every container's healthcheck reports healthy.
+2. Asserts the frontend returns a 2xx at `http://localhost:8080/`.
+3. Asserts `http://localhost:8081/api/v1/health.php` returns
+   `{"data":{"status":"ok",...}}`, confirming real DB connectivity (the
+   endpoint runs `SELECT 1` against MariaDB and returns 503 if it fails).
+4. Asserts `http://localhost:8081/api/v1/satellites.php` returns a non-empty
+   JSON array, confirming `db/schema.sql` and `db/seed.sql` actually loaded
+   in the `db` container.
+5. Dumps `docker compose logs --no-color` on failure.
+6. Always runs `docker compose down -v` to clean up.
+
+### Why one workflow file, not two
+
+The smoke job was added to the existing `.github/workflows/ci.yml` rather
+than a separate file.  All CI gates in one file gives a single view of what
+must pass before merge.  A separate file would be warranted if the smoke job
+needed different triggers (e.g. only on main, or on a schedule) — for now
+they share the same push/PR trigger.
+
+### Healthcheck decision
+
+`db` already had a healthcheck (`healthcheck.sh --connect --innodb_initialized`
+from the official MariaDB image).  Added healthchecks to `frontend` and `api`:
+
+- **`frontend`**: `curl -f http://localhost/` — confirms Apache is serving PHP.
+- **`api`**: `curl -f http://localhost/api/v1/health.php` — confirms Apache is
+  up *and* the API can reach the database.
+
+Both healthchecks require `curl` inside the containers.  The `php:apache` base
+image (`debian:bookworm-slim`) does not include `curl` by default.  Added it
+to both Dockerfiles:
+
+```dockerfile
+RUN docker-php-ext-install mysqli \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/*
+```
+
+This is a **production image change**: `curl` is now present in both the
+`frontend` and `api` containers.  The package is small (~3 MB), has no
+runtime footprint (it's not called by the application), and is a standard
+diagnostic tool that's useful to have in running containers regardless.
+The `--no-install-recommends` and `rm -rf /var/lib/apt/lists/*` keep the
+layer size minimal.
+
+### Smoke-test verification
+
+The job was pushed and confirmed green on CI.  To verify the job has teeth
+(and is not a false positive), the `MYSQL_DATABASE` env var on the `api`
+service was temporarily changed to a nonexistent database name in a
+throwaway local test.  With that change, `api/v1/health.php` returned 503
+(DB unavailable) which caused `curl -sf` to exit non-zero, and the container
+healthcheck failed, causing `docker compose up --wait` to time out and fail
+the job.  The bad env var was reverted before committing.
+
+---
+
 ## Out of scope (not done here)
 
 - No FastAPI, no `api/v2`, no `frontend/v2` scaffolding.

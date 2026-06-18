@@ -192,3 +192,38 @@ jobs:
             playwright-report/
             test-results/
           retention-days: 7
+
+  docker-compose-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Build and start stack
+        run: docker compose up -d --build --wait
+        timeout-minutes: 10
+
+      - name: Smoke-test frontend (2xx response)
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/)
+          echo "Frontend HTTP status: $STATUS"
+          [ "$STATUS" -ge 200 ] && [ "$STATUS" -lt 300 ]
+
+      - name: Smoke-test API health (DB connectivity confirmed)
+        run: |
+          BODY=$(curl -sf http://localhost:8081/api/v1/health.php)
+          echo "$BODY"
+          echo "$BODY" | jq -e '.data.status == "ok"'
+
+      - name: Smoke-test API data endpoint (schema seeded)
+        run: |
+          BODY=$(curl -sf http://localhost:8081/api/v1/satellites.php)
+          echo "$BODY" | head -c 500
+          echo "$BODY" | jq -e 'type == "array" and length > 0'
+
+      - name: Dump compose logs on failure
+        if: failure()
+        run: docker compose logs --no-color
+
+      - name: Tear down
+        if: always()
+        run: docker compose down -v
