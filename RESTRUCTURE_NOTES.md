@@ -325,13 +325,90 @@ the job.  The bad env var was reverted before committing.
 
 ---
 
-## Out of scope (not done here)
+## Out of scope (not done here — prior sections)
 
 - No FastAPI, no `api/v2`, no `frontend/v2` scaffolding.
-- No Traefik labels, no CD workflow, no deployment.
 - No change to the frontend's direct-MySQL pattern (frontend still queries
   the DB directly; routing frontend through the API is future work).
 - No production data import; `db/schema.sql` is unchanged.
 
 This is a pure structural refactor.  All PHP logic and SQL are identical to
 `main`.
+
+---
+
+## Traefik labels — CI-verified in docker-compose.yml
+
+*(Added in `ci/traefik-labels` branch.)*
+
+### Design: one file, labels live in it permanently
+
+The Traefik labels are in the single `docker-compose.yml` — the same file CI
+exercises with `docker compose up --wait` and the same file CD will eventually
+deploy.  They are **not** split into a prod-only override file.  If the labels
+were in an override, CI would test a different file than what gets deployed,
+which defeats the purpose of the smoke test.
+
+### Router names and rules
+
+| Service | Router name | Rule | Priority |
+|---|---|---|---|
+| `frontend` | `satellite-status-frontend` | `Host(\`status.amsat.org\`)` | **10** |
+| `api` | `satellite-status-api` | `Host(\`status.amsat.org\`) && PathPrefix(\`/api\`)` | **20** |
+
+Both routers use `entrypoints=websecure` and `tls.certresolver=letsencrypt`,
+matching the `uptime-kuma` pattern already live on azure193.
+
+### Priority values: 10 and 20 — why these specific numbers
+
+Traefik's default longest-prefix-wins tie-breaking is not relied upon here.
+Explicit priorities are set so the intent is unambiguous and auditable.
+
+- **`api` priority 20, `frontend` priority 10** — `api`'s router wins first,
+  routing `/api/...` traffic correctly.  `frontend`'s catch-all rule (no path
+  constraint) would otherwise be at risk of swallowing `/api/...` requests
+  depending on Traefik's internal evaluation order in edge cases.
+
+- **Multiples of 10** — chosen deliberately to leave headroom.  A future third
+  router (e.g. `/metrics`, `/admin`, `/webhook`) can be assigned priority 15,
+  25, or 30 without renumbering existing routers.  The gap of 10 between each
+  existing router means a third router can be inserted between them *or* above
+  them without any collisions.
+
+- **Why not 1 and 2, or 100 and 200?**  Values of 1/2 leave no headroom for
+  anything below `frontend`.  Values of 100/200 are arbitrarily large with no
+  practical advantage.  Multiples of 10 starting at 10 is a common, readable
+  convention that balances headroom against readability.
+
+### `traefik-public` network — CI provisioning
+
+`docker-compose.yml` declares `traefik-public` as an external network (matching
+the live azure193 pattern where Traefik attaches to this network).  Both
+`frontend` and `api` services join it alongside the default compose network.
+`db` does not join it — no reason to expose the database to the Traefik network.
+
+In the CI workflow, a `Create traefik-public network` step runs
+`docker network create traefik-public` **before** `docker compose up --wait`.
+Docker does not require an actual Traefik container attached to a network for
+that network to exist — a plain bridge network that nothing else uses is
+sufficient to satisfy the `external: true` reference.  This is not a workaround;
+it is the correct way to test a compose file that references an externally-managed
+network in an environment where the external manager (Traefik) is absent.
+
+Teardown removes the network: `docker network rm traefik-public || true`.  The
+`|| true` absorbs errors in case `docker compose down -v` already removed it.
+
+### Verification
+
+The smoke-test job was pushed to CI and confirmed green with these changes in
+place.  The Traefik labels are inert in the CI environment (no Traefik instance
+runs there), but their presence does not break the build, startup, or
+healthchecks.
+
+### Out of scope for this task
+
+- No ACR push, no SSH deploy, no connection to azure193.
+- No real Traefik instance configured or tested.
+- `SITE_URL`/`siteUrl` correctness is explicitly deferred — not investigated
+  or touched here.
+- Full CD workflow (deploy automation) remains a separate future task.

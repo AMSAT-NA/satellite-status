@@ -22,6 +22,16 @@ services:
       timeout: 5s
       retries: 6
       start_period: 15s
+    networks:
+      - default
+      - traefik-public
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.satellite-status-frontend.rule=Host(`status.amsat.org`)"
+      - "traefik.http.routers.satellite-status-frontend.entrypoints=websecure"
+      - "traefik.http.routers.satellite-status-frontend.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.satellite-status-frontend.priority=10"
+      - "traefik.http.services.satellite-status-frontend.loadbalancer.server.port=80"
 
   api:
     build:
@@ -46,6 +56,16 @@ services:
       timeout: 5s
       retries: 6
       start_period: 15s
+    networks:
+      - default
+      - traefik-public
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.satellite-status-api.rule=Host(`status.amsat.org`) && PathPrefix(`/api`)"
+      - "traefik.http.routers.satellite-status-api.entrypoints=websecure"
+      - "traefik.http.routers.satellite-status-api.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.satellite-status-api.priority=20"
+      - "traefik.http.services.satellite-status-api.loadbalancer.server.port=80"
 
   db:
     image: mariadb:11.4
@@ -68,3 +88,7 @@ services:
 
 volumes:
   db-data:
+
+networks:
+  traefik-public:
+    external: true

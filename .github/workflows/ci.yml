@@ -198,6 +198,9 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      - name: Create traefik-public network
+        run: docker network create traefik-public
+
       - name: Build and start stack
         run: docker compose up -d --build --wait
         timeout-minutes: 10
@@ -226,4 +229,6 @@ jobs:
 
       - name: Tear down
         if: always()
-        run: docker compose down -v
+        run: |
+          docker compose down -v
+          docker network rm traefik-public || true
