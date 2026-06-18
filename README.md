@@ -16,7 +16,7 @@ satellite-status/
 │   ├── docs.php          # Swagger UI
 │   └── index.php         # API documentation
 ├── db/schema.sql         # database schema
-├── docker/mysql/init/    # MariaDB seed data
+├── db/seed.sql           # local dev seed data
 ├── tests/                # PHPUnit + Playwright test suites
 └── docker-compose.yml    # local dev stack
 ```

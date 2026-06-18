@@ -47,7 +47,7 @@ services:
     volumes:
       - db-data:/var/lib/mysql
       - ./db/schema.sql:/docker-entrypoint-initdb.d/001-schema.sql:ro
-      - ./docker/mysql/init/002-seed.sql:/docker-entrypoint-initdb.d/002-seed.sql:ro
+      - ./db/seed.sql:/docker-entrypoint-initdb.d/002-seed.sql:ro
     healthcheck:
       test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
       interval: 5s

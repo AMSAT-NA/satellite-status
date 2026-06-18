@@ -162,7 +162,7 @@ jobs:
         run: mysql -h mariadb -usatstatus -psatstatus satstatus < db/schema.sql
 
       - name: Load seed data
-        run: mysql -h mariadb -usatstatus -psatstatus satstatus < docker/mysql/init/002-seed.sql
+        run: mysql -h mariadb -usatstatus -psatstatus satstatus < db/seed.sql
 
       - name: Install Composer dependencies
         run: |
