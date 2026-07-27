@@ -1,0 +1,215 @@
+name: CD
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+
+jobs:
+
+  # ── Job 1: CI gate ───────────────────────────────────────────────────────────
+  # Calls the existing CI workflow (PHPUnit, Playwright, docker-compose smoke
+  # test, etc.) as a reusable workflow instead of duplicating its steps here.
+  # Nothing below this job runs unless every CI job passes.
+  ci:
+    name: CI Gate
+    uses: ./.github/workflows/ci.yml
+
+  # ── Path filter, shared by jobs 2 and 3 ──────────────────────────────────────
+  changes:
+    name: Detect changed paths
+    runs-on: ubuntu-latest
+    needs: ci
+    outputs:
+      frontend: ${{ steps.filter.outputs.frontend }}
+      api: ${{ steps.filter.outputs.api }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            frontend:
+              - 'frontend/v1/**'
+            api:
+              - 'api/v1/**'
+
+  # ── Job 2: Docker build test (all branches, no push) ─────────────────────────
+  # Catches Dockerfile issues on PRs and non-main branches. Only runs when
+  # something under frontend/v1/** or api/v1/** actually changed; builds both
+  # images when it does (no per-image split here — see job 3 for that).
+  docker-build-test:
+    name: Docker Build Test
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true' || needs.changes.outputs.api == 'true'
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: docker/setup-buildx-action@v4
+
+      - name: Build frontend image
+        uses: docker/build-push-action@v7
+        with:
+          context: ./frontend/v1
+          push: false
+          tags: satellite-status-frontend:ci
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,mode=max,scope=frontend
+
+      - name: Build api image
+        uses: docker/build-push-action@v7
+        with:
+          context: ./api/v1
+          push: false
+          tags: satellite-status-api:ci
+          cache-from: type=gha,scope=api
+          cache-to: type=gha,mode=max,scope=api
+
+  # ── Job 3: Push to ACR (main branch only, after job 2) ────────────────────────
+  # Same OIDC pattern as amsat-discord-bot. Per-image gating: only build/push
+  # the image whose source path actually changed.
+  push:
+    name: Push to ACR
+    runs-on: ubuntu-latest
+    needs: [ci, changes, docker-build-test]
+    if: |
+      always() &&
+      needs.ci.result == 'success' &&
+      needs.changes.result == 'success' &&
+      needs.docker-build-test.result != 'failure' &&
+      needs.docker-build-test.result != 'cancelled' &&
+      github.ref == 'refs/heads/main' &&
+      github.event_name == 'push'
+    permissions:
+      id-token: write   # required for OIDC token request
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v3
+        with:
+          client-id: ${{ vars.AZURE_ACR_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - uses: docker/setup-buildx-action@v4
+
+      - name: Log in to ACR
+        run: az acr login --name ${{ vars.AZURE_ACR_NAME }}
+
+      - name: Build and push frontend image
+        if: needs.changes.outputs.frontend == 'true'
+        uses: docker/build-push-action@v7
+        with:
+          context: ./frontend/v1
+          push: true
+          tags: |
+            ${{ vars.AZURE_ACR_NAME }}.azurecr.io/satellite-status-frontend:${{ github.sha }}
+            ${{ vars.AZURE_ACR_NAME }}.azurecr.io/satellite-status-frontend:latest
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,mode=max,scope=frontend
+
+      - name: Build and push api image
+        if: needs.changes.outputs.api == 'true'
+        uses: docker/build-push-action@v7
+        with:
+          context: ./api/v1
+          push: true
+          tags: |
+            ${{ vars.AZURE_ACR_NAME }}.azurecr.io/satellite-status-api:${{ github.sha }}
+            ${{ vars.AZURE_ACR_NAME }}.azurecr.io/satellite-status-api:latest
+          cache-from: type=gha,scope=api
+          cache-to: type=gha,mode=max,scope=api
+
+  # ── Job 4: Configure server environment (main branch only, after job 3) ──────
+  # Mirrors configure-env from amsat-discord-bot exactly. Runs even if job 3
+  # pushed no images (nothing under frontend/v1 or api/v1 changed) since the
+  # .env or deploy/docker-compose.yml may still need to ship.
+  configure-env:
+    name: Configure Server Environment
+    runs-on: ubuntu-latest
+    needs: [ci, changes, push]
+    if: |
+      always() &&
+      needs.ci.result == 'success' &&
+      needs.changes.result == 'success' &&
+      needs.push.result != 'failure' &&
+      needs.push.result != 'cancelled' &&
+      github.ref == 'refs/heads/main' &&
+      github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Configure SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.HOST_DEPLOY_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "${{ vars.HOST_ADDRESS }}" >> ~/.ssh/known_hosts
+
+      - name: Ensure service directory exists on server
+        run: |
+          ssh -i ~/.ssh/deploy_key "${{ vars.HOST_USER }}@${{ vars.HOST_ADDRESS }}" \
+            'mkdir -p /opt/services/satellite-status'
+
+      - name: Generate .env from secrets and variables
+        run: |
+          cat > /tmp/satellite-status.env <<'ENVEOF'
+          SITE_URL=${{ vars.SITE_URL }}
+          MYSQL_HOST=${{ vars.MYSQL_HOST }}
+          MYSQL_USER=${{ vars.MYSQL_USER }}
+          MYSQL_PASSWORD=${{ secrets.MYSQL_PASSWORD }}
+          MYSQL_DATABASE=${{ vars.MYSQL_DATABASE }}
+          MARIADB_RANDOM_ROOT_PASSWORD=yes
+          MARIADB_DATABASE=${{ vars.MYSQL_DATABASE }}
+          MARIADB_USER=${{ vars.MYSQL_USER }}
+          MARIADB_PASSWORD=${{ secrets.MYSQL_PASSWORD }}
+          ENVEOF
+          chmod 600 /tmp/satellite-status.env
+
+      - name: Ship compose file and .env to server
+        run: |
+          scp -i ~/.ssh/deploy_key \
+            deploy/docker-compose.yml \
+            "${{ vars.HOST_USER }}@${{ vars.HOST_ADDRESS }}:/opt/services/satellite-status/docker-compose.yml"
+          scp -i ~/.ssh/deploy_key \
+            /tmp/satellite-status.env \
+            "${{ vars.HOST_USER }}@${{ vars.HOST_ADDRESS }}:/opt/services/satellite-status/.env"
+
+  # ── Job 5: Deploy (main branch only, after job 4) ────────────────────────────
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    needs: [ci, changes, configure-env]
+    if: |
+      always() &&
+      needs.ci.result == 'success' &&
+      needs.changes.result == 'success' &&
+      needs.configure-env.result != 'failure' &&
+      needs.configure-env.result != 'cancelled' &&
+      github.ref == 'refs/heads/main' &&
+      github.event_name == 'push'
+    steps:
+      - name: Configure SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.HOST_DEPLOY_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "${{ vars.HOST_ADDRESS }}" >> ~/.ssh/known_hosts
+
+      - name: Pull images and restart stack
+        run: |
+          ssh -i ~/.ssh/deploy_key "${{ vars.HOST_USER }}@${{ vars.HOST_ADDRESS }}" bash -s <<'ENDSSH'
+          docker login amsatorg.azurecr.io \
+            --username ${{ vars.AZURE_ACR_CLIENT_ID }} \
+            --password ${{ secrets.AZURE_ACR_CLIENT_SECRET }}
+          cd /opt/services/satellite-status
+          docker compose pull
+          docker compose up -d
+          ENDSSH
