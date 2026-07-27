@@ -1,3 +1,4 @@
+# Built and pushed to ACR by .github/workflows/cd.yml
 FROM php:apache
 
 RUN docker-php-ext-install mysqli \
