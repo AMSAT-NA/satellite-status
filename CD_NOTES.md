@@ -103,26 +103,31 @@ downside with no corresponding benefit. `docker compose up -d` (no flag)
 already recreates any container whose image or config changed and leaves
 the rest running, which is the correct behavior here.
 
-## Database init on first deploy — needs repo-owner confirmation
+## Database init on first deploy — resolved: schema mounted, init-once by design
 
-`deploy/docker-compose.yml` deliberately does **not** mount `db/schema.sql`
-or `db/seed.sql` into `/docker-entrypoint-initdb.d/`, unlike the root
-compose file. On the very first deploy, the `db-data` volume will be empty
-and MariaDB will run whatever init scripts are present in that directory —
-currently none, so it will boot with an empty, un-migrated database.
+**Decision (confirmed by repo owner): the DB should only be initialized if
+it doesn't already exist.** That's exactly MariaDB's built-in behavior for
+`/docker-entrypoint-initdb.d/` — those scripts only run when the data
+directory is empty (i.e. `db-data` has never been initialized). So mounting
+`db/schema.sql` there is safe on every deploy, not just the first one: on a
+fresh volume it seeds the schema; on every subsequent deploy the volume is
+already initialized and MariaDB skips the directory entirely, so the mount
+is inert.
 
-**This needs a decision before the first real deploy to `main`:**
-- Should `deploy/docker-compose.yml` mount `db/schema.sql` (matching the
-  root compose file) so the first boot self-initializes the schema, or
-- Should the schema be imported manually against the fresh `db` container
-  after first boot (e.g. `docker compose exec -T db mysql ... < db/schema.sql`),
-  keeping the deploy compose file schema-agnostic?
+`deploy/docker-compose.yml` now mounts:
+```yaml
+- ./db/schema.sql:/docker-entrypoint-initdb.d/001-schema.sql:ro
+```
+matching the root compose file's pattern. `db/schema.sql` isn't part of the
+repo checkout on the server, so the `configure-env` job now also ships it
+via `scp` to `/opt/services/satellite-status/db/schema.sql` alongside the
+compose file and `.env` (the service directory now includes a `db/`
+subdirectory, created in the "Ensure service directory exists on server"
+step).
 
-Since this is a first deploy to a fresh server with no production data yet,
-either is safe from a data-loss standpoint — but I did not make this call
-silently. Not including `seed.sql` in either case: that file is
-test/demo fixture data, not appropriate for production regardless of which
-option is chosen.
+`db/seed.sql` is still deliberately **not** shipped or mounted — it's
+test/demo fixture data, not appropriate for production regardless of the
+init-timing question above.
 
 ## Secrets and vars — what's new vs. already exists
 

@@ -156,7 +156,7 @@ jobs:
       - name: Ensure service directory exists on server
         run: |
           ssh -i ~/.ssh/deploy_key "${{ vars.HOST_USER }}@${{ vars.HOST_ADDRESS }}" \
-            'mkdir -p /opt/services/satellite-status'
+            'mkdir -p /opt/services/satellite-status/db'
 
       - name: Generate .env from secrets and variables
         run: |
@@ -173,7 +173,7 @@ jobs:
           ENVEOF
           chmod 600 /tmp/satellite-status.env
 
-      - name: Ship compose file and .env to server
+      - name: Ship compose file, .env, and schema to server
         run: |
           scp -i ~/.ssh/deploy_key \
             deploy/docker-compose.yml \
@@ -181,6 +181,9 @@ jobs:
           scp -i ~/.ssh/deploy_key \
             /tmp/satellite-status.env \
             "${{ vars.HOST_USER }}@${{ vars.HOST_ADDRESS }}:/opt/services/satellite-status/.env"
+          scp -i ~/.ssh/deploy_key \
+            db/schema.sql \
+            "${{ vars.HOST_USER }}@${{ vars.HOST_ADDRESS }}:/opt/services/satellite-status/db/schema.sql"
 
   # ── Job 5: Deploy (main branch only, after job 4) ────────────────────────────
   deploy:
