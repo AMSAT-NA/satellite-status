@@ -68,7 +68,7 @@ services:
       - "traefik.http.services.satellite-status-api.loadbalancer.server.port=80"
 
   db:
-    image: mariadb:11.4
+    image: mariadb:12.3
     environment:
       MARIADB_ROOT_PASSWORD: root
       MARIADB_DATABASE: satellite_status

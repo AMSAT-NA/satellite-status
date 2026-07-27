@@ -187,3 +187,21 @@ building unconditionally.
 No deploy to azure193 has been attempted from this branch. The repo owner
 will add the new secrets/vars above, resolve the DB-init question, and
 trigger the first real deploy by merging to `main`.
+
+## MariaDB bumped 11.4 → 12.3 LTS
+
+`docker-compose.yml` and `deploy/docker-compose.yml` now pin `mariadb:12.3`
+instead of `mariadb:11.4`. 11.4 was the current LTS when these files were
+first written; 12.3 LTS was released May 29, 2026 and is now the current
+LTS (maintained for three years), so 12.3 is the correct pin going forward.
+
+This also happens to address a production issue: on 11.4, healthcheck user
+creation was failing with `MARIADB_RANDOM_ROOT_PASSWORD=yes` set, despite the
+official MariaDB docs showing that combination as supported. Root cause on
+11.4 wasn't tracked down — the version bump resolves it either way, so it
+wasn't worth further investigation.
+
+The azure193 server was fully wiped (`/opt/services/satellite-status/`
+deleted, `db-data` volume destroyed) before this change, so the next deploy
+is a genuinely clean first-boot init on 12.3 — no migration path from an
+11.4 data directory needs to be considered.
