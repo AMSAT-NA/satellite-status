@@ -155,14 +155,29 @@ credential in play anywhere is the app user (`MYSQL_USER`/`MYSQL_PASSWORD`).
 
 ## Verification status
 
-Pushed to `cd/azure193-deploy` and confirmed on GitHub Actions:
+Pushed to `cd/azure193-deploy` (no PR opened) and confirmed on GitHub Actions
+across two runs:
 
-- The **CI Gate** job (`ci.yml` called via `workflow_call`) ran and passed —
-  PHPUnit, Playwright, and the docker-compose smoke test all green.
-- The **Docker Build Test** job built both `frontend/v1` and `api/v1` images
+**First push** (workflow files + notes only, nothing under `frontend/v1/**`
+or `api/v1/**`): the CI Gate passed and the path filter correctly determined
+neither image needed rebuilding, so `Docker Build Test` (and everything after
+it) reported `skipped` — proof the path-gating works as intended rather than
+building unconditionally.
+
+**Second push** (trivial comment added to both `frontend/v1/Dockerfile` and
+`api/v1/Dockerfile`, specifically to exercise the gated path): 
+- **CI Gate** (`ci.yml` called via `workflow_call`) passed — PHPUnit,
+  Playwright, and the docker-compose smoke test all green. (One transient
+  `phpunit` failure from a Docker Hub pull timeout on the runner, unrelated
+  to any code here — a re-run of just that job passed cleanly, and it's
+  worth noting the failure correctly cascaded to skip every job after it,
+  confirming the "CD never runs if CI is broken" gate works both ways.)
+- **Detect changed paths** correctly flagged both `frontend` and `api` as
+  changed.
+- **Docker Build Test** built both `frontend/v1` and `api/v1` images
   successfully with `push: false` — no images were pushed anywhere.
-- The **Push to ACR**, **Configure Server Environment**, and **Deploy** jobs
-  correctly did not run, since this branch isn't `main`.
+- **Push to ACR**, **Configure Server Environment**, and **Deploy** all
+  correctly reported `skipped`, since `github.ref` isn't `refs/heads/main`.
 
 No deploy to azure193 has been attempted from this branch. The repo owner
 will add the new secrets/vars above, resolve the DB-init question, and
