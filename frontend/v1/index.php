@@ -902,7 +902,7 @@ printf("<option value=%s>%s", $SPeriod, $PName); ?>
 </table>
 
 <div class="paypal_button">
-<form action="https://www.paypal.com/cgi-bin/webscr" method="post" target="_top"><input name="cmd" type="hidden" value="_s-xclick"> <input name="hosted_button_id" type="hidden" value="8KAAKMU2TXUQ4"> <span style="font-size:24px;">Support AMSAT</span> <br><br><input alt="PayPal - The safer, easier way to pay online!" border="0" name="submit" src="https://www.paypalobjects.com/en_US/i/btn/btn_donate_LG.gif" type="image">&nbsp;</form>
+<a href="https://www.amsat.org/donations/amsat-general-fund-donations/" style="display:inline-block;padding:10px 18px;background-color:#648fff;color:#ffffff;text-decoration:none;border-radius:4px;font-size:24px;">Support AMSAT</a>
 </div>
 
 <div class="contact_support">
