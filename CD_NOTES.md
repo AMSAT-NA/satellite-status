@@ -205,3 +205,62 @@ The azure193 server was fully wiped (`/opt/services/satellite-status/`
 deleted, `db-data` volume destroyed) before this change, so the next deploy
 is a genuinely clean first-boot init on 12.3 — no migration path from an
 11.4 data directory needs to be considered.
+
+## `db` healthcheck: TCP loopback on azure193, `healthcheck.sh` everywhere else
+
+The first production deploy to azure193 surfaced a healthcheck failure that
+turned out to be specific to that host, not to MariaDB or to this repo's
+config. Ruled out during investigation:
+
+- MariaDB version (reproduced identically on both 11.4 and 12.3)
+- Volume state (reproduced on a completely fresh `db-data` volume)
+- The root password approach (`MARIADB_RANDOM_ROOT_PASSWORD=yes` is
+  documented by upstream as compatible with `healthcheck.sh`)
+- The `--su-mysql` flag to `healthcheck.sh` (tried, same access-denied error)
+
+**Root cause**: on azure193, `docker exec` routes MariaDB client connections
+through the container's Docker bridge network IP (observed as `172.20.0.2`)
+rather than through the unix socket, regardless of how the socket is
+specified on the command line. `healthcheck.sh` connects as the
+`healthcheck` user, which MariaDB's entrypoint grants only as
+`healthcheck@localhost`, `healthcheck@127.0.0.1`, and `healthcheck@::1` —
+none of which match a connection arriving from the bridge IP, so every
+`docker exec healthcheck.sh` call fails with access denied. This is a
+behavior of this specific Azure VM's Docker/network setup, not a MariaDB bug
+or a misconfiguration in this repo. It isn't isolated to this stack either —
+every other service on azure193 that needs a healthcheck (e.g. uptime-kuma)
+also uses an HTTP/TCP check rather than anything socket-based, because no
+socket-based healthcheck works there via `docker exec`.
+
+**Fix**: `deploy/docker-compose.yml`'s `db` healthcheck now connects over TCP
+to `127.0.0.1` using the app database credentials (`MYSQL_USER`/
+`MYSQL_PASSWORD`, already present via `env_file: .env`) instead of invoking
+`healthcheck.sh`:
+
+```yaml
+healthcheck:
+  test: ["CMD", "mariadb", "-h", "127.0.0.1", "-u", "${MYSQL_USER}", "-p${MYSQL_PASSWORD}", "--silent", "-e", "SELECT 1;"]
+```
+
+This has been running healthily in production on azure193 since being
+applied manually; this change syncs the repo to match.
+
+The root `docker-compose.yml` (local dev and the CI smoke-test job)
+deliberately keeps `healthcheck.sh` unchanged — socket connections behave
+normally on GitHub Actions runners and on local dev machines, so there's no
+reason to carry azure193's workaround into environments that don't need it.
+The two compose files using different healthcheck mechanisms for the same
+service is intentional, not drift.
+
+As part of the same fix, `MARIADB_AUTO_UPGRADE=1` is now set for `db` in both
+compose files (via `.env` for `deploy/docker-compose.yml`, generated in
+`cd.yml`'s `configure-env` job; via the `environment:` block for the root
+`docker-compose.yml`). It was tried during the azure193 investigation as a
+possible healthcheck-recovery mechanism and didn't fix the connection-routing
+issue above, but it's being kept permanently regardless: it makes MariaDB run
+`mysql_upgrade` automatically on startup whenever the system tables are
+behind the running server version, which is the correct standing behavior
+for a Docker-managed MariaDB instance that gets version-bumped over time
+(like the 11.4 → 12.3 move above) rather than something to only enable
+reactively. It's a no-op with negligible startup overhead on fresh installs
+and on every startup where no upgrade is needed.
