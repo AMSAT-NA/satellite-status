@@ -265,15 +265,55 @@ for a Docker-managed MariaDB instance that gets version-bumped over time
 reactively. It's a no-op with negligible startup overhead on fresh installs
 and on every startup where no upgrade is needed.
 
-## Traefik restart at the end of every deploy
+## Traefik 504s: root cause found, restart-on-deploy step removed
 
-`cd.yml`'s `deploy` job now restarts Traefik (`docker compose restart` in
-`/opt/services/traefik`) immediately after `docker compose up -d` brings the
-satellite-status stack back up. This is intentional, not a workaround: it
-compensates for a known edge case in Traefik's Docker provider event
-handling on azure193, where Traefik occasionally misses container restart
-events and fails to re-register the satellite-status routers, leaving the
-site returning 504s until Traefik is restarted manually. Restarting Traefik
-after the stack is already up and healthy is safe — the restart takes
-seconds, and Traefik discovers and registers the running containers
-correctly on startup regardless of whether it missed their restart events.
+A previous version of `cd.yml`'s `deploy` job restarted Traefik
+(`docker compose restart` in `/opt/services/traefik`) after every deploy, to
+work around intermittent 504s. That was treating a symptom — the actual root
+cause has since been found and fixed at the infrastructure level, so the
+restart step has been removed.
+
+**Root cause**: satellite-status containers sit on two Docker networks —
+their own stack-internal network (`satellite-status_default`) and
+`traefik-public`. When a container is attached to multiple networks,
+Traefik's Docker provider picks one of them to route traffic to, and it was
+picking `satellite-status_default` (`172.20.x.x`) instead of
+`traefik-public` (`172.18.x.x`). Traefik itself is only attached to
+`traefik-public`, so it couldn't reach the containers via the
+`172.20.x.x` address it had chosen — routing to an IP that was UP from the
+container's perspective but unreachable from Traefik's. Confirmed via
+Traefik's API, which reported `serverStatus: { "http://172.20.0.4:80":
+"UP" }` for a backend that was actually unreachable at that address. This
+produced persistent 504s despite the containers being healthy and the
+Docker labels being correct.
+
+**Fix**: `network: traefik-public` was added to Traefik's Docker provider
+config, in the `amsat-it-infra` repo (not this one). This pins Traefik to
+always route via the `traefik-public` IP for any container that's on
+multiple networks, which is the correct configuration for any multi-stack
+setup on azure193 where services join both a stack-internal network and
+`traefik-public`. With that fix in place, Traefik's Docker socket event
+stream reliably discovers and routes to containers on its own — no restart
+needed after a deploy.
+
+**Why the restart step was removed, not just left in place defensively**: it
+was masking the real problem rather than fixing it, and it had a real cost —
+`docker compose restart` on the shared `traefik` stack causes a brief outage
+for every service behind Traefik on azure193 (uptime-kuma today, and
+whatever else gets added later), not just satellite-status. That's an
+unacceptable side effect to carry indefinitely once the actual fix is
+available. This PR should not be merged until the `amsat-it-infra` PR adding
+`network: traefik-public` is confirmed merged and working in production —
+merging this one first would remove the workaround before the real fix is
+in place and reintroduce the 504s.
+
+**Note for anyone touching Traefik config on azure193 in the future**:
+`docker compose up -d` alone does not pick up changes to a bind-mounted
+config file (e.g. `traefik.yml`) on an already-running container —
+`docker compose up -d --force-recreate` is required to force Traefik to
+reload it.
+
+**If discovery issues resurface** after the network fix is in place, the
+manual recovery is still `docker compose restart` run directly in
+`/opt/services/traefik/` on azure193 — just not wired into every
+satellite-status deploy.
