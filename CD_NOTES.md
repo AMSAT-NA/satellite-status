@@ -264,3 +264,16 @@ for a Docker-managed MariaDB instance that gets version-bumped over time
 (like the 11.4 → 12.3 move above) rather than something to only enable
 reactively. It's a no-op with negligible startup overhead on fresh installs
 and on every startup where no upgrade is needed.
+
+## Traefik restart at the end of every deploy
+
+`cd.yml`'s `deploy` job now restarts Traefik (`docker compose restart` in
+`/opt/services/traefik`) immediately after `docker compose up -d` brings the
+satellite-status stack back up. This is intentional, not a workaround: it
+compensates for a known edge case in Traefik's Docker provider event
+handling on azure193, where Traefik occasionally misses container restart
+events and fails to re-register the satellite-status routers, leaving the
+site returning 504s until Traefik is restarted manually. Restarting Traefik
+after the stack is already up and healthy is safe — the restart takes
+seconds, and Traefik discovers and registers the running containers
+correctly on startup regardless of whether it missed their restart events.
