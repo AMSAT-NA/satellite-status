@@ -217,8 +217,3 @@ jobs:
           docker compose pull
           docker compose up -d
           ENDSSH
-
-      - name: Restart Traefik to register new containers
-        run: |
-          ssh -i ~/.ssh/deploy_key "${{ vars.HOST_USER }}@${{ vars.HOST_ADDRESS }}" \
-            'cd /opt/services/traefik && docker compose restart'
