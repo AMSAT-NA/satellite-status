@@ -26,6 +26,14 @@ final class SmokeTest extends TestCase
         $this->assertStringNotContainsString('https://forms.gle/hWmtAt52ALpvhFU29', $body);
     }
 
+    public function testDonateButtonLinksToGeneralFundPage(): void
+    {
+        $body = (string) $this->newGuestClient()->get('/')->getBody();
+
+        $this->assertStringContainsString('https://www.amsat.org/donations/amsat-general-fund-donations/', $body);
+        $this->assertStringNotContainsString('https://www.paypal.com/cgi-bin/webscr', $body);
+    }
+
     public function testApiSatInfoReturnsJsonArray(): void
     {
         $resp = $this->newGuestClient()->get('/api/v1/sat_info.php', [
