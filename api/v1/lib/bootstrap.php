@@ -170,7 +170,7 @@ function api_base_url(): string
 {
     global $siteUrl;
 
-    return rtrim((string) $siteUrl, '/') . '/api/v1';
+    return $siteUrl . '/api/v1';
 }
 
 function api_self_url(string $path): string

@@ -30,7 +30,7 @@ The app is configured entirely via environment variables — there is no config 
 
 | Variable | Description |
 |---|---|
-| `SITE_URL` | Fully-qualified public URL of the service (e.g. `https://www.amsat.org/status` for the frontend, or the API base URL for the API container) |
+| `SITE_URL` | Public base URL of the deployed site, scheme + host, no trailing slash (e.g. `https://status.amsat.org`). Set to the **same value** for both the `frontend` and `api` containers in production — both are reached through the same host, and the API derives its own base URL (`$SITE_URL/api/v1`) from it. Local Docker dev is the one exception: see [Local Docker](#local-docker) below for why frontend and API use different `SITE_URL` values there. |
 | `MYSQL_HOST` | Database hostname |
 | `MYSQL_USER` | Database username |
 | `MYSQL_PASSWORD` | Database password |
@@ -46,7 +46,15 @@ For local development, see the [Local Docker](#local-docker) section below — `
 
 The local stack runs three containers: `frontend`, `api`, and `db`.  Frontend
 and API are on **separate ports** for simplicity — no local routing proxy is
-needed.
+needed. Because there's no shared host, `docker-compose.yml` gives each
+container its own default `SITE_URL` (`http://localhost:8080` for frontend,
+`http://localhost:8081` for api) so links and API self-links resolve
+correctly on the port each service is actually reachable at. This is a
+local-dev-only difference — production sets one `SITE_URL` for both. Override
+either with a `SITE_URL` environment variable before running `docker compose
+up` if you need to point the stack at a specific value (this is also how CI's
+smoke test proves URL construction is correct for a production-shaped
+`SITE_URL`; see `.github/workflows/ci.yml`'s `docker-compose-smoke` job).
 
 ```sh
 docker compose up -d --build
