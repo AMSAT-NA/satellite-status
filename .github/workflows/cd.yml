@@ -171,7 +171,15 @@ jobs:
           MARIADB_DATABASE=${{ vars.MYSQL_DATABASE }}
           MARIADB_USER=${{ vars.MYSQL_USER }}
           MARIADB_PASSWORD=${{ secrets.MYSQL_PASSWORD }}
+          APP_COMMIT_SHA=${{ github.sha }}
           ENVEOF
+          # Deploy timestamp isn't a GitHub Actions expression value, so it's
+          # appended separately (outside the quoted heredoc) rather than
+          # forced into the same substitution mechanism as the vars/secrets
+          # above. Both values are read from what the workflow run already
+          # knows automatically (the triggering commit, the runner's clock)
+          # rather than stored as a new repo/org variable in GitHub settings.
+          echo "APP_DEPLOYED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> /tmp/satellite-status.env
           chmod 600 /tmp/satellite-status.env
 
       - name: Ship compose file, .env, and schema to server

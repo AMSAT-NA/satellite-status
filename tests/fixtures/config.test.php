@@ -13,3 +13,9 @@ $mysqlHost     = getenv('TEST_DB_HOST')     ?: 'mariadb';
 $mysqlUsername = getenv('TEST_DB_USER')     ?: 'satstatus';
 $mysqlPassword = getenv('TEST_DB_PASS')     ?: 'satstatus';
 $mysqlDatabase = getenv('TEST_DB_NAME')     ?: 'satstatus';
+
+// Deploy-identity values, only ever set by the CD pipeline. Left null here
+// (same as an un-deployed local dev run) so tests exercise the "not
+// deployed" code path rather than a fabricated commit/timestamp.
+$appCommitSha  = null;
+$appDeployedAt = null;

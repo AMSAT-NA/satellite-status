@@ -31,6 +31,27 @@ function api_db(): mysqli
 }
 
 /**
+ * Deploy-identity headers (which commit, when it went out), kept out of
+ * response bodies per-request so every JSON payload doesn't carry the same
+ * metadata over and over. $appCommitSha / $appDeployedAt are only set in
+ * deployed environments (see config.php) — omitted entirely in local dev.
+ */
+function api_send_version_headers(): void
+{
+    global $appCommitSha, $appDeployedAt;
+
+    header('X-AMSAT-API-Version: ' . API_VERSION);
+
+    if ($appCommitSha !== null) {
+        header('X-AMSAT-API-Commit: ' . substr($appCommitSha, 0, 7));
+    }
+
+    if ($appDeployedAt !== null) {
+        header('X-AMSAT-API-Deployed-At: ' . $appDeployedAt);
+    }
+}
+
+/**
  * @param array<string, string> $headers
  */
 function api_json_response($payload, int $status = 200, array $headers = []): void
@@ -40,7 +61,7 @@ function api_json_response($payload, int $status = 200, array $headers = []): vo
     header('Cache-Control: no-store');
     header('Access-Control-Allow-Origin: *');
     header('Access-Control-Allow-Headers: Content-Type');
-    header('X-AMSAT-API-Version: ' . API_VERSION);
+    api_send_version_headers();
 
     foreach ($headers as $name => $value) {
         header($name . ': ' . $value);
@@ -53,6 +74,7 @@ function api_json_response($payload, int $status = 200, array $headers = []): vo
 function api_legacy_json_response($payload): void
 {
     header('Content-Type: application/json');
+    api_send_version_headers();
     echo json_encode($payload);
     exit;
 }

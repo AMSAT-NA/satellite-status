@@ -7,3 +7,5 @@ from reading the code or git history alone.
 # Concepts
 
 * [ci-pipeline.md](ci-pipeline.md) - GitHub Actions CI pipeline design decisions
+* [deploy-versioning.md](deploy-versioning.md) - Deploy-time commit SHA / timestamp surfaced on the frontend and API
+* [changelog-convention.md](changelog-convention.md) - How agents should update the root CHANGELOG, and why it isn't CI-enforced

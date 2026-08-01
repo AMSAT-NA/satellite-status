@@ -918,6 +918,9 @@ printf("<option value=%s>%s", $SPeriod, $PName); ?>
 <center>
 &copy; Radio Amateur Satellite Corporation (AMSAT).
 <p>Based on the original idea of David Carr, KD5QGR & Bob Bruninga, WB4APR</p>
+<?php if ($appCommitSha !== null && $appDeployedAt !== null): ?>
+<p style="font-size:12px;color:#888;">Last updated <?php echo htmlspecialchars(date('m/d/Y H:i', strtotime($appDeployedAt))); ?> UTC (commit <?php echo htmlspecialchars(substr($appCommitSha, 0, 7)); ?>)</p>
+<?php endif; ?>
 <br>
 </body>
 </html>
