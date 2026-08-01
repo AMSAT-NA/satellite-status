@@ -231,7 +231,7 @@ jobs:
           echo "$BODY"
           SELF=$(echo "$BODY" | jq -r '.data[0].links.self')
           echo "Self link: $SELF"
-          [ "$SELF" = "https://status.amsat.org/api/v1/catalog.php?name=AO-91" ]
+          [ "$SELF" = "${SITE_URL}/api/v1/catalog.php?name=AO-91" ]
 
       - name: Smoke-test SITE_URL portability (a different SITE_URL isn't hardcoded away)
         env:
@@ -242,7 +242,7 @@ jobs:
           echo "$BODY"
           SELF=$(echo "$BODY" | jq -r '.data[0].links.self')
           echo "Self link: $SELF"
-          [ "$SELF" = "https://example.org/api/v1/catalog.php?name=AO-91" ]
+          [ "$SELF" = "${SITE_URL}/api/v1/catalog.php?name=AO-91" ]
 
       - name: Dump compose logs on failure
         if: failure()
