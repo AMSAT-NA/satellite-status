@@ -236,6 +236,7 @@ jobs:
       - name: Smoke-test SITE_URL portability (a different SITE_URL isn't hardcoded away)
         env:
           SITE_URL: https://example.org
+        timeout-minutes: 5
         run: |
           docker compose up -d --wait
           BODY=$(curl -sf "http://localhost:8081/api/v1/catalog.php?name=AO-91")

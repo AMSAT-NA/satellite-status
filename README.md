@@ -55,6 +55,11 @@ either with a `SITE_URL` environment variable before running `docker compose
 up` if you need to point the stack at a specific value (this is also how CI's
 smoke test proves URL construction is correct for a production-shaped
 `SITE_URL`; see `.github/workflows/ci.yml`'s `docker-compose-smoke` job).
+Note that Docker Compose also auto-loads a `.env` file from this directory if
+one exists (separately from the `env_file:` mechanism `deploy/docker-compose.yml`
+uses) — if you've created a root-level `.env` here for some other reason and
+it sets `SITE_URL`, that value silently wins over the port-specific defaults
+below.
 
 ```sh
 docker compose up -d --build
