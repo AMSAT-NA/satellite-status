@@ -69,8 +69,20 @@ pull requests (trigger: `push: branches: ["**"]` and `pull_request: branches: ["
 
 ## Open questions / future work
 
-- CD (deployment pipeline) is not yet implemented. The `build` job produces a tarball artifact
-  that is not yet consumed by anything automated.
 - Consider pinning the Playwright image version once a regular update cadence is established.
 - Evaluate whether `check-php-version` is worth keeping as a standalone job once the project is
   fully containerized (it becomes redundant with the Dockerfile).
+
+## Update: CD now exists
+
+The line above about CD not being implemented is no longer true — it shipped in
+[.github/workflows/cd.yml](/.github/workflows/cd.yml) and has deployed to production (azure193)
+multiple times since. The `build` job's tarball artifact predates CD and remains unconsumed by it;
+CD builds and pushes its own Docker images independently rather than using that artifact.
+
+Full CD decision history (trigger scope, path-gating, ACR push, Traefik integration, `SITE_URL`
+handling, deploy-time versioning) lives in [CD_NOTES.md](/CD_NOTES.md) and
+[RESTRUCTURE_NOTES.md](/RESTRUCTURE_NOTES.md) at the repo root rather than duplicated here — this
+bundle covers judgment calls specific to the CI *gate* (this doc) and to deploy-time versioning
+(see [deploy-versioning.md](deploy-versioning.md)); the root-level notes files are the CD system of
+record.
