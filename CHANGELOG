@@ -23,4 +23,4 @@ CHANGE LOG:
       documented in docs/agents/changelog-convention.md (not CI-enforced —
       see that doc for why), and refreshed the docs/agents/ knowledge
       bundle, which had gone stale since CD shipped.
-    - Commit: (this branch's HEAD — see git log feat/deploy-versioning-info)
+    - Commit: ed6fb69
