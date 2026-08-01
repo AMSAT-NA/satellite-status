@@ -412,3 +412,217 @@ healthchecks.
 - `SITE_URL`/`siteUrl` correctness is explicitly deferred — not investigated
   or touched here.
 - Full CD workflow (deploy automation) remains a separate future task.
+
+---
+
+## `SITE_URL`/`siteUrl` trace, consolidation, and CI proof
+
+Follow-up to the deferral above, prompted by the repo going open source: it's
+no longer enough for `status.amsat.org` to work — anyone cloning this repo
+and pointing it at their own domain needs to be able to do that by editing
+one obvious value, not by hunting for hardcoded assumptions.
+
+### Full trace
+
+Every read/write of the `SITE_URL` env var or `$siteUrl` PHP variable
+(no other case-variants — `site_url`, `SiteUrl`, etc. — exist anywhere in the
+repo):
+
+| File | Line(s) | Kind | Constructs |
+|---|---|---|---|
+| `frontend/v1/config.php` | 7 | definition | `$siteUrl` from `getenv("SITE_URL")`, default `"[SITEURL]"` |
+| `api/v1/config.php` | 7 | definition | same, byte-identical to frontend's |
+| `tests/fixtures/config.test.php` | 11 | definition | `$siteUrl` from `getenv('TEST_BASE_URL')`, default `http://127.0.0.1:8000` — intentionally separate var name; copied over both `config.php` files by CI before the PHPUnit/Playwright dev server starts |
+| `api/v1/lib/bootstrap.php` | 169–173 | usage | `api_base_url()` = `$siteUrl . '/api/v1'` — the canonical API base-URL builder |
+| `api/v1/lib/bootstrap.php` | 176–178 | usage | `api_self_url($path)` = `api_base_url() . '/' . ltrim($path, '/')` |
+| `api/v1/index.php` | 10 | usage | plaintext API root doc, via `api_self_url('overview.php')` |
+| `api/v1/overview.php` | 7, 161, 164 | usage | HTML "Base URLs" table, via `$baseUrl = api_base_url()` |
+| `api/v1/catalog.php` | 28–29 | usage | JSON `links.self` / `links.reports` per satellite, via `api_self_url()` |
+| `api/v1/reports.php` | 29, 33 | usage | JSON `links.satellite_reports` and a `Location` header, via `api_self_url()` |
+| `frontend/v1/admin/*.php` (8 files) | various | usage | redirect `Location` headers, `<form action>`, `<link href>`, and plain `<a href>` — all raw `$siteUrl . '/admin/...'`, no API-side helper equivalent exists on the frontend |
+| `docker-compose.yml` | 9, 43 | definition (local dev) | per-service `SITE_URL` default, `:8080` for frontend / `:8081` for api |
+| `deploy/docker-compose.yml`, `.github/workflows/cd.yml` (`configure-env` job) | — | definition (prod) | ships one `SITE_URL` value (from `vars.SITE_URL`) into a shared `.env`, `env_file:`'d by both containers |
+| `.env.example` | 14 | definition (prod template) | documents the prod value |
+| `README.md` | 33, 97–98, 118 | docs | usage examples |
+
+### `frontend/v1/config.php` vs `api/v1/config.php`: confirmed identical, not diverged
+
+`diff frontend/v1/config.php api/v1/config.php` — zero output, byte-identical,
+both before and after this task's changes. Both read `$siteUrl`,
+`$mysqlHost`, `$mysqlUsername`, `$mysqlPassword`, `$mysqlDatabase` from the
+same env var names with the same `?:` default pattern. No divergence found.
+
+### Bug found: trailing-slash handling was inconsistent, not centralized
+
+Before this task, defaulting logic (`getenv(...) ?: default`) was duplicated
+verbatim across the two `config.php` files (fine — they're proven identical)
+and a third time in `tests/fixtures/config.test.php` (fine — intentionally
+separate, different var). But *validation* — specifically, whether a
+trailing slash on `SITE_URL` gets stripped — was **not** centralized at all:
+
+- `api/v1/lib/bootstrap.php`'s `api_base_url()` called `rtrim($siteUrl, '/')`
+  itself.
+- `api/v1/overview.php` (lines 161, 164) independently called
+  `rtrim((string) $siteUrl, '/')` again, instead of using `api_base_url()`.
+- `api/v1/index.php` (line 10) independently called `rtrim(...)` a third
+  time, also instead of using `api_base_url()`.
+- Every `frontend/v1/admin/*.php` file used raw `$siteUrl` with **no**
+  `rtrim` at all.
+
+Net effect: if an operator set `SITE_URL=https://status.amsat.org/` (trailing
+slash — an easy mistake, and not documented against), the API would produce
+correct URLs (all three of its call sites defensively stripped the slash)
+while every admin page would silently produce a double slash
+(`https://status.amsat.org//admin/dashboard.php`). Confirmed locally: with
+`SITE_URL` set to a trailing-slash value against the pre-fix code, admin form
+actions and links contained `//admin/...`.
+
+**Fix:** trailing-slash stripping now happens in exactly one place —
+`frontend/v1/config.php` and `api/v1/config.php` (identical, one line):
+
+```php
+$siteUrl = rtrim(getenv("SITE_URL") ?: "[SITEURL]", '/');
+```
+
+(`tests/fixtures/config.test.php` got the same `rtrim()` for the same
+reason, applied to `TEST_BASE_URL`.) Every downstream call site now trusts
+`$siteUrl` to already be normalized:
+
+- `api_base_url()` no longer calls `rtrim()` itself — just
+  `$siteUrl . '/api/v1'`.
+- `api/v1/overview.php`'s Swagger UI and Acknowledgements links now reuse
+  `$baseUrl` (`= api_base_url()`) instead of re-deriving the site root with
+  their own `rtrim()` call.
+- `api/v1/index.php`'s documentation line now calls
+  `api_self_url('overview.php')` instead of re-deriving the URL by hand.
+
+This leaves `config.php` as the one place that defines *how* `SITE_URL` is
+defaulted and validated. Scheme requirement (rejecting a `SITE_URL` with no
+`http://`/`https://`) was considered and deliberately **not** added — no
+observed failure mode requires it, .env.example now says to always include
+the scheme, and adding a fail-fast check for a case that hasn't caused a
+production incident felt like scope creep beyond what this task's evidence
+supports. If a real misconfiguration incident ever happens here, add the
+check then, with a concrete case to test against.
+
+### Consolidation approach: documented-parallel, not literal single-source
+
+The task's most-preferred option — the two `config.php` files already read
+the same env var into a consistently-named variable — was already true, and
+is what's exploited above (fix the shared logic once, apply it verbatim to
+both files). The next-preferred option — one `config.php` `require`s the
+other — was evaluated and rejected: `frontend/v1` and `api/v1` are **separate
+Docker build contexts** (`docker-compose.yml` / `cd.yml`: `context:
+./frontend/v1` and `context: ./api/v1`), copied into non-overlapping paths
+inside two different images (`COPY . /var/www/html/` vs.
+`COPY . /var/www/html/api/v1/`). Neither image's filesystem contains the
+other stack's directory at build or run time, so a `require` across them is
+impossible without changing both Dockerfiles' build context to the repo
+root — which would ripple into `docker-compose.yml`, `deploy/docker-compose.yml`,
+and `cd.yml`'s build steps. That's a real restructure of how the two stacks
+are bundled, not a config change, so it wasn't forced for this task.
+
+Landed on: two files, kept byte-identical, each independently normalizing
+`SITE_URL` with the exact same one-line logic. This isn't "diverged" — it's
+verified-identical-by-diff, which is the honest name for what's achievable
+without touching the build/deploy topology. A future task that unifies the
+two stacks' deployment (e.g. a shared base image, or a monorepo-style shared
+`lib/` copied into both build contexts) would be the natural point to make
+this a literal single file.
+
+### `SITE_URL` differing between frontend and api in local dev: intentional, now documented
+
+`docker-compose.yml` sets `SITE_URL: http://localhost:8080` for `frontend`
+and `http://localhost:8081` for `api` — genuinely different values for the
+two containers, unlike production (one value, shared, via Traefik path
+routing on a single host). This is intentional: local dev has no reverse
+proxy, so each service needs to describe the port it's actually reachable
+at for its own self-links to resolve. This was previously undocumented
+(and, before this task, `README.md`'s variable table actively suggested the
+opposite: it described `SITE_URL` as varying between `https://www.amsat.org/status`
+for the frontend and "the API base URL" for the API, phrasing left over from
+before the Traefik/single-host setup and inconsistent with `.env.example`
+and the `Usage` section, which both correctly show one shared value).
+`README.md`'s variable table and "Local Docker" section were rewritten to
+state plainly that production uses one `SITE_URL` for both containers and
+local dev's per-port defaults are the deliberate exception, not the rule.
+
+Both `SITE_URL` occurrences in `docker-compose.yml` were changed from a
+literal default to `${SITE_URL:-http://localhost:8080}` /
+`${SITE_URL:-http://localhost:8081}`. With no `SITE_URL` in the invoking
+shell's environment, behavior is unchanged from before (each service keeps
+its own port-specific default). Setting `SITE_URL` before `docker compose
+up` overrides both to the same value — this is what makes the CI proof in
+the next section possible without a separate compose file.
+
+### CI proof: `docker-compose-smoke` extended, not duplicated
+
+Per the task, the existing `docker-compose-smoke` job in
+`.github/workflows/ci.yml` was extended rather than adding a new job:
+
+1. The job now sets `SITE_URL: https://status.amsat.org` at the job level,
+   so the stack is built and started with a production-shaped value from
+   the first step — single host, `https`, no port.
+2. **`Smoke-test SITE_URL correctness`**: `GET
+   /api/v1/catalog.php?name=AO-91` (reached at its real CI port,
+   `localhost:8081`) and assert `data[0].links.self` is *exactly*
+   `https://status.amsat.org/api/v1/catalog.php?name=AO-91` — no
+   `:8081`, no `http://`, no `localhost`. `catalog.php` was chosen because
+   its `links.self`/`links.reports` (built via `api_self_url()`) are the
+   clearest example of `SITE_URL` flowing into a real, asserted response
+   field.
+3. **Bonus — `Smoke-test SITE_URL portability`**: re-runs `docker compose up
+   -d --wait` with `SITE_URL` overridden to `https://example.org` for that
+   step only (Compose detects the env diff and recreates just `frontend`
+   and `api`; `db` is untouched) and re-asserts the same `catalog.php` field
+   now equals `https://example.org/api/v1/catalog.php?name=AO-91`. If this
+   passed while the first assertion also passed, nothing in the app is
+   hardcoding `status.amsat.org` — the portability claim is proven, not
+   assumed.
+
+Both assertions were run manually against the real `docker-compose.yml`
+stack before pushing (not just reasoned about): first attempt already
+passed for `https://status.amsat.org` (no code bug — the trailing-slash fix
+above was found and fixed via the *inventory*, not via this assertion
+failing) and for `https://example.org`. Also manually confirmed with
+`SITE_URL=https://status.amsat.org/` (trailing slash) that admin pages no
+longer produce `//admin/...` after the config.php fix.
+
+### Known hardcoded values / portability follow-ups (found, not fixed)
+
+Found via a repo-wide grep for `amsat.org` / `amsatorg` outside config and
+docs. None of these are `SITE_URL`-adjacent enough to fix here; listed for a
+future portability pass:
+
+- **`docker-compose.yml` / `deploy/docker-compose.yml`** — Traefik router
+  labels hardcode `Host(\`status.amsat.org\`)` directly (not derived from
+  `SITE_URL`). A fork pointing at a different domain would need to edit
+  these labels by hand. Templatizing this would need a new `SITE_DOMAIN`-
+  style variable (Traefik's `Host()` matcher needs a bare host, not a full
+  URL with scheme) — a real design decision, not a one-line fix, so left as
+  a follow-up rather than done here.
+- **`.github/workflows/cd.yml`** — `amsatorg.azurecr.io` (ACR registry
+  name) is hardcoded in the deploy job's `docker login` step. CD/deploy
+  concerns are explicitly out of scope for this task.
+- **`frontend/v1/index.php`** — the "Support AMSAT" donation link
+  (`https://www.amsat.org/donations/amsat-general-fund-donations/`) and the
+  `webmaster@amsat.org` support email are hardcoded branding/content, not
+  configuration. Fine for AMSAT's own deployment; a fork would need to edit
+  the page directly. Not a `SITE_URL`-shaped problem — there's no single env
+  var that would generalize page copy.
+- **`db/seed.sql`** — seeded satellite `website` values point at
+  `amsat.org` pages. This is dev/demo fixture data (per existing project
+  convention — `db/seed.sql` is explicitly not shipped to production, see
+  the CD Notes above), not something a fork would inherit into their own
+  database.
+
+None of these were touched — they're content and deploy-topology decisions,
+not the `SITE_URL` consolidation this task scoped in.
+
+### Verification
+
+- `docker-compose-smoke` (existing checks + both new `SITE_URL` assertions)
+  run manually against the real stack, both passing, before pushing.
+- `php -l` clean on every touched PHP file.
+- CI (PHPUnit, Playwright, docker-compose-smoke) confirmed on the branch
+  before this was considered done — see the PR for the run link.

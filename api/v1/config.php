@@ -4,7 +4,7 @@
   Configuration Items
 */
 
-$siteUrl = getenv("SITE_URL") ?: "[SITEURL]";
+$siteUrl = rtrim(getenv("SITE_URL") ?: "[SITEURL]", '/');
 
 $mysqlHost = getenv("MYSQL_HOST") ?: "[HOST]";
 $mysqlUsername = getenv("MYSQL_USER") ?: "[USERNAME]";

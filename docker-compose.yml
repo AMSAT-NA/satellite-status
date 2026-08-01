@@ -6,7 +6,7 @@ services:
     ports:
       - "8080:80"
     environment:
-      SITE_URL: http://localhost:8080
+      SITE_URL: ${SITE_URL:-http://localhost:8080}
       MYSQL_HOST: db
       MYSQL_USER: satellite
       MYSQL_PASSWORD: satellite
@@ -40,7 +40,7 @@ services:
     ports:
       - "8081:80"
     environment:
-      SITE_URL: http://localhost:8081
+      SITE_URL: ${SITE_URL:-http://localhost:8081}
       MYSQL_HOST: db
       MYSQL_USER: satellite
       MYSQL_PASSWORD: satellite

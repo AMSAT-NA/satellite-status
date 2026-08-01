@@ -192,6 +192,11 @@ jobs:
 
   docker-compose-smoke:
     runs-on: ubuntu-latest
+    env:
+      # Production-shaped value (single host, https, no port) so the
+      # SITE_URL correctness checks below prove the app builds correct
+      # URLs for a real deploy, not just for local-dev's per-port defaults.
+      SITE_URL: https://status.amsat.org
     steps:
       - uses: actions/checkout@v6
 
@@ -219,6 +224,26 @@ jobs:
           BODY=$(curl -sf http://localhost:8081/api/v1/satellites.php)
           echo "$BODY" | head -c 500
           echo "$BODY" | jq -e 'type == "array" and length > 0'
+
+      - name: Smoke-test SITE_URL correctness (self-links match the production URL exactly)
+        run: |
+          BODY=$(curl -sf "http://localhost:8081/api/v1/catalog.php?name=AO-91")
+          echo "$BODY"
+          SELF=$(echo "$BODY" | jq -r '.data[0].links.self')
+          echo "Self link: $SELF"
+          [ "$SELF" = "${SITE_URL}/api/v1/catalog.php?name=AO-91" ]
+
+      - name: Smoke-test SITE_URL portability (a different SITE_URL isn't hardcoded away)
+        env:
+          SITE_URL: https://example.org
+        timeout-minutes: 5
+        run: |
+          docker compose up -d --wait
+          BODY=$(curl -sf "http://localhost:8081/api/v1/catalog.php?name=AO-91")
+          echo "$BODY"
+          SELF=$(echo "$BODY" | jq -r '.data[0].links.self')
+          echo "Self link: $SELF"
+          [ "$SELF" = "${SITE_URL}/api/v1/catalog.php?name=AO-91" ]
 
       - name: Dump compose logs on failure
         if: failure()

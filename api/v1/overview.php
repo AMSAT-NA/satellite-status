@@ -158,10 +158,10 @@ $baseUrl = api_base_url();
     <table>
       <tr><th>Purpose</th><th>URL</th></tr>
       <tr><td>API root</td><td><code><?php echo htmlspecialchars($baseUrl); ?></code></td></tr>
-      <tr><td>Swagger UI</td><td><a href="./docs.php"><code><?php echo htmlspecialchars(rtrim((string) $siteUrl, '/')); ?>/api/v1/docs.php</code></a></td></tr>
+      <tr><td>Swagger UI</td><td><a href="./docs.php"><code><?php echo htmlspecialchars($baseUrl); ?>/docs.php</code></a></td></tr>
       <tr><td>OpenAPI JSON</td><td><a href="<?php echo htmlspecialchars($baseUrl); ?>/openapi.php"><code><?php echo htmlspecialchars($baseUrl); ?>/openapi.php</code></a></td></tr>
       <tr><td>Legacy reports</td><td><a href="<?php echo htmlspecialchars($baseUrl); ?>/sat_info.php?name=AO-91&amp;hours=24"><code><?php echo htmlspecialchars($baseUrl); ?>/sat_info.php?name=AO-91&amp;hours=24</code></a></td></tr>
-      <tr><td>Acknowledgements</td><td><a href="./acknowledgements.php"><code><?php echo htmlspecialchars(rtrim((string) $siteUrl, '/')); ?>/api/v1/acknowledgements.php</code></a></td></tr>
+      <tr><td>Acknowledgements</td><td><a href="./acknowledgements.php"><code><?php echo htmlspecialchars($baseUrl); ?>/acknowledgements.php</code></a></td></tr>
     </table>
   </section>
 
