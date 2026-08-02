@@ -25,6 +25,15 @@ include("config.php");
 -->
 </style>
 
+<style media="screen">
+  .reportsFromList {
+    max-height: 300px;
+    overflow-y: auto;
+    width: 100%;
+    text-align: center;
+  }
+</style>
+
 </head>
 
 <body link="black" alink="black" vlink="black">
@@ -677,18 +686,20 @@ echo("</table>");
 <br>
 <table width="100%" border=0>
 <tr>
-<td width="20%" align="center" cellpadding=20><font color="4169E1" size=4><b>Reports From:</b></font>
+<td width="20%" align="center" cellpadding=20 valign="top"><font color="4169E1" size=4><b>Reports From:</b></font>
 <br>
+<div class="reportsFromList">
 <?php
-$result = mysqli_query($db, "SELECT DISTINCT callsign FROM satellite " .
+$result = mysqli_query($db, "SELECT callsign, MAX(CONCAT(day, ' ', LPAD(hour, 2, '0'))) AS last_report FROM satellite " .
                       "WHERE FLOOR((23 - hour) / 2) + ((TO_DAYS(NOW()) - TO_DAYS(day)) * 12) BETWEEN 0 and " . ($nDays * 12 - 1) . " " .
-                      "AND callsign <> 'TEST' AND callsign <> '' ORDER BY callsign");
+                      "AND callsign <> 'TEST' AND callsign <> '' GROUP BY callsign ORDER BY last_report DESC");
 while($value = mysqli_fetch_array($result))
 {
-  printf("<br><b>%s</b>",strtoupper($value[0]));
+  printf("<br><b>%s</b>",strtoupper($value['callsign']));
 }
 
 ?>
+</div>
 </td>
 <td width="80%" align="center" valign="top">
 <br>
