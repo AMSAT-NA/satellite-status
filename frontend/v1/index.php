@@ -27,7 +27,7 @@ include("config.php");
 
 <style media="screen">
   .reportsFromList {
-    max-height: 300px;
+    max-height: 500px;
     overflow-y: auto;
     width: 100%;
     text-align: center;
