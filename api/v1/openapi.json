@@ -375,9 +375,6 @@
                     "grid_square": {
                         "type": "string",
                         "nullable": true
-                    },
-                    "period": {
-                        "type": "integer"
                     }
                 },
                 "type": "object"

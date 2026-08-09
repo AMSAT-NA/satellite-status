@@ -24,3 +24,46 @@ CHANGE LOG:
       see that doc for why), and refreshed the docs/agents/ knowledge
       bundle, which had gone stale since CD shipped.
     - Commit: ed6fb69
+2026-08-09:
+    - Report timestamp precision migration (Issue #24). BREAKING CHANGE for
+      API consumers of GET/POST /api/v1/reports.php -- no deprecation
+      window. If you consume this API, read this entry before upgrading:
+        - `satellite` gains two real columns: `observed_at` (when the
+          activity happened -- new source of truth) and `submitted_at`
+          (when the server received the report; DB-generated only, never
+          accepted from request payloads). The old `day`/`hour`/`period`
+          columns are frozen as a historical archive -- nothing reads or
+          writes them going forward.
+        - Fixed a real display bug: `reported_time` in GET/POST responses
+          previously always showed `:30:00` regardless of when the report
+          actually happened (a `CONCAT(day, "T", LPAD(hour,2,"0"),
+          ":30:00Z")` reconstruction bug). It now reflects the real
+          submitted time, down to the minute.
+        - `period` is removed from the GET /reports.php response. It can
+          no longer reflect real data going forward.
+        - `replaced_count` is removed from the POST /reports.php response.
+          Writes are now non-destructive: submitting another report for
+          the same satellite/callsign/time no longer deletes-and-replaces
+          the previous one -- every submission is stored. If your
+          integration relied on the old delete+insert "correction"
+          behavior, you'll need to de-duplicate on your own end (e.g. by
+          taking the most recent `reported_time` per satellite/callsign).
+        - The `since` filter on GET /reports.php now does a real timestamp
+          comparison instead of comparing against the buggy reconstructed
+          string above -- boundary behavior may differ slightly from
+          before for requests near an exact `:30:00`.
+        - Backfilled historical data (everything reported before this
+          migration shipped) is only accurate to 15-minute-bucket
+          precision -- that's the real precision that existed at capture
+          time (the old `period` field), not minute-level. Only reports
+          submitted after this shipped have true minute precision.
+      `frontend/v1/submit.php` now POSTs to the API instead of writing to
+      MySQL directly (its first use of the site's own API), and its "you
+      already made a report" duplicate-replace warning is gone along with
+      the behavior it described. `frontend/v1/index.php`'s status grid,
+      tooltips, and "Reports From" list were rewritten against
+      `observed_at` in the same PR, since they'd otherwise show nothing
+      for any report submitted after this shipped.
+      A production DB migration (db/migrations/) targeting dallas190 is
+      run manually by the project owner -- separate from this app-code
+      deploy, and not wired into CI/CD.

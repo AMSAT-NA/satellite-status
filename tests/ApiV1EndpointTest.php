@@ -90,8 +90,11 @@ final class ApiV1EndpointTest extends TestCase
         $this->assertSame(1, $this->countRows('satellite', "callsign='W5API'"));
     }
 
-    public function testPostReportReplacesDuplicatePeriod(): void
+    public function testPostReportDoesNotReplaceDuplicate(): void
     {
+        // Issue #24: writes are non-destructive now -- submitting twice
+        // for the same satellite/callsign/time stores both reports
+        // rather than deleting-and-replacing the first.
         $reportedAt = gmdate('Y-m-d\TH:20:00\Z', time() - 3600);
         $client = $this->newGuestClient();
         $first = $client->post('/api/v1/reports.php', [
@@ -115,13 +118,106 @@ final class ApiV1EndpointTest extends TestCase
 
         $this->assertSame(201, $first->getStatusCode());
         $this->assertSame(201, $second->getStatusCode());
-        $payload = json_decode((string) $second->getBody(), true);
-        $this->assertSame(1, $payload['data']['replaced_count']);
-        $this->assertSame(1, $this->countRows('satellite', "callsign='W5DUP'"));
-        $this->assertSame(
-            'Not Heard',
-            $this->db->query("SELECT report FROM satellite WHERE callsign='W5DUP'")->fetch_assoc()['report']
+        $firstPayload = json_decode((string) $first->getBody(), true);
+        $secondPayload = json_decode((string) $second->getBody(), true);
+        $this->assertArrayNotHasKey('replaced_count', $firstPayload['data']);
+        $this->assertArrayNotHasKey('replaced_count', $secondPayload['data']);
+        $this->assertNotSame($firstPayload['data']['id'], $secondPayload['data']['id']);
+        $this->assertSame(2, $this->countRows('satellite', "callsign='W5DUP'"));
+
+        $reports = $this->db->query("SELECT report FROM satellite WHERE callsign='W5DUP' ORDER BY id ASC");
+        $this->assertSame('Heard', $reports->fetch_assoc()['report']);
+        $this->assertSame('Not Heard', $reports->fetch_assoc()['report']);
+    }
+
+    public function testPostReportIgnoresSpoofedSubmittedAt(): void
+    {
+        $resp = $this->newGuestClient()->post('/api/v1/reports.php', [
+            'json' => [
+                'name' => 'AO-91',
+                'report' => 'Heard',
+                'callsign' => 'W5SPF',
+                'reported_at' => gmdate('Y-m-d\TH:i:s\Z', time() - 3600),
+                'submitted_at' => '2000-01-01T00:00:00Z',
+            ],
+        ]);
+
+        $this->assertSame(201, $resp->getStatusCode());
+        $submittedAt = $this->db->query(
+            "SELECT submitted_at FROM satellite WHERE callsign='W5SPF'"
+        )->fetch_assoc()['submitted_at'];
+
+        $this->assertNotNull($submittedAt);
+        $this->assertGreaterThan(
+            strtotime('2000-01-02T00:00:00Z'),
+            strtotime($submittedAt . ' UTC'),
+            'submitted_at must be server-generated, not the spoofed request value'
         );
+    }
+
+    public function testGetReportsResponseHasNoPeriodField(): void
+    {
+        $resp = $this->newGuestClient()->get('/api/v1/reports.php', [
+            'query' => ['name' => 'AO-91', 'hours' => 72],
+        ]);
+
+        $payload = json_decode((string) $resp->getBody(), true);
+        $this->assertNotEmpty($payload['data']);
+        $this->assertArrayNotHasKey('period', $payload['data'][0]);
+    }
+
+    public function testPostReportPreservesMinutePrecision(): void
+    {
+        // Core proof of the display-bug fix: previously every reported_time
+        // showed :30:00 regardless of the real submitted minute. Uses
+        // yesterday's date at a fixed, clearly-not-:30 time.
+        $reportedAt = gmdate('Y-m-d', time() - 86400) . 'T14:07:00Z';
+        $resp = $this->newGuestClient()->post('/api/v1/reports.php', [
+            'json' => [
+                'name' => 'AO-91',
+                'report' => 'Heard',
+                'callsign' => 'W5PRC',
+                'reported_at' => $reportedAt,
+            ],
+        ]);
+
+        $this->assertSame(201, $resp->getStatusCode());
+        $payload = json_decode((string) $resp->getBody(), true);
+        $this->assertSame($reportedAt, $payload['data']['reported_time']);
+        $this->assertStringNotContainsString(':30:00Z', $payload['data']['reported_time']);
+
+        $getResp = $this->newGuestClient()->get('/api/v1/reports.php', [
+            'query' => ['callsign' => 'W5PRC'],
+        ]);
+        $getPayload = json_decode((string) $getResp->getBody(), true);
+        $this->assertSame($reportedAt, $getPayload['data'][0]['reported_time']);
+    }
+
+    public function testReportsSinceFilterIsRealTimestampComparison(): void
+    {
+        $client = $this->newGuestClient();
+        $justBefore = gmdate('Y-m-d\TH:i:s\Z', time() - 7200);
+        $justAfter = gmdate('Y-m-d\TH:i:s\Z', time() - 1800);
+
+        $client->post('/api/v1/reports.php', [
+            'json' => [
+                'name' => 'AO-91', 'report' => 'Heard', 'callsign' => 'W5OLD',
+                'reported_at' => $justBefore,
+            ],
+        ]);
+        $client->post('/api/v1/reports.php', [
+            'json' => [
+                'name' => 'AO-91', 'report' => 'Heard', 'callsign' => 'W5NEW',
+                'reported_at' => $justAfter,
+            ],
+        ]);
+
+        $since = gmdate('Y-m-d\TH:i:s\Z', time() - 3600);
+        $resp = $client->get('/api/v1/reports.php', ['query' => ['since' => $since]]);
+        $callsigns = array_column(json_decode((string) $resp->getBody(), true)['data'], 'callsign');
+
+        $this->assertContains('W5NEW', $callsigns);
+        $this->assertNotContains('W5OLD', $callsigns);
     }
 
     public function testPostReportRejectsFutureTimestamp(): void
@@ -168,6 +264,32 @@ final class ApiV1EndpointTest extends TestCase
         $this->assertIsArray($payload['data']);
         $this->assertNotEmpty($payload['data']);
         $this->assertArrayHasKey('report_count', $payload['data'][0]);
+    }
+
+    public function testSummaryGroupingIsUnchangedByObservedAtMigration(): void
+    {
+        // Issue #24 regression: summary()'s GROUP BY (name, display_name,
+        // report) and aggregation logic are untouched by the day/hour/
+        // period -> observed_at read-path rewrite -- only the precision
+        // of latest_reported_time should differ. TestCase's fixture seeds
+        // two AO-91/Heard reports and one FO-29/Heard report.
+        $resp = $this->newGuestClient()->get('/api/v1/summary.php', [
+            'query' => ['hours' => 72],
+        ]);
+        $payload = json_decode((string) $resp->getBody(), true);
+
+        $rows = array_filter(
+            $payload['data'],
+            static fn (array $row) => $row['name'] === 'AO-91' && $row['report'] === 'Heard'
+        );
+        $ao91Row = array_values($rows)[0];
+        $this->assertSame(2, $ao91Row['report_count']);
+
+        $fo29Rows = array_values(array_filter(
+            $payload['data'],
+            static fn (array $row) => $row['name'] === 'FO-29' && $row['report'] === 'Heard'
+        ));
+        $this->assertSame(1, $fo29Rows[0]['report_count']);
     }
 
     public function testStatusesReturnsCanonicalValues(): void

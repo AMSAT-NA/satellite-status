@@ -5,6 +5,12 @@ declare(strict_types=1);
 require_once __DIR__ . '/validation.php';
 
 /**
+ * NOTE: frontend/v1/submit.php duplicates this validation (callsign
+ * format, grid square format, satellite-name match, future-time check)
+ * so it can fail fast client-side before ever calling this API. If you
+ * change validation rules here, check whether submit.php needs the same
+ * change.
+ *
  * @param array<string, mixed> $data
  * @return array<string, mixed>
  */
@@ -51,14 +57,15 @@ function api_validate_report_payload(array $data, ApiRepository $repository): ar
         api_error_response(422, 'future_reported_at', 'The reported time cannot be in the future.');
     }
 
+    // submitted_at is never read from $data, even if present -- it must
+    // always be DB-default or an explicit NOW() at insert time, never
+    // client-supplied. See ApiRepository::createReport().
     return [
         'name' => $name,
         'report' => $report,
         'callsign' => $callsign,
         'grid_square' => $gridSquare,
-        'day' => gmdate('Y-m-d', $time),
-        'hour' => (int) gmdate('G', $time),
-        'period' => api_period_for_minute((int) gmdate('i', $time)),
+        'observed_at' => gmdate('Y-m-d H:i:s', $time),
         'reported_time' => gmdate('Y-m-d\TH:i:s\Z', $time),
     ];
 }
@@ -99,21 +106,4 @@ function api_parse_reported_time(string $reportedAt, array $data): int
     }
 
     return gmmktime($hour, $minute, 0, $month, $day, $year);
-}
-
-function api_period_for_minute(int $minute): int
-{
-    if ($minute <= 15) {
-        return 0;
-    }
-
-    if ($minute <= 30) {
-        return 1;
-    }
-
-    if ($minute <= 45) {
-        return 2;
-    }
-
-    return 3;
 }

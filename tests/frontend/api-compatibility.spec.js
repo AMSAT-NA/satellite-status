@@ -7,14 +7,11 @@ function recentReportDate() {
 }
 
 function legacyReportTime(date = new Date(Date.now() - 60 * 60 * 1000)) {
-  const minute = date.getUTCMinutes();
-
   return {
     month: String(date.getUTCMonth() + 1).padStart(2, '0'),
     day: String(date.getUTCDate()).padStart(2, '0'),
     year: String(date.getUTCFullYear()),
-    hour: String(date.getUTCHours()).padStart(2, '0'),
-    period: String(minute <= 15 ? 0 : minute <= 30 ? 1 : minute <= 45 ? 2 : 3),
+    time: `${String(date.getUTCHours()).padStart(2, '0')}:${String(date.getUTCMinutes()).padStart(2, '0')}`,
   };
 }
 
@@ -50,8 +47,7 @@ async function fillLegacyReportForm(page, { callsign, gridSquare = 'EM25', repor
   await page.selectOption('select[name="SatMonth"]', reportTime.month);
   await page.selectOption('select[name="SatDay"]', reportTime.day);
   await page.selectOption('select[name="SatYear"]', reportTime.year);
-  await page.selectOption('select[name="SatHour"]', reportTime.hour);
-  await page.selectOption('select[name="SatPeriod"]', reportTime.period);
+  await page.fill('input[name="SatTime"]', reportTime.time);
   await page.fill('input[name="SatCall"]', callsign);
   await page.fill('input[name="SatGridSquare"]', gridSquare);
 }
@@ -62,6 +58,9 @@ async function submitLegacyReport(page, { callsign, gridSquare = 'EM25', report,
 
   await expect(page.locator('body')).toContainText('You Entered');
   await expect(page.locator('body')).toContainText(callsign);
+  // The confirm screen shows the actual entered time (Issue #24), not a
+  // reconstructed quarter-hour period range.
+  await expect(page.locator('body')).toContainText(reportTime.time);
   await page.getByRole('link', { name: 'Yes' }).click();
 
   await expect(page.locator('body')).toContainText('Thank you for your submission');
@@ -164,9 +163,9 @@ test.describe('public frontend/API compatibility', () => {
         callsign,
         report: 'Not Heard',
         grid_square: 'EM25',
-        replaced_count: 0,
       })
     );
+    expect(createPayload.body.data).not.toHaveProperty('replaced_count');
 
     const newApiPayload = await page.evaluate(async (callsign) => {
       const response = await fetch(
@@ -238,28 +237,22 @@ test.describe('public frontend/API compatibility', () => {
     );
   });
 
-  test('legacy submit form corrections replace an existing report', async ({ page }) => {
+  test('legacy submit form does not replace a second report for the same time', async ({ page }) => {
+    // Issue #24: writes are non-destructive now -- resubmitting for the
+    // same satellite/callsign/time stores both reports.
     const callsign = uniqueLegacyCallsign();
     const reportTime = legacyReportTime();
 
     await submitLegacyReport(page, { callsign, report: 'Heard', reportTime });
     await submitLegacyReport(page, { callsign, report: 'Telemetry Only', reportTime });
 
-    await expect(page.locator('body')).toContainText(
-      'This report will replace the previous one.'
-    );
+    await expect(page.locator('body')).not.toContainText('already made a report');
+    await expect(page.locator('body')).not.toContainText('replace the previous one');
 
     const reports = await legacyReportsForCallsign(page, callsign);
 
-    expect(reports).toHaveLength(1);
-    expect(reports[0]).toEqual(
-      expect.objectContaining({
-        name: SATELLITE,
-        callsign,
-        report: 'Telemetry Only',
-        grid_square: 'EM25',
-      })
-    );
+    expect(reports).toHaveLength(2);
+    expect(reports.map((r) => r.report).sort()).toEqual(['Heard', 'Telemetry Only']);
   });
 
   test('legacy submit form rejects validation errors before confirmation', async ({ page }) => {

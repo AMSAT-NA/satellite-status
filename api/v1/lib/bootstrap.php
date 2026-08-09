@@ -27,6 +27,12 @@ function api_db(): mysqli
 
     $db->set_charset('utf8mb4');
 
+    // This app assumes UTC everywhere (gmdate()/gmmktime() throughout).
+    // TIMESTAMP columns implicitly convert based on the session's
+    // time_zone, so pin it explicitly rather than relying on the server's
+    // default matching. See tests/TimezonePinningTest.php.
+    $db->query("SET time_zone = '+00:00'");
+
     return $db;
 }
 

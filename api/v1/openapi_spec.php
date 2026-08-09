@@ -62,7 +62,6 @@ use OpenApi\Attributes as OA;
         new OA\Property(property: 'callsign', type: 'string'),
         new OA\Property(property: 'report', type: 'string'),
         new OA\Property(property: 'grid_square', type: 'string', nullable: true),
-        new OA\Property(property: 'period', type: 'integer'),
     ],
     type: 'object'
 )]

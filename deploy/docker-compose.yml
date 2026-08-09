@@ -3,6 +3,8 @@ services:
     image: amsatorg.azurecr.io/satellite-status-frontend:latest
     restart: unless-stopped
     env_file: .env
+    environment:
+      API_INTERNAL_URL: http://api/api/v1
     depends_on:
       db:
         condition: service_healthy

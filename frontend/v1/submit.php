@@ -15,9 +15,8 @@ if ($submit)
  $SatReport=getFormData("SatReport", "");
  $SatMonth=getFormData("SatMonth");
  $SatDay=getFormData("SatDay");
- $SatHour=getFormData("SatHour");
  $SatYear=getFormData("SatYear");
- $SatPeriod=getFormData("SatPeriod");
+ $SatTime=getFormData("SatTime");
  $SatCall=trim(getFormData("SatCall"));
  $SatGridSquare = standardizedGridSquare(trim(getFormData("SatGridSquare")));
  $Confirm=getFormData("Confirm");
@@ -50,8 +49,17 @@ if ($submit)
      exit;
  }
  
+ // Error if the time isn't HH:MM (a tampered/hand-built request -- the
+ // <input type="time"> form control enforces this in normal use)
+ if (!preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', (string) $SatTime)) {
+    echo "<br><br><div style=\" font-family: Helvetica,Arial,sans-serif;padding: 10px; font-size:20px; width: 50%; margin: 0 auto; color: #a94442;background-color: #f2dede;border-color: #ebccd1;\">The time heard you entered does not appear to be valid</div>";
+    echo "<br><br><center><a href=\"index.php\">Go back</a></center>";
+    exit;
+ }
+ [$SatHour, $SatMinute] = explode(':', $SatTime);
+
  // Error if time/date submitted is in the future (Assumed to be UTC, as that is specified on the page)
- $SubmittedDateTime = $SatYear . "-" . $SatMonth . "-" . $SatDay . "T" . $SatHour . ":00:00+0000";
+ $SubmittedDateTime = $SatYear . "-" . $SatMonth . "-" . $SatDay . "T" . $SatHour . ":" . $SatMinute . ":00+0000";
  $CurrentDateTime = gmdate(DATE_ISO8601);
  if ($SubmittedDateTime > $CurrentDateTime) {
     echo "<br><br><div style=\" font-family: Helvetica,Arial,sans-serif;padding: 10px; font-size:20px; width: 50%; margin: 0 auto; color: #a94442;background-color: #f2dede;border-color: #ebccd1;\">The time heard you entered does not appear to be valid</div>";
@@ -77,8 +85,15 @@ if ($submit)
  $SatCall = substr($SatCall,0,14);
 
  // Check to see if the satellite name matches
+ //
+ // This block, together with the callsign/grid-square/future-time checks
+ // above, duplicates api_validate_report_payload() in
+ // api/v1/lib/report_input.php so a bad submission fails fast here
+ // before the API is ever called. If you change validation rules there,
+ // check whether this needs the same change.
  if($SatName != "") {
    $conn = new mysqli($mysqlHost,$mysqlUsername,$mysqlPassword,$mysqlDatabase);
+   $conn->query("SET time_zone = '+00:00'");
 
    $stmt = $conn->prepare("SELECT html_element_name FROM satellite_name WHERE html_element_name = ?");
    $stmt->bind_param("s", $SatName);
@@ -94,46 +109,29 @@ if ($submit)
 
    mysqli_close($conn);
  }
- // INSERT Status Report
-
-
- $db = mysqli_connect($mysqlHost, $mysqlUsername,$mysqlPassword);
- mysqli_select_db($db, $mysqlDatabase);
-
 
  if($Confirm == "yes")
    {
      if($SatReport!="")
        {
-         $day = sprintf('%04d-%02d-%02d', (int)$SatYear, (int)$SatMonth, (int)$SatDay);
+         // Every submission is stored as its own report -- nothing is
+         // replaced or deleted (Issue #24). Write goes through the API
+         // (reports.php POST) instead of MySQL directly.
+         $observedAt = sprintf('%04d-%02d-%02dT%02d:%02d:00Z', (int)$SatYear, (int)$SatMonth, (int)$SatDay, (int)$SatHour, (int)$SatMinute);
 
-         $dupStmt = mysqli_prepare($db,
-             "SELECT id FROM satellite " .
-             "WHERE name=? AND longname=? AND day=? AND hour=? AND period=? AND callsign=?");
-         mysqli_stmt_bind_param($dupStmt, "sssiis",
-             $SatName, $SatName, $day, $SatHour, $SatPeriod, $SatCall);
-         mysqli_stmt_execute($dupStmt);
-         $result = mysqli_stmt_get_result($dupStmt);
+         $apiResult = submitReportToApi($apiInternalUrl, [
+             'name' => $SatName,
+             'report' => $SatReport,
+             'callsign' => $SatCall,
+             'grid_square' => $SatGridSquare,
+             'reported_at' => $observedAt,
+         ]);
 
-         while ($value = mysqli_fetch_array($result))
-	   {
-	     echo "<center><br>It appears that you have already made a report for this satellite for the selected time period.";
-             echo "<br>This report will replace the previous one.<center>";
-
-             $delStmt = mysqli_prepare($db, "DELETE FROM satellite WHERE id=?");
-             mysqli_stmt_bind_param($delStmt, "i", $value[0]);
-             mysqli_stmt_execute($delStmt);
-             mysqli_stmt_close($delStmt);
-           }
-         mysqli_stmt_close($dupStmt);
-
-         $insStmt = mysqli_prepare($db,
-             "INSERT INTO satellite (name, longname, day, hour, period, callsign, report, grid_square) " .
-             "VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
-         mysqli_stmt_bind_param($insStmt, "sssiisss",
-             $SatName, $SatName, $day, $SatHour, $SatPeriod, $SatCall, $SatReport, $SatGridSquare);
-         $result = mysqli_stmt_execute($insStmt);
-         mysqli_stmt_close($insStmt);
+         if ($apiResult['status'] !== 201) {
+             echo "<br><br><div style=\" font-family: Helvetica,Arial,sans-serif;padding: 10px; font-size:20px; width: 50%; margin: 0 auto; color: #a94442;background-color: #f2dede;border-color: #ebccd1;\">Your report could not be submitted. Please try again.</div>";
+             echo "<br><br><center><a href=\"index.php\">Go back</a></center>";
+             exit;
+         }
 
 	 setcookie("amsatCallsign", $SatCall);
 	 echo "<br><br><center>Thank you for your submission</center>" ;
@@ -158,27 +156,7 @@ if ($submit)
    {
      echo "<center><b>You Entered:</b><br>";
      $DayOfWeek = date( "l" ,strtotime( sprintf("%s-%s-%s", $SatYear,$SatMonth,$SatDay)));
-     printf("<table border=0><tr><td><b>Satellite</b></td><td>%s</td></tr><tr><td><b>Date</b></td><td>%s, %s-%s-%s</td></tr><tr><td><b>Time</b></td><td>%s",$SatName,$DayOfWeek,$SatMonth,$SatDay,$SatYear,$SatHour);
-     if ($SatPeriod == 0)
-       {
-	 echo ":00-:15";
-       }
-     else if ($SatPeriod == 1)
-       {
-	 echo ":16-:30";
-       }
-     else if ($SatPeriod == 2)
-       {
-	 echo ":31-:45";
-       }
-     else if ($SatPeriod == 3)
-       {
-	 echo ":46-:59";
-       }
-     else
-       {
-	 echo "<font color=red>BAD TIME</font>";
-       }
+     printf("<table border=0><tr><td><b>Satellite</b></td><td>%s</td></tr><tr><td><b>Date</b></td><td>%s, %s-%s-%s</td></tr><tr><td><b>Time</b></td><td>%02d:%02d UTC", $SatName,$DayOfWeek,$SatMonth,$SatDay,$SatYear,(int)$SatHour,(int)$SatMinute);
 
      printf("</td></tr><tr><td><b>Callsign</b></td><td>%s</td></tr><tr><td><b>Grid Square</b></td><td>%s</td></tr><tr><td><b>Report</b></td><td>",$SatCall, $DisplayGridSquare);
 
@@ -192,8 +170,8 @@ if ($submit)
        }
      echo "</td></tr></table>";
      echo "<br><b>Is this correct?</b>";
-     $rawSubmitUrl = sprintf("%s?SatSubmit=yes&Confirm=yes&SatName=%s&SatYear=%s&SatMonth=%s&SatDay=%s&SatHour=%s&SatPeriod=%s&SatCall=%s&SatReport=%s&SatGridSquare=%s",
-         $_SERVER['PHP_SELF'],$SatName,$SatYear,$SatMonth,$SatDay,$SatHour,$SatPeriod,strtoupper($SatCall),$SatReport, $SatGridSquare);
+     $rawSubmitUrl = sprintf("%s?SatSubmit=yes&Confirm=yes&SatName=%s&SatYear=%s&SatMonth=%s&SatDay=%s&SatTime=%s&SatCall=%s&SatReport=%s&SatGridSquare=%s",
+         $_SERVER['PHP_SELF'],$SatName,$SatYear,$SatMonth,$SatDay,$SatTime,strtoupper($SatCall),$SatReport, $SatGridSquare);
      $submitUrl = str_replace(" ", "+", $rawSubmitUrl);
      printf("<br><br><a href=%s>Yes</a>&nbsp &nbsp<a href=index.php>No</a>", $submitUrl);
      echo "<br><br><center>Please note that the data on this page is only as good as the data that is entered by you.  Before posting a report make absolutely sure that your data is correct.</center>";
@@ -210,6 +188,41 @@ if ($submit)
 <?php
 
 // Common functions
+
+/**
+ * POSTs a report to the API's reports.php (Issue #24 -- submit.php no
+ * longer writes to MySQL directly). Uses a stream context rather than
+ * curl since the frontend Docker image only installs the mysqli
+ * extension, not ext-curl.
+ *
+ * @param array $payload
+ * @return array{status: int, body: mixed}
+ */
+function submitReportToApi($apiInternalUrl, $payload) {
+    $context = stream_context_create([
+        'http' => [
+            'method' => 'POST',
+            'header' => "Content-Type: application/json\r\nAccept: application/json\r\n",
+            'content' => json_encode($payload),
+            'timeout' => 10,
+            'ignore_errors' => true, // so 4xx/5xx bodies are still readable below
+        ],
+    ]);
+
+    $body = @file_get_contents(rtrim($apiInternalUrl, '/') . '/reports.php', false, $context);
+
+    $status = 0;
+    foreach ($http_response_header ?? [] as $header) {
+        if (preg_match('#^HTTP/\S+\s+(\d{3})#', $header, $matches)) {
+            $status = (int) $matches[1];
+        }
+    }
+
+    return [
+        'status' => $status,
+        'body' => $body === false ? null : json_decode($body, true),
+    ];
+}
 
 function getFormData($var, $default = null) {
     return ($val = getPost($var)) !== null

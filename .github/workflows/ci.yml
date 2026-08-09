@@ -106,7 +106,12 @@ jobs:
         run: |
           cp tests/fixtures/config.test.php frontend/v1/config.php
           cp tests/fixtures/config.test.php api/v1/config.php
-          php -S 127.0.0.1:8000 -t . tests/fixtures/router.php >/tmp/php-server.log 2>&1 &
+          # PHP_CLI_SERVER_WORKERS > 1 is required here: submit.php (Issue
+          # #24) now makes an outbound HTTP call back to this same server
+          # to reach /api/v1/reports.php. The built-in dev server handles
+          # only one request at a time by default, which would deadlock
+          # that request against the one that triggered it.
+          PHP_CLI_SERVER_WORKERS=4 php -S 127.0.0.1:8000 -t . tests/fixtures/router.php >/tmp/php-server.log 2>&1 &
           until curl -sS -o /dev/null http://127.0.0.1:8000/; do sleep 1; done
 
       - name: Run PHPUnit
@@ -170,7 +175,10 @@ jobs:
         run: |
           cp tests/fixtures/config.test.php frontend/v1/config.php
           cp tests/fixtures/config.test.php api/v1/config.php
-          php -S 127.0.0.1:8000 -t . tests/fixtures/router.php >php-server.log 2>&1 &
+          # See the phpunit job's identical step for why PHP_CLI_SERVER_WORKERS
+          # is required: submit.php calls back into this same server to reach
+          # the API (Issue #24), which deadlocks a single-worker dev server.
+          PHP_CLI_SERVER_WORKERS=4 php -S 127.0.0.1:8000 -t . tests/fixtures/router.php >php-server.log 2>&1 &
           until curl -sS -o /dev/null http://127.0.0.1:8000/; do sleep 1; done
 
       - name: Install Node dependencies

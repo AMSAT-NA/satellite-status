@@ -67,16 +67,25 @@ final class SecurityRegressionTest extends TestCase
 
     // -----------------------------------------------------------------
     // MR !5 -- submit.php: prepared statements, SQLi in SatName treated
-    // as literal, duplicate detection still works.
+    // as literal.
+    //
+    // Issue #24: submit.php's write path now POSTs to the API instead of
+    // writing to MySQL directly, and writes are non-destructive (no more
+    // delete+insert "replace" behavior) -- the old
+    // testDuplicateSubmissionReplacesRatherThanDuplicates test below is
+    // replaced by testDuplicateSubmissionIsNotReplaced.
     // -----------------------------------------------------------------
 
     public function testSqlInjectionInSatNameIsBoundAsLiteral(): void
     {
+        // W5SQLI (not W5ABC -- that callsign is already in TestCase's
+        // seeded fixture, which would make a stale "0 rows" assertion
+        // pass even if this insert path were broken).
         $client = $this->newGuestClient();
         $resp   = $client->get('/submit.php', [
             'query' => $this->buildSubmitQuery([
                 'SatName' => "AO-91' OR '1'='1",
-                'SatCall' => 'W5ABC',
+                'SatCall' => 'W5SQLI',
             ]),
         ]);
 
@@ -84,7 +93,7 @@ final class SecurityRegressionTest extends TestCase
             'Satellite Name does not match',
             (string) $resp->getBody()
         );
-        $this->assertSame(0, $this->countRows('satellite', "callsign='W5ABC' AND hour=11"));
+        $this->assertSame(0, $this->countRows('satellite', "callsign='W5SQLI'"));
     }
 
     public function testSubmitInsertsRow(): void
@@ -93,7 +102,7 @@ final class SecurityRegressionTest extends TestCase
             'query' => $this->buildSubmitQuery([
                 'SatName' => 'AO-91',
                 'SatCall' => 'W5XYZ',
-                'SatHour' => '09',
+                'SatTime' => '09:00',
             ]),
         ]);
 
@@ -101,18 +110,19 @@ final class SecurityRegressionTest extends TestCase
         $this->assertSame(1, $this->countRows('satellite', "callsign='W5XYZ'"));
     }
 
-    public function testDuplicateSubmissionReplacesRatherThanDuplicates(): void
+    public function testDuplicateSubmissionIsNotReplaced(): void
     {
         $params = $this->buildSubmitQuery([
             'SatName' => 'AO-91',
             'SatCall' => 'W5DUP',
-            'SatHour' => '10',
+            'SatTime' => '10:00',
         ]);
         $this->newGuestClient()->get('/submit.php', ['query' => $params]);
         $resp = $this->newGuestClient()->get('/submit.php', ['query' => $params]);
 
-        $this->assertStringContainsString('already made a report', (string) $resp->getBody());
-        $this->assertSame(1, $this->countRows('satellite', "callsign='W5DUP'"));
+        $this->assertStringContainsString('Thank you for your submission', (string) $resp->getBody());
+        $this->assertStringNotContainsString('already made a report', (string) $resp->getBody());
+        $this->assertSame(2, $this->countRows('satellite', "callsign='W5DUP'"));
     }
 
     // -----------------------------------------------------------------
@@ -288,8 +298,7 @@ final class SecurityRegressionTest extends TestCase
             'SatYear'       => $year,
             'SatMonth'      => $month,
             'SatDay'        => $day,
-            'SatHour'       => '12',
-            'SatPeriod'     => '0',
+            'SatTime'       => '12:00',
             'SatCall'       => 'W5TEST',
             'SatReport'     => 'Heard',
             'SatGridSquare' => 'EM48',
