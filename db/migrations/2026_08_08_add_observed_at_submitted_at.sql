@@ -47,18 +47,10 @@
 -- ── Data-quality fallbacks ───────────────────────────────────────────────
 -- The backfill below assumes `period` is usually 0-3 and `day`/`hour` are
 -- usually populated, but does not assume the data is perfectly clean.
--- Run the pre-flight query block first and read the counts before
+-- Run the pre-flight query below first and read the counts before
 -- proceeding -- if any of them are nonzero, decide whether the documented
--- fallback below is acceptable before running the UPDATE, since this
--- agent could not inspect the real dallas190 data directly:
---
---   SELECT
---     SUM(day IS NULL)                                   AS null_day,
---     SUM(hour IS NULL)                                  AS null_hour,
---     SUM(period IS NULL)                                AS null_period,
---     SUM(period IS NOT NULL AND period NOT BETWEEN 0 AND 3) AS bad_period,
---     COUNT(*)                                            AS total_rows
---   FROM satellite;
+-- fallback is acceptable before running the UPDATE, since this agent
+-- could not inspect the real dallas190 data directly.
 --
 -- Fallback behavior in the UPDATE below:
 --   - day  NULL  -> treated as 1970-01-01 (an obvious sentinel; such rows
@@ -67,6 +59,19 @@
 --   - hour NULL  -> treated as 0.
 --   - period NULL or outside 0-3 -> treated as 0 (:00), matching the
 --     documented fallback in the Issue #24 design.
+
+-- ── Pre-flight check -- run this first, review the counts, and only
+-- proceed past it if the nonzero counts (if any) are ones you've decided
+-- the fallback behavior above is acceptable for. Read-only, harmless to
+-- run standalone (copy just this statement into your own client) or as
+-- part of this script.
+SELECT
+  SUM(day IS NULL)                                        AS null_day,
+  SUM(hour IS NULL)                                        AS null_hour,
+  SUM(period IS NULL)                                      AS null_period,
+  SUM(period IS NOT NULL AND period NOT BETWEEN 0 AND 3)   AS bad_period,
+  COUNT(*)                                                 AS total_rows
+FROM satellite;
 
 -- Note on transactionality: ALTER TABLE is DDL, and MariaDB (like MySQL)
 -- implicitly commits any open transaction before and after each DDL
