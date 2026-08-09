@@ -56,7 +56,10 @@ CHANGE LOG:
           migration shipped) is only accurate to 15-minute-bucket
           precision -- that's the real precision that existed at capture
           time (the old `period` field), not minute-level. Only reports
-          submitted after this shipped have true minute precision.
+          submitted after this shipped have true minute precision. 53 of
+          712,980 rows in production had no `period` captured at all (a
+          legacy sentinel value) and were backfilled to hour-level
+          precision instead of 15-minute precision.
       `frontend/v1/submit.php` now POSTs to the API instead of writing to
       MySQL directly (its first use of the site's own API), and its "you
       already made a report" duplicate-replace warning is gone along with

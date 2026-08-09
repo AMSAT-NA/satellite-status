@@ -55,10 +55,23 @@
 -- Fallback behavior in the UPDATE below:
 --   - day  NULL  -> treated as 1970-01-01 (an obvious sentinel; such rows
 --                   are easy to find again later via
---                   `WHERE observed_at < '1971-01-01'`).
---   - hour NULL  -> treated as 0.
---   - period NULL or outside 0-3 -> treated as 0 (:00), matching the
---     documented fallback in the Issue #24 design.
+--                   `WHERE observed_at < '1971-01-01'`). Never observed
+--                   in production as of the pre-flight run below (0
+--                   rows) -- this remains a defensive fallback only.
+--   - hour NULL  -> treated as 0. Same: 0 rows in production as of the
+--                   pre-flight run below, defensive only.
+--   - period NULL or outside 0-3 -> lands on the top of its hour (no
+--     quarter-hour offset added), preserving the real day/hour precision
+--     that WAS captured rather than fabricating a quarter-hour that
+--     never existed. This is no longer a hypothetical/defensive-only
+--     path: verified against dallas190 production data (pre-flight run
+--     ahead of the actual migration), this was exactly 53 rows out of
+--     712,980 total, all with `period = -1` -- a single, consistent
+--     legacy sentinel value (apparently meaning "time unspecified" in
+--     old submission code), not scattered corruption. `day` and `hour`
+--     were populated normally for all 53 -- only `period` was ever a
+--     sentinel for these rows. See the sentinel-row audit query below
+--     for their specific ids.
 
 -- ── Pre-flight check -- run this first, review the counts, and only
 -- proceed past it if the nonzero counts (if any) are ones you've decided
@@ -72,6 +85,17 @@ SELECT
   SUM(period IS NOT NULL AND period NOT BETWEEN 0 AND 3)   AS bad_period,
   COUNT(*)                                                 AS total_rows
 FROM satellite;
+
+-- ── Sentinel-row audit -- durable record of exactly which rows receive
+-- the "top of hour, no fabricated quarter-hour" treatment above. Also
+-- read-only and harmless to run standalone. As of the pre-flight run
+-- against dallas190, this returned exactly 53 ids, all with
+-- `period = -1` -- kept here (rather than only in a comment) so anyone
+-- re-running this migration elsewhere gets their own current list, and
+-- so there's a query-able trail explaining why these specific rows land
+-- exactly on the hour: a real historical sentinel being honestly
+-- represented, not new fabrication.
+SELECT id FROM satellite WHERE period IS NULL OR period NOT BETWEEN 0 AND 3;
 
 -- Note on transactionality: ALTER TABLE is DDL, and MariaDB (like MySQL)
 -- implicitly commits any open transaction before and after each DDL
@@ -98,13 +122,18 @@ ALTER TABLE satellite
 START TRANSACTION;
 
 UPDATE satellite
-SET observed_at = TIMESTAMP(
-  COALESCE(day, '1970-01-01'),
-  SEC_TO_TIME(
-    COALESCE(hour, 0) * 3600
-    + IF(period IS NOT NULL AND period BETWEEN 0 AND 3, period, 0) * 900
-  )
-);
+SET observed_at = CASE
+    WHEN period BETWEEN 0 AND 3
+        THEN TIMESTAMP(COALESCE(day, '1970-01-01'), SEC_TO_TIME(COALESCE(hour, 0) * 3600 + period * 900))
+    -- period NULL or outside 0-3 (53 known rows in prod, all period = -1,
+    -- see the sentinel-row audit above): day/hour are real, trustworthy
+    -- data for these rows, so land on the top of the hour using them
+    -- directly rather than fabricating quarter-hour precision that was
+    -- never captured. (SQL's `NULL BETWEEN ...` evaluates to NULL, not
+    -- TRUE, so a NULL period falls into this branch too without an
+    -- explicit IS NOT NULL check.)
+    ELSE TIMESTAMP(COALESCE(day, '1970-01-01'), SEC_TO_TIME(COALESCE(hour, 0) * 3600))
+END;
 
 -- Inspect here if running interactively, e.g.:
 --   SELECT COUNT(*) FROM satellite WHERE observed_at IS NULL;
