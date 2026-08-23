@@ -193,6 +193,50 @@ final class ApiV1EndpointTest extends TestCase
         $this->assertSame($reportedAt, $getPayload['data'][0]['reported_time']);
     }
 
+    public function testGetReportsReportedTimeMatchesFormatContract(): void
+    {
+        // Distinct from testPostReportPreservesMinutePrecision above,
+        // which checks the *value* is accurate -- this locks the *shape*
+        // regardless of value. External consumers (confirmed: Ionaut,
+        // via A65RW) parse reported_time strictly against exactly
+        // YYYY-MM-DDTHH:MM:SSZ and silently drop any row they can't
+        // parse, so a format regression here (wrong separator, missing
+        // Z, an offset instead of Z, etc.) would be a silent data-loss
+        // bug for them, not a visible break -- worth catching here
+        // before it ships.
+        $resp = $this->newGuestClient()->get('/api/v1/reports.php', [
+            'query' => ['name' => 'AO-91', 'hours' => 72],
+        ]);
+
+        $payload = json_decode((string) $resp->getBody(), true);
+        $this->assertNotEmpty($payload['data']);
+        $this->assertMatchesRegularExpression(
+            '/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/',
+            $payload['data'][0]['reported_time']
+        );
+    }
+
+    public function testPostReportReportedTimeMatchesFormatContract(): void
+    {
+        // See testGetReportsReportedTimeMatchesFormatContract above for
+        // why this format is a real external contract, not cosmetic.
+        $resp = $this->newGuestClient()->post('/api/v1/reports.php', [
+            'json' => [
+                'name' => 'AO-91',
+                'report' => 'Heard',
+                'callsign' => 'W5FMT',
+                'reported_at' => gmdate('Y-m-d\TH:i:s\Z', time() - 3600),
+            ],
+        ]);
+
+        $this->assertSame(201, $resp->getStatusCode());
+        $payload = json_decode((string) $resp->getBody(), true);
+        $this->assertMatchesRegularExpression(
+            '/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/',
+            $payload['data']['reported_time']
+        );
+    }
+
     public function testReportsSinceFilterIsRealTimestampComparison(): void
     {
         $client = $this->newGuestClient();
