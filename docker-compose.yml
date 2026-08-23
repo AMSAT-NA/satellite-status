@@ -11,6 +11,10 @@ services:
       MYSQL_USER: satellite
       MYSQL_PASSWORD: satellite
       MYSQL_DATABASE: satellite_status
+    # Site banner: content/banner.md lives at frontend/v1/content/, so
+    # the whole-directory mount below already covers it -- no separate
+    # mount needed here. deploy/docker-compose.yml doesn't bind-mount
+    # app code at all, so it gets its own explicit content/ mount.
     volumes:
       - ./frontend/v1:/var/www/html
     depends_on:

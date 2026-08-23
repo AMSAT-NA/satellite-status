@@ -24,6 +24,10 @@ node_modules/
 .env.local
 .env.*.local
 
+# Site banner content -- host-edited, never committed. See
+# frontend/v1/content/banner.md.example for the tracked template.
+frontend/v1/content/banner.md
+
 # Editor
 .vscode/
 .idea/
