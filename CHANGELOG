@@ -76,3 +76,11 @@ CHANGE LOG:
       behave correctly -- a regression guard, not a re-verification of
       today's connections (see the script's header comment and the PR
       description for what it does and doesn't catch).
+      The dockerized dev/CD database containers (docker-compose.yml and
+      deploy/docker-compose.yml, both mariadb:12.3) now also set
+      `--default-time-zone=+00:00` at the server level, as a second
+      layer of defense alongside the existing per-connection pinning --
+      so a connection would still get UTC even if it somehow lacked the
+      explicit `SET time_zone` pin. The separate, non-dockerized legacy
+      production host (dallas190) is not covered by this and is handled
+      by the project owner directly on that host, outside this repo.

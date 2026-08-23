@@ -267,6 +267,22 @@ jobs:
           echo "$BODY" | head -c 500
           echo "$BODY" | jq -e 'type == "array" and length > 0'
 
+      - name: Smoke-test DB server default timezone (UTC with no client-side SET)
+        run: |
+          # Issue #24 follow-up: distinct from tests/TimezonePinningTest.php,
+          # which proves the app's own connections *request* UTC via
+          # `SET time_zone`. This proves the *server's own default* is UTC
+          # -- a connection would still get UTC here even if it somehow
+          # lacked that explicit pin. No SET is issued in this query.
+          #
+          # MYSQL_PWD (not -p<password>) so the client doesn't emit its
+          # "using a password on the command line" warning -- which would
+          # otherwise land in this same captured output and break the
+          # exact-match comparison below.
+          TZ=$(MYSQL_PWD=root mysql -h 127.0.0.1 -P 3307 -u root --silent --skip-column-names -e "SELECT @@global.time_zone;")
+          echo "Server @@global.time_zone: $TZ"
+          [ "$TZ" = "+00:00" ]
+
       - name: Smoke-test SITE_URL correctness (self-links match the production URL exactly)
         run: |
           BODY=$(curl -sf "http://localhost:8081/api/v1/catalog.php?name=AO-91")
