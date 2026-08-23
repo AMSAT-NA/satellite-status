@@ -45,6 +45,29 @@ jobs:
       - name: Check PHP version
         run: php --version
 
+  # Issue #24 follow-up: guards against a *new* raw DB connection being
+  # added without the UTC time_zone pin every connection needs (see
+  # tools/check-timezone-pins.php's header comment for the full
+  # rationale and its documented, deliberately-imperfect heuristic).
+  # Diff-only by design -- fetch-depth: 0 so there's real history to
+  # diff a merge-base against, matching the `changes` job in cd.yml.
+  check-timezone-pins:
+    runs-on: ubuntu-latest
+    container: php:alpine
+    steps:
+      # php:alpine has no git by default. actions/checkout falls back to
+      # the GitHub REST API without it, which can only hand back a single
+      # commit's file tree -- no real history, so fetch-depth: 0 wouldn't
+      # actually provide anything to diff against. Install git first so
+      # checkout does a real clone.
+      - name: Install git
+        run: apk add --no-cache git
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Check for unpinned raw DB connections added in this change
+        run: php tools/check-timezone-pins.php
+
   composer-platform:
     runs-on: ubuntu-latest
     container: php:cli

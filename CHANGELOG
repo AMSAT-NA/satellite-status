@@ -70,3 +70,9 @@ CHANGE LOG:
       A production DB migration (db/migrations/) targeting dallas190 is
       run manually by the project owner -- separate from this app-code
       deploy, and not wired into CI/CD.
+      Added a CI check (tools/check-timezone-pins.php) that fails the
+      build if a new raw DB connection is added without the UTC
+      time_zone pin every connection needs for TIMESTAMP columns to
+      behave correctly -- a regression guard, not a re-verification of
+      today's connections (see the script's header comment and the PR
+      description for what it does and doesn't catch).
