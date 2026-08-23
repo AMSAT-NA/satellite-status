@@ -83,6 +83,17 @@ const PIN_PATTERN = '/set\s+time_zone\s*=/i';
 const SUPPRESSION_PATTERN = '/timezone-pin-not-required\s*:\s*(.+)/i';
 const PIN_PROXIMITY_LINES = 15;
 
+// This script's own source necessarily contains the literal connection
+// patterns it searches for (in CONNECTION_PATTERNS' regex strings and in
+// this file's own header-comment examples), so it always self-matches on
+// its own initial add/edits. That's a false positive, not a real
+// connection -- this script never opens a DB connection itself -- so it
+// is excluded by path rather than scattering `// timezone-pin-not-
+// required:` comments through regex literals and prose, which would be
+// misleading (there's no connection at those specific lines to annotate,
+// unlike a genuine suppression).
+const SELF_PATH = 'tools/check-timezone-pins.php';
+
 function determineBaseRef(): string
 {
     $baseRefEnv = getenv('GITHUB_BASE_REF');
@@ -191,7 +202,7 @@ function main(array $argv): int
     $suppressions = [];
 
     foreach ($addedLinesByFile as $file => $lineNumbers) {
-        if (!str_ends_with($file, '.php') || !is_file($file)) {
+        if (!str_ends_with($file, '.php') || !is_file($file) || $file === SELF_PATH) {
             continue;
         }
 

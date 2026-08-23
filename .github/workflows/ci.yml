@@ -61,7 +61,18 @@ jobs:
       # actually provide anything to diff against. Install git first so
       # checkout does a real clone.
       - name: Install git
-        run: apk add --no-cache git
+        run: |
+          apk add --no-cache git
+          # The checkout below is actually performed by the runner's own
+          # git (host-side), then bind-mounted in -- but this container's
+          # freshly-installed git still needs to operate on that same
+          # path for the diff step further down, and it isn't the owner
+          # of those files. Without this, git 2.35+ refuses with a
+          # "dubious ownership" style error (git diff's three-dot ref
+          # resolution surfaces it as "Could not access '<ref>...<ref>'"
+          # specifically). Safe here since this is a throwaway CI
+          # container, not a shared/multi-tenant machine.
+          git config --global --add safe.directory '*'
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
