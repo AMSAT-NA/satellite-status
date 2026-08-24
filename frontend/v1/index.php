@@ -1,8 +1,15 @@
-<?php 
+<?php
 date_default_timezone_set('UTC'); ?>
 <? ob_start("ob_gzhandler"); ?>
 <?php // Include files
 include("config.php");
+
+// Site banner (reusable, file-toggled -- see content/banner.md.example):
+// direct file check here rather than a preflight request to banner.php,
+// so an inactive banner costs nothing beyond a filesystem stat and we
+// never emit an empty <iframe> box.
+$bannerPath = __DIR__ . '/content/banner.md';
+$hasBanner = is_file($bannerPath) && trim((string) file_get_contents($bannerPath)) !== '';
 ?>
 <html>
 <head>
@@ -39,6 +46,31 @@ include("config.php");
 <body link="black" alink="black" vlink="black">
 <center><font size=5><b>AMSAT Live OSCAR Satellite Status Page</b></font></center>
 <br>
+
+<?php if ($hasBanner): ?>
+<center>
+<iframe id="site-banner" src="banner.php" title="Site announcement"
+        style="border:0; width:100%; max-width:75%; height:0;" scrolling="no"></iframe>
+</center>
+<script>
+  // Only trust postMessage from this specific iframe -- checking
+  // event.source (not just event.origin) is the robust way to do that,
+  // since origin alone can't distinguish this iframe from any other
+  // same-origin frame/window that might also post a message.
+  (function () {
+    var bannerFrame = document.getElementById('site-banner');
+    window.addEventListener('message', function (event) {
+      if (!bannerFrame || event.source !== bannerFrame.contentWindow) {
+        return;
+      }
+      if (event.data && event.data.source === 'site-banner' && typeof event.data.height === 'number') {
+        bannerFrame.style.height = event.data.height + 'px';
+      }
+    });
+  })();
+</script>
+<br>
+<?php endif; ?>
 
 <center>
 <table width="75%">
@@ -868,7 +900,7 @@ $conn->close();
 &copy; Radio Amateur Satellite Corporation (AMSAT).
 <p>Based on the original idea of David Carr, KD5QGR & Bob Bruninga, WB4APR</p>
 <?php if ($appCommitSha !== null && $appDeployedAt !== null): ?>
-<p style="font-size:12px;color:#888;">Last updated <?php echo htmlspecialchars(date('m/d/Y H:i', strtotime($appDeployedAt))); ?> UTC (commit <?php echo htmlspecialchars(substr($appCommitSha, 0, 7)); ?>)</p>
+<p style="font-size:12px;color:#888;">Last updated <?php echo htmlspecialchars(date('m/d/Y H:i', strtotime($appDeployedAt))); ?> UTC (commit <?php echo htmlspecialchars(substr($appCommitSha, 0, 7)); ?>) &middot; <a href="https://github.com/AMSAT-NA/satellite-status/blob/main/CHANGELOG" target="_blank" rel="noopener" style="color:#888;">CHANGELOG</a></p>
 <?php endif; ?>
 <br>
 </body>

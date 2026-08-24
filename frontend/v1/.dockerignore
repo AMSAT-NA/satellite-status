@@ -1,2 +1,6 @@
 .git
 .claude
+
+# Belt-and-suspenders alongside .gitignore: a developer's local
+# content/banner.md shouldn't get baked into an image built locally.
+content/banner.md

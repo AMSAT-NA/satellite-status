@@ -5,6 +5,12 @@ services:
     env_file: .env
     environment:
       API_INTERNAL_URL: http://api/api/v1
+    # Site banner: this image has no app-code bind mount (unlike local
+    # dev), so content/ needs its own explicit mount. Resolves on the
+    # deploy host to /opt/services/satellite-status/content/banner.md --
+    # created and edited directly there, never shipped through git/CD.
+    volumes:
+      - ./content:/var/www/html/content:ro
     depends_on:
       db:
         condition: service_healthy
