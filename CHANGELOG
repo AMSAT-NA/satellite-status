@@ -24,3 +24,23 @@ CHANGE LOG:
       see that doc for why), and refreshed the docs/agents/ knowledge
       bundle, which had gone stale since CD shipped.
     - Commit: ed6fb69
+2026-08-23:
+    - Added a reusable, file-toggled site announcement banner. A banner is
+      live if and only if frontend/v1/content/banner.md exists and is
+      non-empty (gitignored, host-edited directly, never committed; a
+      tracked frontend/v1/content/banner.md.example ships as the template).
+      Rendered by a new dedicated endpoint (frontend/v1/banner.php) as a
+      complete, self-contained HTML document -- Markdown via a vendored
+      copy of Parsedown (frontend/v1/lib/Parsedown.php, MIT, this app's
+      first third-party runtime PHP dependency; vendored as a single file
+      rather than composer-installed, since this repo's Docker builds
+      don't run `composer install`), raw HTML passthrough intentionally
+      unsanitized (content is host-edited only, never user- or API-
+      submitted), tag-balanced via DOMDocument, every link forced to
+      target="_blank" rel="noopener". index.php embeds it via <iframe>
+      for genuine DOM isolation -- malformed banner markup structurally
+      cannot affect the parent page -- only when a banner is actually
+      active, auto-resized to fit via postMessage. Also added a CHANGELOG
+      link to the existing footer, next to the deploy commit info; this
+      file isn't served anywhere in-app, so it links to the GitHub blob
+      view.

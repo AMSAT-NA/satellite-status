@@ -1,0 +1,23 @@
+<!--
+  This is a template, not the live banner. It is tracked in git.
+
+  To activate a banner: copy this file to banner.md in this same
+  directory, then edit it. banner.md is gitignored -- it is never
+  committed, edited directly on the host, and picked up on the very
+  next page load. No restart or deploy needed.
+
+  To remove the banner: delete banner.md, or empty it out.
+
+  Both Markdown and raw HTML are supported. Links do NOT need an
+  explicit target attribute -- every link is automatically forced to
+  target="_blank" rel="noopener" so it opens in a new tab instead of
+  navigating inside the banner's iframe.
+-->
+
+**Heads up:** this is example banner content. Replace it with a real
+announcement, or delete this file (it won't do anything as
+`banner.md.example` -- only `banner.md` is live).
+
+You can use _Markdown_ formatting, and raw `<strong>HTML</strong>` too.
+A [link works like this](https://example.com/) and will always open in
+a new tab.
