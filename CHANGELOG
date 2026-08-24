@@ -24,6 +24,66 @@ CHANGE LOG:
       see that doc for why), and refreshed the docs/agents/ knowledge
       bundle, which had gone stale since CD shipped.
     - Commit: ed6fb69
+2026-08-09:
+    - Report timestamp precision migration (Issue #24). BREAKING CHANGE for
+      API consumers of GET/POST /api/v1/reports.php -- no deprecation
+      window. If you consume this API, read this entry before upgrading:
+        - `satellite` gains two real columns: `observed_at` (when the
+          activity happened -- new source of truth) and `submitted_at`
+          (when the server received the report; DB-generated only, never
+          accepted from request payloads). The old `day`/`hour`/`period`
+          columns are frozen as a historical archive -- nothing reads or
+          writes them going forward.
+        - Fixed a real display bug: `reported_time` in GET/POST responses
+          previously always showed `:30:00` regardless of when the report
+          actually happened (a `CONCAT(day, "T", LPAD(hour,2,"0"),
+          ":30:00Z")` reconstruction bug). It now reflects the real
+          submitted time, down to the minute.
+        - `period` is removed from the GET /reports.php response. It can
+          no longer reflect real data going forward.
+        - `replaced_count` is removed from the POST /reports.php response.
+          Writes are now non-destructive: submitting another report for
+          the same satellite/callsign/time no longer deletes-and-replaces
+          the previous one -- every submission is stored. If your
+          integration relied on the old delete+insert "correction"
+          behavior, you'll need to de-duplicate on your own end (e.g. by
+          taking the most recent `reported_time` per satellite/callsign).
+        - The `since` filter on GET /reports.php now does a real timestamp
+          comparison instead of comparing against the buggy reconstructed
+          string above -- boundary behavior may differ slightly from
+          before for requests near an exact `:30:00`.
+        - Backfilled historical data (everything reported before this
+          migration shipped) is only accurate to 15-minute-bucket
+          precision -- that's the real precision that existed at capture
+          time (the old `period` field), not minute-level. Only reports
+          submitted after this shipped have true minute precision. 53 of
+          712,980 rows in production had no `period` captured at all (a
+          legacy sentinel value) and were backfilled to hour-level
+          precision instead of 15-minute precision.
+      `frontend/v1/submit.php` now POSTs to the API instead of writing to
+      MySQL directly (its first use of the site's own API), and its "you
+      already made a report" duplicate-replace warning is gone along with
+      the behavior it described. `frontend/v1/index.php`'s status grid,
+      tooltips, and "Reports From" list were rewritten against
+      `observed_at` in the same PR, since they'd otherwise show nothing
+      for any report submitted after this shipped.
+      A production DB migration (db/migrations/) targeting dallas190 is
+      run manually by the project owner -- separate from this app-code
+      deploy, and not wired into CI/CD.
+      Added a CI check (tools/check-timezone-pins.php) that fails the
+      build if a new raw DB connection is added without the UTC
+      time_zone pin every connection needs for TIMESTAMP columns to
+      behave correctly -- a regression guard, not a re-verification of
+      today's connections (see the script's header comment and the PR
+      description for what it does and doesn't catch).
+      The dockerized dev/CD database containers (docker-compose.yml and
+      deploy/docker-compose.yml, both mariadb:12.3) now also set
+      `--default-time-zone=+00:00` at the server level, as a second
+      layer of defense alongside the existing per-connection pinning --
+      so a connection would still get UTC even if it somehow lacked the
+      explicit `SET time_zone` pin. The separate, non-dockerized legacy
+      production host (dallas190) is not covered by this and is handled
+      by the project owner directly on that host, outside this repo.
 2026-08-23:
     - Added a reusable, file-toggled site announcement banner. A banner is
       live if and only if frontend/v1/content/banner.md exists and is

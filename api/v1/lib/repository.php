@@ -28,7 +28,7 @@ final class ApiRepository
 
         $sql = 'SELECT sn.id, sn.name, sn.html_element_name, sn.website'
             . ($includeStats
-                ? ', MAX(CONCAT(s.day, "T", LPAD(s.hour, 2, "0"), ":30:00Z")) AS latest_reported_time, COUNT(s.id) AS report_count'
+                ? ', DATE_FORMAT(MAX(s.observed_at), "%Y-%m-%dT%H:%i:%sZ") AS latest_reported_time, COUNT(s.id) AS report_count'
                 : '')
             . ' FROM satellite_name sn'
             . ($includeStats ? ' LEFT JOIN satellite s ON s.name = sn.html_element_name' : '')
@@ -84,7 +84,7 @@ final class ApiRepository
         }
 
         if (($filters['since'] ?? '') !== '') {
-            $where[] = 'CONCAT(s.day, "T", LPAD(s.hour, 2, "0"), ":30:00Z") >= ?';
+            $where[] = 's.observed_at >= ?';
             $params[] = $filters['since'];
             $types .= 's';
         }
@@ -93,12 +93,12 @@ final class ApiRepository
         $limit = (int) ($filters['limit'] ?? API_DEFAULT_LIMIT);
 
         $sql = 'SELECT s.id, s.name, sn.name AS satellite_display_name,'
-            . ' CONCAT(s.day, "T", LPAD(s.hour, 2, "0"), ":30:00Z") AS reported_time,'
-            . ' s.day, s.hour, s.period, s.callsign, s.report, s.grid_square'
+            . ' DATE_FORMAT(s.observed_at, "%Y-%m-%dT%H:%i:%sZ") AS reported_time,'
+            . ' s.callsign, s.report, s.grid_square'
             . ' FROM satellite s'
             . ' LEFT JOIN satellite_name sn ON sn.html_element_name = s.name'
             . $whereSql
-            . ' ORDER BY s.day DESC, s.hour DESC, s.period DESC, s.id DESC'
+            . ' ORDER BY s.observed_at DESC, s.id DESC'
             . ' LIMIT ?';
 
         $params[] = $limit;
@@ -108,48 +108,32 @@ final class ApiRepository
     }
 
     /**
+     * Pure INSERT -- every submission is stored, nothing is ever deleted
+     * or replaced (Issue #24). submitted_at is not accepted as a
+     * parameter here: it is always DB-default (CURRENT_TIMESTAMP()),
+     * never client-supplied.
+     *
      * @param array<string, mixed> $report
      * @return array<string, mixed>
      */
     public function createReport(array $report): array
     {
-        $existing = $this->fetchAll(
-            'SELECT id FROM satellite'
-            . ' WHERE name = ? AND longname = ? AND day = ? AND hour = ? AND period = ? AND callsign = ?',
-            'sssiis',
-            [
-                $report['name'],
-                $report['name'],
-                $report['day'],
-                (int) $report['hour'],
-                (int) $report['period'],
-                $report['callsign'],
-            ]
-        );
-
-        foreach ($existing as $row) {
-            $this->execute('DELETE FROM satellite WHERE id = ?', 'i', [(int) $row['id']]);
-        }
-
         $this->execute(
-            'INSERT INTO satellite (name, longname, day, hour, period, callsign, report, grid_square)'
-            . ' VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-            'sssiisss',
+            'INSERT INTO satellite (name, longname, callsign, report, grid_square, observed_at)'
+            . ' VALUES (?, ?, ?, ?, ?, ?)',
+            'ssssss',
             [
                 $report['name'],
                 $report['name'],
-                $report['day'],
-                (int) $report['hour'],
-                (int) $report['period'],
                 $report['callsign'],
                 $report['report'],
                 $report['grid_square'],
+                $report['observed_at'],
             ]
         );
 
         return [
             'id' => $this->db->insert_id,
-            'replaced_count' => count($existing),
         ];
     }
 
@@ -162,10 +146,10 @@ final class ApiRepository
 
         return $this->fetchAll(
             'SELECT s.name, sn.name AS satellite_display_name, s.report, COUNT(*) AS report_count,'
-            . ' MAX(CONCAT(s.day, "T", LPAD(s.hour, 2, "0"), ":30:00Z")) AS latest_reported_time'
+            . ' DATE_FORMAT(MAX(s.observed_at), "%Y-%m-%dT%H:%i:%sZ") AS latest_reported_time'
             . ' FROM satellite s'
             . ' LEFT JOIN satellite_name sn ON sn.html_element_name = s.name'
-            . ' WHERE CONCAT(s.day, "T", LPAD(s.hour, 2, "0"), ":30:00Z") >= ?'
+            . ' WHERE s.observed_at >= ?'
             . ' GROUP BY s.name, sn.name, s.report'
             . ' ORDER BY s.name ASC, report_count DESC',
             's',

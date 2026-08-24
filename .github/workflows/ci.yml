@@ -45,6 +45,40 @@ jobs:
       - name: Check PHP version
         run: php --version
 
+  # Issue #24 follow-up: guards against a *new* raw DB connection being
+  # added without the UTC time_zone pin every connection needs (see
+  # tools/check-timezone-pins.php's header comment for the full
+  # rationale and its documented, deliberately-imperfect heuristic).
+  # Diff-only by design -- fetch-depth: 0 so there's real history to
+  # diff a merge-base against, matching the `changes` job in cd.yml.
+  check-timezone-pins:
+    runs-on: ubuntu-latest
+    container: php:alpine
+    steps:
+      # php:alpine has no git by default. actions/checkout falls back to
+      # the GitHub REST API without it, which can only hand back a single
+      # commit's file tree -- no real history, so fetch-depth: 0 wouldn't
+      # actually provide anything to diff against. Install git first so
+      # checkout does a real clone.
+      - name: Install git
+        run: |
+          apk add --no-cache git
+          # The checkout below is actually performed by the runner's own
+          # git (host-side), then bind-mounted in -- but this container's
+          # freshly-installed git still needs to operate on that same
+          # path for the diff step further down, and it isn't the owner
+          # of those files. Without this, git 2.35+ refuses with a
+          # "dubious ownership" style error (git diff's three-dot ref
+          # resolution surfaces it as "Could not access '<ref>...<ref>'"
+          # specifically). Safe here since this is a throwaway CI
+          # container, not a shared/multi-tenant machine.
+          git config --global --add safe.directory '*'
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Check for unpinned raw DB connections added in this change
+        run: php tools/check-timezone-pins.php
+
   composer-platform:
     runs-on: ubuntu-latest
     container: php:cli
@@ -106,7 +140,12 @@ jobs:
         run: |
           cp tests/fixtures/config.test.php frontend/v1/config.php
           cp tests/fixtures/config.test.php api/v1/config.php
-          php -S 127.0.0.1:8000 -t . tests/fixtures/router.php >/tmp/php-server.log 2>&1 &
+          # PHP_CLI_SERVER_WORKERS > 1 is required here: submit.php (Issue
+          # #24) now makes an outbound HTTP call back to this same server
+          # to reach /api/v1/reports.php. The built-in dev server handles
+          # only one request at a time by default, which would deadlock
+          # that request against the one that triggered it.
+          PHP_CLI_SERVER_WORKERS=4 php -S 127.0.0.1:8000 -t . tests/fixtures/router.php >/tmp/php-server.log 2>&1 &
           until curl -sS -o /dev/null http://127.0.0.1:8000/; do sleep 1; done
 
       - name: Run PHPUnit
@@ -170,7 +209,10 @@ jobs:
         run: |
           cp tests/fixtures/config.test.php frontend/v1/config.php
           cp tests/fixtures/config.test.php api/v1/config.php
-          php -S 127.0.0.1:8000 -t . tests/fixtures/router.php >php-server.log 2>&1 &
+          # See the phpunit job's identical step for why PHP_CLI_SERVER_WORKERS
+          # is required: submit.php calls back into this same server to reach
+          # the API (Issue #24), which deadlocks a single-worker dev server.
+          PHP_CLI_SERVER_WORKERS=4 php -S 127.0.0.1:8000 -t . tests/fixtures/router.php >php-server.log 2>&1 &
           until curl -sS -o /dev/null http://127.0.0.1:8000/; do sleep 1; done
 
       - name: Install Node dependencies
@@ -224,6 +266,22 @@ jobs:
           BODY=$(curl -sf http://localhost:8081/api/v1/satellites.php)
           echo "$BODY" | head -c 500
           echo "$BODY" | jq -e 'type == "array" and length > 0'
+
+      - name: Smoke-test DB server default timezone (UTC with no client-side SET)
+        run: |
+          # Issue #24 follow-up: distinct from tests/TimezonePinningTest.php,
+          # which proves the app's own connections *request* UTC via
+          # `SET time_zone`. This proves the *server's own default* is UTC
+          # -- a connection would still get UTC here even if it somehow
+          # lacked that explicit pin. No SET is issued in this query.
+          #
+          # MYSQL_PWD (not -p<password>) so the client doesn't emit its
+          # "using a password on the command line" warning -- which would
+          # otherwise land in this same captured output and break the
+          # exact-match comparison below.
+          TZ=$(MYSQL_PWD=root mysql -h 127.0.0.1 -P 3307 -u root --silent --skip-column-names -e "SELECT @@global.time_zone;")
+          echo "Server @@global.time_zone: $TZ"
+          [ "$TZ" = "+00:00" ]
 
       - name: Smoke-test SITE_URL correctness (self-links match the production URL exactly)
         run: |

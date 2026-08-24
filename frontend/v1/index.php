@@ -95,6 +95,7 @@ $nDays = 6;
 
 $db = mysqli_connect($mysqlHost, $mysqlUsername,$mysqlPassword);
 mysqli_select_db($db, $mysqlDatabase);
+mysqli_query($db, "SET time_zone = '+00:00'");
 
 ?>
 <!--       TIPSTER v3.0        -->
@@ -379,10 +380,14 @@ with (docTips)
 
 // Get all reports for tooltip generation
 
-$result = mysqli_query($db, "SELECT name, report, id, callsign, day, hour, period, FLOOR(hour / 2) AS twohour, grid_square " .
+// Issue #24: day/hour/period are a frozen historical archive -- reads use
+// observed_at instead. DATE(observed_at)/HOUR(observed_at) substitute
+// mechanically for day/hour below so the bucketing (and thus the grid
+// layout) is unchanged; only the source column differs.
+$result = mysqli_query($db, "SELECT name, report, id, callsign, DATE(observed_at) AS day, HOUR(observed_at) AS hour, FLOOR(HOUR(observed_at) / 2) AS twohour, grid_square, observed_at " .
                       "FROM satellite " .
-                      "WHERE name IS NOT NULL and FLOOR((23 - hour) / 2) + ((TO_DAYS(NOW()) - TO_DAYS(day)) * 12) BETWEEN 0 and " . ($nDays * 12 - 1) . " " .
-                      "ORDER BY name, day DESC, FLOOR(hour / 2) DESC, ID DESC");
+                      "WHERE name IS NOT NULL and FLOOR((23 - HOUR(observed_at)) / 2) + ((TO_DAYS(NOW()) - TO_DAYS(observed_at)) * 12) BETWEEN 0 and " . ($nDays * 12 - 1) . " " .
+                      "ORDER BY name, DATE(observed_at) DESC, FLOOR(HOUR(observed_at) / 2) DESC, ID DESC");
 
 $sLastName = "";
 $sLastDay = "";
@@ -415,31 +420,17 @@ while ($aRow = mysqli_fetch_array($result))
         echo("<br><br>");
     }
 
-    $sPeriod = "";
-    switch ($aRow["period"])
-    {
-        case 0:
-            $sPeriod = ":00-:15";
-            break;
-        case 1:
-            $sPeriod = ":16-:30";
-            break;
-        case 2:
-            $sPeriod = ":31-:45";
-            break;
-        case 3:
-            $sPeriod = ":46-:59";
-            break;
-        default:
-            $sPeriod = ":??";
-    }
-    
     $gridSquareElement = "";
     if ($aRow["grid_square"] != "") {
         $gridSquareElement = "<br>" . $aRow["grid_square"];
     }
 
-    echo($aRow["report"] . "<br>" . $aRow["callsign"] . $gridSquareElement . "<br>" . $aRow["day"] . "<br>" . $aRow["hour"] . $sPeriod . " UTC");
+    // Issue #24: display the actual observed_at timestamp instead of a
+    // reconstructed quarter-hour period range -- a precision improvement,
+    // since observed_at is minute-accurate (period was only a 15-minute
+    // bucket).
+    $observedAtDisplay = date("Y-m-d H:i", strtotime($aRow["observed_at"]));
+    echo($aRow["report"] . "<br>" . $aRow["callsign"] . $gridSquareElement . "<br>" . $observedAtDisplay . " UTC");
 
     $bStart = false;
 }
@@ -515,10 +506,10 @@ for ($nDay = 0; $nDay < $nDays; $nDay++)
 echo("</tr>");
 
 
-$result = mysqli_query($db, "SELECT name, report, id, FLOOR((23 - hour) / 2) + ((TO_DAYS(NOW()) - TO_DAYS(day)) * 12) AS col " .
+$result = mysqli_query($db, "SELECT name, report, id, FLOOR((23 - HOUR(observed_at)) / 2) + ((TO_DAYS(NOW()) - TO_DAYS(observed_at)) * 12) AS col " .
                       "FROM satellite " .
-                      "WHERE FLOOR((23 - hour) / 2) + ((TO_DAYS(NOW()) - TO_DAYS(day)) * 12) BETWEEN 0 and " . ($nDays * 12 - 1) . " " .
-                      "ORDER BY name, FLOOR((23 - hour) / 2) + ((TO_DAYS(NOW()) - TO_DAYS(day)) * 12) ASC, ID DESC");
+                      "WHERE FLOOR((23 - HOUR(observed_at)) / 2) + ((TO_DAYS(NOW()) - TO_DAYS(observed_at)) * 12) BETWEEN 0 and " . ($nDays * 12 - 1) . " " .
+                      "ORDER BY name, FLOOR((23 - HOUR(observed_at)) / 2) + ((TO_DAYS(NOW()) - TO_DAYS(observed_at)) * 12) ASC, ID DESC");
 
 $sLastName = "";
 $sLastDay = "";
@@ -538,6 +529,7 @@ if ($aRow)
 
 // Print rows in satellite status table
 $conn = new mysqli($mysqlHost, $mysqlUsername, $mysqlPassword, $mysqlDatabase);
+$conn->query("SET time_zone = '+00:00'");
 // Prepared once and re-executed per row inside the loop below.
 $websiteLookup = $conn->prepare("SELECT website FROM satellite_name WHERE html_element_name = ?");
 while ($aRow)
@@ -722,8 +714,8 @@ echo("</table>");
 <br>
 <div class="reportsFromList">
 <?php
-$result = mysqli_query($db, "SELECT callsign, MAX(CONCAT(day, ' ', LPAD(hour, 2, '0'))) AS last_report FROM satellite " .
-                      "WHERE FLOOR((23 - hour) / 2) + ((TO_DAYS(NOW()) - TO_DAYS(day)) * 12) BETWEEN 0 and " . ($nDays * 12 - 1) . " " .
+$result = mysqli_query($db, "SELECT callsign, MAX(observed_at) AS last_report FROM satellite " .
+                      "WHERE FLOOR((23 - HOUR(observed_at)) / 2) + ((TO_DAYS(NOW()) - TO_DAYS(observed_at)) * 12) BETWEEN 0 and " . ($nDays * 12 - 1) . " " .
                       "AND callsign <> 'TEST' AND callsign <> '' GROUP BY callsign ORDER BY last_report DESC");
 while($value = mysqli_fetch_array($result))
 {
@@ -767,6 +759,7 @@ $conn = new mysqli($mysqlHost, $mysqlUsername, $mysqlPassword, $mysqlDatabase);
 if ($conn->connect_error) {
     die("Connection failed: " . $conn->connect_error);
 }
+$conn->query("SET time_zone = '+00:00'");
 
 $sql = "SELECT * FROM satellite_name ORDER BY name ASC";
 $result = $conn->query($sql);
@@ -859,62 +852,7 @@ $conn->close();
 <tr>
 <td><font size=4><b>Time Heard (UTC)</b></font></td>
 <td>
-<select name=SatHour>
-<?php printf("<option value=%s>%s", date("H"), date("H")); ?>
-<option value="00">00
-<option value="01">01
-<option value="02">02
-<option value="03">03
-<option value="04">04
-<option value="05">05
-<option value="06">06
-<option value="07">07
-<option value="08">08
-<option value="09">09
-<option value="10">10
-<option value="11">11
-<option value="12">12
-<option value="13">13
-<option value="14">14
-<option value="15">15
-<option value="16">16
-<option value="17">17
-<option value="18">18
-<option value="19">19
-<option value="20">20
-<option value="21">21
-<option value="22">22
-<option value="23">23
-</select>
-<select name="SatPeriod">
-<?php
-$secs = date("i");
-if ($secs <= 15)
- {
-  $SPeriod=0;
-  $PName=":00-:15";
-}
-else if ($secs > 15 && $secs <= 30 )
-{
-  $SPeriod=1;
-  $PName=":16-:30";
-}
-else if ($secs > 30 && $secs <= 45 )
-{
-  $SPeriod=2;
-  $PName=":31-:45";
-}
-else if ( $secs> 45 && $secs <= 59 )
-{
-  $SPeriod=3;
-  $PName=":46-:59";
-}
-printf("<option value=%s>%s", $SPeriod, $PName); ?>
-<option value="0">:00-:15
-<option value="1">:16-:30
-<option value="2">:31-:45
-<option value="3">:46-:59
-</select>
+<input type="time" name="SatTime" value="<?php echo date("H:i"); ?>">
 </td></tr>
 
 <tr>

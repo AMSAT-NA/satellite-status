@@ -208,8 +208,8 @@ $baseUrl = api_base_url();
     "reported_at": "2026-05-23T08:30:00Z"
   }'</code></pre>
       <p class="note">
-        Submitting another report for the same satellite, callsign, hour, and 15-minute period replaces the previous one,
-        matching the legacy form behavior.
+        Every submission is stored as its own report -- nothing is ever replaced or deleted, even for the same
+        satellite, callsign, and time.
       </p>
     </div>
 

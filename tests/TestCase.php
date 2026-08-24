@@ -146,18 +146,23 @@ abstract class TestCase extends PHPUnitTestCase
         $stmt->close();
 
         // A handful of recent reports. Dates are relative to "today" in UTC
-        // since submit.php enforces a UTC clock.
+        // since submit.php enforces a UTC clock. day/hour/period are kept
+        // populated for realism (frozen historical archive, Issue #24);
+        // observed_at is derived from them with the same formula the
+        // production backfill migration uses, since it's now the only
+        // column the app itself reads.
         $today = gmdate('Y-m-d');
         $stmt  = $this->db->prepare(
-            'INSERT INTO satellite (name, longname, day, hour, period, callsign, report, grid_square) '
-            . 'VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+            'INSERT INTO satellite (name, longname, day, hour, period, callsign, report, grid_square, observed_at) '
+            . 'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
         );
         foreach ([
             ['AO-91', 'AO-91', $today, 14, 1, 'W5ABC',  'Heard',          'EM25LX'],
             ['AO-91', 'AO-91', $today, 15, 0, 'KB1XYZ', 'Heard',          'FN42'],
             ['FO-29', 'FO-29', $today, 18, 3, 'JA1ABC', 'Heard',          'PM95'],
         ] as [$name, $longname, $day, $hour, $period, $callsign, $report, $grid]) {
-            $stmt->bind_param('sssiisss', $name, $longname, $day, $hour, $period, $callsign, $report, $grid);
+            $observedAt = sprintf('%s %02d:%02d:00', $day, $hour, $period * 15);
+            $stmt->bind_param('sssiissss', $name, $longname, $day, $hour, $period, $callsign, $report, $grid, $observedAt);
             $stmt->execute();
         }
         $stmt->close();

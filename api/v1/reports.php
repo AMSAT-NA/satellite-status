@@ -23,7 +23,6 @@ if ($method === 'POST') {
                 'callsign' => $report['callsign'],
                 'report' => $report['report'],
                 'grid_square' => $report['grid_square'],
-                'replaced_count' => (int) $writeResult['replaced_count'],
             ],
             'links' => [
                 'satellite_reports' => api_self_url('reports.php?name=' . rawurlencode($report['name'])),
@@ -91,7 +90,6 @@ api_json_response([
                 'callsign' => $report['callsign'],
                 'report' => $report['report'],
                 'grid_square' => $report['grid_square'],
-                'period' => (int) $report['period'],
             ];
         },
         $reports

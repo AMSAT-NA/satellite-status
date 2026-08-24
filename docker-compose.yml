@@ -7,6 +7,7 @@ services:
       - "8080:80"
     environment:
       SITE_URL: ${SITE_URL:-http://localhost:8080}
+      API_INTERNAL_URL: http://api/api/v1
       MYSQL_HOST: db
       MYSQL_USER: satellite
       MYSQL_PASSWORD: satellite
@@ -73,6 +74,17 @@ services:
 
   db:
     image: mariadb:12.3
+    # Issue #24: server-level UTC default, as defense in depth alongside
+    # the app's own per-connection `SET time_zone = '+00:00'` pinning --
+    # so a connection would still get UTC even if it somehow lacked the
+    # explicit pin. A numeric offset (not a named zone like 'UTC') is
+    # deliberate: it's parsed directly and does not require the
+    # mysql.time_zone* tables to be populated via mysql_tzinfo_to_sql,
+    # unlike named-zone support. Confirmed against mariadb:12.3 (the
+    # version pinned above) -- SELECT @@global.time_zone and a fresh
+    # session's @@session.time_zone both come back +00:00 with no
+    # client-side SET and no timezone-table setup needed.
+    command: --default-time-zone=+00:00
     environment:
       MARIADB_ROOT_PASSWORD: root
       MARIADB_DATABASE: satellite_status
