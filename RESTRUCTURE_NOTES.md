@@ -626,3 +626,42 @@ not the `SITE_URL` consolidation this task scoped in.
 - `php -l` clean on every touched PHP file.
 - CI (PHPUnit, Playwright, docker-compose-smoke) confirmed on the branch
   before this was considered done — see the PR for the run link.
+
+---
+
+## API build context widened back to `./api` (issue #38)
+
+The "Build context tightened from `./api` back to `./api/v1`" decision
+above is reversed, for a new reason. `/api` (no version) returned 403:
+the API image only populated `/var/www/html/api/v1/`, so Apache had no
+index for `/api/` and refused a directory listing. #38 adds a real
+`/api` front door, `api/index.php`. It is a versions index that points at
+versioned base URLs and is deliberately **not** an alias for "the latest"
+version. That file sits outside `api/v1/`, so the image has to be built
+from `./api`.
+
+What changed:
+- `api/v1/Dockerfile` → `api/Dockerfile`, and `api/v1/.dockerignore` →
+  `api/.dockerignore` (a `.dockerignore` must sit at the context root).
+- The Dockerfile uses explicit `COPY index.php …` and `COPY v1/ …`
+  instead of `COPY .`, so build files never land in the web root. Under
+  the old `COPY . /var/www/html/api/v1/`, the Dockerfile itself was
+  inside the served tree.
+- An `AliasMatch "^/api$"` conf serves bare `/api` directly. Otherwise
+  mod_dir would 301 it to `/api/`, and behind Traefik Apache builds that
+  redirect as `http://`.
+- `cd.yml`: both API `context:` entries now point at `./api`, and the
+  paths-filter `api` pattern is `api/**`. `docker-compose.yml`: build
+  context `./api`, plus a bind mount for `api/index.php` next to the
+  existing `api/v1` one.
+
+This doesn't affect the `frontend/v1` vs. `api/v1` separation from the
+config-consolidation section. The frontend and API are still separate
+images, and `api/index.php` reuses only v1's own bootstrap, which ships
+in the same image.
+
+Verification: `tests/ApiRootTest.php` covers the PHP side through the
+dev-server router. A new `docker-compose-smoke` step checks the Apache
+side against the real image: bare `/api` and `/api/` both return 200
+with the expected v1 URL, and `/api/Dockerfile`, `/api/.dockerignore`
+and `/api/v1/Dockerfile` all return 404.

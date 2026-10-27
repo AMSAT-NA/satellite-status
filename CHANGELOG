@@ -106,4 +106,15 @@ CHANGE LOG:
       from the documented contract. Uses the standard JSON envelope
       (data, CORS, X-AMSAT-API-* headers). Content-Type changes from
       text/plain to application/json; no known consumer parses the old
-      text output. (Issue #38, PR #39)
+      text output. (Issue #38, PR #39, commit 9701584)
+    - Added an /api front door (api/index.php): a machine-readable JSON
+      index of API versions (currently just v1, status "current") with
+      each version's base URL, Swagger UI and OpenAPI links. Previously
+      /api returned 403. It is deliberately not an alias for the latest
+      version -- it points at versioned base URLs and never serves data
+      endpoints, so clients pinned to /api/v1/ are never moved silently.
+      To ship it in the API image, the build context moved from ./api/v1
+      to ./api (Dockerfile now api/Dockerfile, explicit COPYs so build
+      files are no longer in the web root; cd.yml contexts and path
+      filter, and docker-compose.yml, updated to match). (Issue #38,
+      PR #40)
