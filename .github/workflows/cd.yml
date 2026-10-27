@@ -37,11 +37,11 @@ jobs:
             frontend:
               - 'frontend/v1/**'
             api:
-              - 'api/v1/**'
+              - 'api/**'
 
   # ── Job 2: Docker build test (all branches, no push) ─────────────────────────
   # Catches Dockerfile issues on PRs and non-main branches. Only runs when
-  # something under frontend/v1/** or api/v1/** actually changed; builds both
+  # something under frontend/v1/** or api/** actually changed; builds both
   # images when it does (no per-image split here — see job 3 for that).
   docker-build-test:
     name: Docker Build Test
@@ -70,7 +70,7 @@ jobs:
       - name: Build api image
         uses: docker/build-push-action@v7
         with:
-          context: ./api/v1
+          context: ./api
           push: false
           tags: satellite-status-api:ci
           pull: true
@@ -129,7 +129,7 @@ jobs:
         if: needs.changes.outputs.api == 'true' || github.event_name == 'workflow_dispatch'
         uses: docker/build-push-action@v7
         with:
-          context: ./api/v1
+          context: ./api
           push: true
           tags: |
             ${{ vars.AZURE_ACR_NAME }}.azurecr.io/satellite-status-api:${{ github.sha }}
@@ -141,7 +141,7 @@ jobs:
 
   # ── Job 4: Configure server environment (main branch only, after job 3) ──────
   # Mirrors configure-env from amsat-discord-bot exactly. Runs even if job 3
-  # pushed no images (nothing under frontend/v1 or api/v1 changed) since the
+  # pushed no images (nothing under frontend/v1 or api changed) since the
   # .env or deploy/docker-compose.yml may still need to ship.
   configure-env:
     name: Configure Server Environment

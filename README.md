@@ -70,6 +70,7 @@ Then visit:
 | Service | URL |
 |---|---|
 | Frontend (status page) | http://localhost:8080 |
+| API versions index | http://localhost:8081/api/ |
 | API documentation | http://localhost:8081/api/v1/overview.php |
 | API Swagger UI | http://localhost:8081/api/v1/docs.php |
 | API example | http://localhost:8081/api/v1/satellites.php |
@@ -111,7 +112,7 @@ npx playwright test --config tests/playwright.config.js
 - Utilize the API at `$SITE_URL/api/v1`.
 
 ## API
-The public API lives under `/api/v1` and is documented at `/api/v1/overview.php`.
+The public API lives under `/api/v1` and is documented at `/api/v1/overview.php`. `/api/` is a machine-readable index of available API versions; it points at versioned base URLs and is never an alias for "the latest" version.
 Public Swagger documentation is available at `/api/v1/docs.php`.
 
 Available API surfaces:

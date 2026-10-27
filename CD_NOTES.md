@@ -49,7 +49,8 @@ and exposes `frontend`/`api` boolean outputs, shared by both the Docker build
 test job and the push-to-ACR job:
 
 - **Job 2 (docker-build-test)**: job-level `if` skips entirely unless
-  `frontend/v1/**` or `api/v1/**` changed. When it runs, it builds **both**
+  `frontend/v1/**` or `api/**` changed (`api/v1/**` before #38 widened the
+  API build context to `./api`). When it runs, it builds **both**
   images unconditionally (matching the brief).
 - **Job 3 (push)**: gates per-image at the *step* level — each
   `docker/build-push-action` step has its own `if: needs.changes.outputs.X
