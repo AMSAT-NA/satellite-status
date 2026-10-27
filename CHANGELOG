@@ -43,4 +43,14 @@ CHANGE LOG:
       active, auto-resized to fit via postMessage. Also added a CHANGELOG
       link to the existing footer, next to the deploy commit info; this
       file isn't served anywhere in-app, so it links to the GitHub blob
-      view.
+      view.2026-10-27:
+    - API root (/api/v1/) now returns a machine-readable JSON discovery
+      document instead of a plain-text listing: API name and version,
+      links to the prose overview, Swagger UI, OpenAPI document, health
+      check and CHANGELOG, and the full endpoint list (method, path,
+      absolute URL, summary, legacy/deprecated flags). The endpoint list
+      is generated from openapi.json at request time, so it can't drift
+      from the documented contract. Uses the standard JSON envelope
+      (data, CORS, X-AMSAT-API-* headers). Content-Type changes from
+      text/plain to application/json; no known consumer parses the old
+      text output. (Issue #38)
