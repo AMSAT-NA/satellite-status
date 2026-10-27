@@ -1,5 +1,12 @@
 # Knowledge Bundle Update Log
 
+## 2026-10-27
+* **Update**: [agents/changelog-convention](/agents/changelog-convention.md) — entries now
+  reference the **PR number** (required) instead of a commit SHA. Squash merges make the final
+  SHA unknowable when the entry is written, and a branch SHA isn't on `main` afterwards. Also
+  made "every PR gets an entry unless explicitly told otherwise" explicit, and documented how
+  to handle two open PRs that both append to the CHANGELOG.
+
 ## 2026-08-01
 * **Update**: [agents/ci-pipeline](/agents/ci-pipeline.md) — corrected the stale "CD is not yet
   implemented" note; CD has existed and deployed to production since. Points to `CD_NOTES.md` /
