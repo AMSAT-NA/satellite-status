@@ -266,6 +266,88 @@ final class ApiV1EndpointTest extends TestCase
         $this->assertArrayNotHasKey('data', $payload);
     }
 
+    public function testApiRootReturnsDiscoveryDocument(): void
+    {
+        $resp = $this->newGuestClient()->get('/api/v1/');
+
+        $this->assertSame(200, $resp->getStatusCode());
+        $this->assertSame('application/json; charset=utf-8', $resp->getHeaderLine('Content-Type'));
+        $this->assertSame('*', $resp->getHeaderLine('Access-Control-Allow-Origin'));
+
+        $payload = json_decode((string) $resp->getBody(), true);
+        $this->assertIsArray($payload);
+        $data = $payload['data'];
+
+        $this->assertSame('AMSAT Satellite Status API', $data['name']);
+        $this->assertSame($resp->getHeaderLine('X-AMSAT-API-Version'), $data['version']);
+
+        $this->assertSame(
+            ['self', 'overview', 'docs', 'openapi', 'health', 'changelog'],
+            array_keys($data['links'])
+        );
+        $this->assertStringEndsWith('/api/v1/', $data['links']['self']);
+
+        foreach (['overview', 'docs', 'openapi', 'health'] as $rel) {
+            $this->assertStringStartsWith($data['links']['self'], $data['links'][$rel], "links.{$rel}");
+        }
+    }
+
+    /**
+     * The discovery document's endpoint list is generated from openapi.json,
+     * not hand-maintained -- this pins that: every documented operation is
+     * listed, nothing undocumented is, and each entry points at this API.
+     */
+    public function testApiRootEndpointsMatchOpenApiDocument(): void
+    {
+        $client = $this->newGuestClient();
+
+        $spec = json_decode((string) $client->get('/api/v1/openapi.php')->getBody(), true);
+        $expected = [];
+        foreach ($spec['paths'] as $path => $operations) {
+            foreach (array_keys($operations) as $method) {
+                if (in_array($method, ['get', 'post', 'put', 'patch', 'delete'], true)) {
+                    $expected[] = strtoupper($method) . ' ' . $path;
+                }
+            }
+        }
+
+        $data = json_decode((string) $client->get('/api/v1/')->getBody(), true)['data'];
+        $actual = array_map(
+            static fn (array $e): string => $e['method'] . ' ' . $e['path'],
+            $data['endpoints']
+        );
+
+        sort($expected);
+        sort($actual);
+        $this->assertNotEmpty($expected);
+        $this->assertSame($expected, $actual);
+
+        foreach ($data['endpoints'] as $endpoint) {
+            $this->assertSame(
+                rtrim($data['links']['self'], '/') . $endpoint['path'],
+                $endpoint['url'],
+                "url for {$endpoint['method']} {$endpoint['path']}"
+            );
+            $this->assertIsBool($endpoint['legacy']);
+            $this->assertIsBool($endpoint['deprecated']);
+        }
+
+        $legacy = array_column(
+            array_filter($data['endpoints'], static fn (array $e): bool => $e['legacy']),
+            'path'
+        );
+        sort($legacy);
+        $this->assertSame(['/sat_info.php', '/satellites.php'], $legacy);
+    }
+
+    public function testApiRootRejectsNonGetMethods(): void
+    {
+        $resp = $this->newGuestClient()->post('/api/v1/');
+
+        $this->assertSame(405, $resp->getStatusCode());
+        $this->assertSame('GET', $resp->getHeaderLine('Allow'));
+    }
+
     public function testUnsupportedMethodsReturn405(): void
     {
         $resp = $this->newGuestClient()->delete('/api/v1/reports.php');
