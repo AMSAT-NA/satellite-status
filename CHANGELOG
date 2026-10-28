@@ -118,3 +118,9 @@ CHANGE LOG:
       files are no longer in the web root; cd.yml contexts and path
       filter, and docker-compose.yml, updated to match). (Issue #38,
       PR #40)
+    - CHANGELOG convention (docs/agents/changelog-convention.md): entries
+      now reference the PR number, which is required, instead of a
+      commit SHA. Squash merges create the final SHA only at merge time,
+      so it can't be recorded when the entry is written, and a branch
+      SHA doesn't end up on main. Every PR gets an entry unless
+      explicitly told otherwise. (PR #41)
