@@ -1,9 +1,14 @@
 -- Issue #24 -- add observed_at/submitted_at to `satellite`, backfill
 -- observed_at from the existing day/hour/period columns, add a
--- supporting index. Run manually against dallas190 (current production
--- MariaDB host) via the mysql/mariadb CLI:
+-- supporting index. Run manually by the project owner against the
+-- production database container on azure193, after the dallas190 dump
+-- has been loaded there and before this PR is merged (see the cutover
+-- plan in the PR description). From /opt/services/satellite-status:
 --
---   mysql -h <dallas190-host> -u <user> -p <database> < 2026_08_08_add_observed_at_submitted_at.sql
+--   docker compose exec -T db mariadb -u <user> -p<password> <database> < 2026_08_08_add_observed_at_submitted_at.sql
+--
+-- (Originally written to run against dallas190 directly; the target
+-- moved to azure193 when the cutover plan changed to dump-then-migrate.)
 --
 -- day/hour/period are NOT touched or dropped -- they remain as a frozen
 -- historical archive. Nothing in the app writes to them after this ships.

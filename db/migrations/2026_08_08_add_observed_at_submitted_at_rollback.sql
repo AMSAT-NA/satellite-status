@@ -7,7 +7,8 @@
 -- loses their timing information entirely (day/hour/period were never
 -- populated for rows written after the Issue #24 app-code deploy).
 --
---   mysql -h <dallas190-host> -u <user> -p <database> < 2026_08_08_add_observed_at_submitted_at_rollback.sql
+--   # on azure193, from /opt/services/satellite-status:
+--   docker compose exec -T db mariadb -u <user> -p<password> <database> < 2026_08_08_add_observed_at_submitted_at_rollback.sql
 --
 -- Both statements are DDL (implicit commit each); ALTER TABLE ... DROP
 -- COLUMN on MariaDB is not an instant operation the way ADD COLUMN is --
