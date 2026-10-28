@@ -291,6 +291,27 @@ jobs:
           echo "Self link: $SELF"
           [ "$SELF" = "${SITE_URL}/api/v1/catalog.php?name=AO-91" ]
 
+      - name: Smoke-test /api front door (real Apache, not the PHP dev server)
+        # The PHPUnit harness can't exercise Apache config, so this is the
+        # only check that the AliasMatch for bare /api and the api/index.php
+        # COPY in api/Dockerfile actually work. Bare /api must answer 200
+        # directly -- a 301 here means mod_dir is redirecting, which behind
+        # Traefik becomes an http:// hop.
+        run: |
+          for P in /api /api/; do
+            STATUS=$(curl -s -o /tmp/api-root.json -w "%{http_code}" "http://localhost:8081$P")
+            echo "$P -> HTTP $STATUS"
+            cat /tmp/api-root.json
+            [ "$STATUS" = "200" ]
+            jq -e --arg u "${SITE_URL}/api/v1/" '.data.versions[] | select(.version == "v1") | .url == $u' /tmp/api-root.json
+          done
+          # Build files must not be fetchable from the web root.
+          for P in /api/Dockerfile /api/.dockerignore /api/v1/Dockerfile; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:8081$P")
+            echo "$P -> HTTP $STATUS"
+            [ "$STATUS" = "404" ]
+          done
+
       - name: Smoke-test SITE_URL portability (a different SITE_URL isn't hardcoded away)
         env:
           SITE_URL: https://example.org

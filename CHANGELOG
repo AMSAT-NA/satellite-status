@@ -13,6 +13,37 @@ CHANGE LOG:
 2026-06-17:
     - Migrated repository from GitLab to GitHub
     - CI pipeline ported to GitHub Actions (PHPUnit + Playwright test suites, build artifact)
+2026-06-18:
+    - Restructured the repo into versioned frontend/v1/ and api/v1/
+      directories, each with its own Dockerfile, plus db/ for schema and
+      seed data, and a three-service docker-compose.yml (frontend, api,
+      db). No functional changes. (PR #6, commit 0c0abe1)
+    - Moved the test configs into tests/ and gave each Docker build
+      context its own .dockerignore. (PR #7, commit 2b5f3bc)
+    - Added a docker-compose smoke-test CI job that builds the real
+      stack and checks the frontend, API health and seeded data.
+      (PR #8, commit 7bfd543)
+    - Added Traefik routing labels for status.amsat.org, with /api routed
+      to the API container. (PR #9, commit 39c3843)
+2026-07-17:
+    - Removed the completed survey banner from the status page.
+      (PR #11, commit f03835c)
+2026-07-27:
+    - Added the CD pipeline: CI gate, path-filtered image build, push to
+      Azure Container Registry, then configure and deploy to azure193.
+      (PR #12, commit 6070266)
+    - Upgraded MariaDB from 11.4 to the 12.3 LTS. (PR #16, commit 9971d1a)
+2026-07-28:
+    - Fixed the production DB healthcheck on azure193 (now uses a TCP
+      loopback check), and enabled MARIADB_AUTO_UPGRADE for future
+      version bumps. (PR #17, commit 497d43c)
+2026-07-31:
+    - The Donate button now links to the AMSAT General Fund donations
+      page instead of the old PayPal campaign. (PR #13, commit d915c24)
+    - Added a Traefik restart after each deploy to work around
+      intermittent 504s (PR #18, commit 0d1880b). It was removed the same
+      day once the real cause was fixed in amsat-it-infra: Traefik was
+      routing to the wrong Docker network. (PR #19, commit 58b9cf2)
 2026-08-01:
     - Added deploy-time versioning (Issue #20): frontend footer now shows the
       last-deployed date/time and short commit SHA; API responses carry
@@ -24,8 +55,77 @@ CHANGE LOG:
       see that doc for why), and refreshed the docs/agents/ knowledge
       bundle, which had gone stale since CD shipped.
     - Commit: ed6fb69
-2026-08-09:
-    - Report timestamp precision migration (Issue #24). BREAKING CHANGE for
+    - Consolidated SITE_URL handling and fixed a trailing-slash bug that
+      produced double-slash links on the admin pages. CI now checks that
+      API self-links match the production URL exactly.
+      (PR #21, commit 539dcba)
+2026-08-02:
+    - The "Reports From" list now scrolls instead of stretching the page,
+      and is sorted by most recent report. (Issue #27, PR #28,
+      commit 0993ef4)
+2026-08-23:
+    - Added a reusable, file-toggled site announcement banner. A banner is
+      live if and only if frontend/v1/content/banner.md exists and is
+      non-empty (gitignored, host-edited directly, never committed; a
+      tracked frontend/v1/content/banner.md.example ships as the template).
+      Rendered by a new dedicated endpoint (frontend/v1/banner.php) as a
+      complete, self-contained HTML document -- Markdown via a vendored
+      copy of Parsedown (frontend/v1/lib/Parsedown.php, MIT, this app's
+      first third-party runtime PHP dependency; vendored as a single file
+      rather than composer-installed, since this repo's Docker builds
+      don't run `composer install`), raw HTML passthrough intentionally
+      unsanitized (content is host-edited only, never user- or API-
+      submitted), tag-balanced via DOMDocument, every link forced to
+      target="_blank" rel="noopener". index.php embeds it via <iframe>
+      for genuine DOM isolation -- malformed banner markup structurally
+      cannot affect the parent page -- only when a banner is actually
+      active, auto-resized to fit via postMessage. Also added a CHANGELOG
+      link to the existing footer, next to the deploy commit info; this
+      file isn't served anywhere in-app, so it links to the GitHub blob
+      view. (PR #33, commit c9b310a)
+2026-08-24:
+    - Fixed CD so it ships content/banner.md.example to the deploy host
+      and creates the content/ directory. (PR #34, commit 6cdc23c)
+2026-10-24:
+    - Security: rebuilt the frontend and API images on PHP 8.5.12 for
+      CVE-2026-109618 / CVE-2026-109619 (unauthenticated RCE, fixed in
+      8.5.12). Base images are now pinned to php:8.5-apache instead of a
+      floating php:apache, so patch releases still come in but a major
+      bump can't land by surprise. Builds now always re-pull the base
+      image. (PR #36, commit 20380db)
+    - CD can now be run manually ("Run workflow"). A manual run rebuilds
+      both images from scratch, without cache, and deploys from main.
+      (PRs #35 and #36, commits 1880c1f and 20380db)
+2026-10-27:
+    - API root (/api/v1/) now returns a machine-readable JSON discovery
+      document instead of a plain-text listing: API name and version,
+      links to the prose overview, Swagger UI, OpenAPI document, health
+      check and CHANGELOG, and the full endpoint list (method, path,
+      absolute URL, summary, legacy/deprecated flags). The endpoint list
+      is generated from openapi.json at request time, so it can't drift
+      from the documented contract. Uses the standard JSON envelope
+      (data, CORS, X-AMSAT-API-* headers). Content-Type changes from
+      text/plain to application/json; no known consumer parses the old
+      text output. (Issue #38, PR #39, commit 9701584)
+    - Added an /api front door (api/index.php): a machine-readable JSON
+      index of API versions (currently just v1, status "current") with
+      each version's base URL, Swagger UI and OpenAPI links. Previously
+      /api returned 403. It is deliberately not an alias for the latest
+      version -- it points at versioned base URLs and never serves data
+      endpoints, so clients pinned to /api/v1/ are never moved silently.
+      To ship it in the API image, the build context moved from ./api/v1
+      to ./api (Dockerfile now api/Dockerfile, explicit COPYs so build
+      files are no longer in the web root; cd.yml contexts and path
+      filter, and docker-compose.yml, updated to match). (Issue #38,
+      PR #40)
+    - CHANGELOG convention (docs/agents/changelog-convention.md): entries
+      now reference the PR number, which is required, instead of a
+      commit SHA. Squash merges create the final SHA only at merge time,
+      so it can't be recorded when the entry is written, and a branch
+      SHA doesn't end up on main. Every PR gets an entry unless
+      explicitly told otherwise. (PR #41)
+2026-11-04:
+    - Report timestamp precision migration. BREAKING CHANGE for
       API consumers of GET/POST /api/v1/reports.php -- no deprecation
       window. If you consume this API, read this entry before upgrading:
         - `satellite` gains two real columns: `observed_at` (when the
@@ -67,9 +167,11 @@ CHANGE LOG:
       tooltips, and "Reports From" list were rewritten against
       `observed_at` in the same PR, since they'd otherwise show nothing
       for any report submitted after this shipped.
-      A production DB migration (db/migrations/) targeting dallas190 is
-      run manually by the project owner -- separate from this app-code
-      deploy, and not wired into CI/CD.
+      The production DB migration (db/migrations/) is run manually by
+      the project owner against the azure193 database container, as part
+      of the dallas190 -> status.amsat.org cutover (dump dallas190, load
+      it on azure193, migrate, then merge). It is separate from this
+      app-code deploy and not wired into CI/CD.
       Added a CI check (tools/check-timezone-pins.php) that fails the
       build if a new raw DB connection is added without the UTC
       time_zone pin every connection needs for TIMESTAMP columns to
@@ -81,26 +183,7 @@ CHANGE LOG:
       `--default-time-zone=+00:00` at the server level, as a second
       layer of defense alongside the existing per-connection pinning --
       so a connection would still get UTC even if it somehow lacked the
-      explicit `SET time_zone` pin. The separate, non-dockerized legacy
-      production host (dallas190) is not covered by this and is handled
-      by the project owner directly on that host, outside this repo.
-2026-08-23:
-    - Added a reusable, file-toggled site announcement banner. A banner is
-      live if and only if frontend/v1/content/banner.md exists and is
-      non-empty (gitignored, host-edited directly, never committed; a
-      tracked frontend/v1/content/banner.md.example ships as the template).
-      Rendered by a new dedicated endpoint (frontend/v1/banner.php) as a
-      complete, self-contained HTML document -- Markdown via a vendored
-      copy of Parsedown (frontend/v1/lib/Parsedown.php, MIT, this app's
-      first third-party runtime PHP dependency; vendored as a single file
-      rather than composer-installed, since this repo's Docker builds
-      don't run `composer install`), raw HTML passthrough intentionally
-      unsanitized (content is host-edited only, never user- or API-
-      submitted), tag-balanced via DOMDocument, every link forced to
-      target="_blank" rel="noopener". index.php embeds it via <iframe>
-      for genuine DOM isolation -- malformed banner markup structurally
-      cannot affect the parent page -- only when a banner is actually
-      active, auto-resized to fit via postMessage. Also added a CHANGELOG
-      link to the existing footer, next to the deploy commit info; this
-      file isn't served anywhere in-app, so it links to the GitHub blob
-      view.
+      explicit `SET time_zone` pin. That now includes production, which
+      runs in the azure193 container from this cutover on. The legacy
+      dallas190 host, kept only as a rollback fallback, is not covered.
+      (Issue #24, PR #30)

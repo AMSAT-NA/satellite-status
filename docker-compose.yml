@@ -40,7 +40,7 @@ services:
 
   api:
     build:
-      context: ./api/v1
+      context: ./api
       dockerfile: Dockerfile
     ports:
       - "8081:80"
@@ -51,6 +51,7 @@ services:
       MYSQL_PASSWORD: satellite
       MYSQL_DATABASE: satellite_status
     volumes:
+      - ./api/index.php:/var/www/html/api/index.php
       - ./api/v1:/var/www/html/api/v1
     depends_on:
       db:

@@ -3,7 +3,7 @@ type: Decision Record
 title: CHANGELOG Convention for Agent Work
 description: How AI agents working on this codebase should update the root CHANGELOG file, and why this is a documented convention rather than a CI-enforced check.
 tags: [changelog, agents, process]
-timestamp: 2026-08-01T00:00:00Z
+timestamp: 2026-10-27T00:00:00Z
 ---
 
 # CHANGELOG Convention for Agent Work
@@ -18,16 +18,18 @@ AI agents are now the primary development path for this repository (see
 [Issue #20](https://github.com/AMSAT-NA/satellite-status/issues/20)). Any
 agent that completes a unit of work — a bug fix, a feature, a config
 change, anything a human would want to know happened — **must** add an
-entry to the root `CHANGELOG` file as part of that work, in the same commit
-or PR as the change itself.
+entry to the root `CHANGELOG` file as part of that work, in the same PR as
+the change itself. **Every PR gets an entry unless the person directing
+the work explicitly says otherwise** for that PR.
 
 An entry should include, at minimum:
 
 - The date (`YYYY-MM-DD`)
 - A one-line description of what changed and why (not just what files
   moved — the existing entries in the file are the style guide)
-- The short commit SHA of the change, once known (see below)
-- The issue number, if the work traces to one
+- **The PR number** — required, e.g. `(PR #40)` (see "Referencing the
+  change" below for why this is the PR number and not a commit SHA)
+- The issue number, if the work traces to one, e.g. `(Issue #38, PR #40)`
 
 Follow the existing file's format — a flat dated list, oldest to newest.
 Don't restructure it into something else (front matter, JSON, per-entry
@@ -48,24 +50,46 @@ verify quality.
 If CHANGELOG entries turn out to be unreliable in practice despite this
 convention, revisit this decision — but start here.
 
-## The commit-SHA nuance
+## Referencing the change: PR number, not commit SHA
 
-An agent pushing a feature branch and opening a PR does not know the final
-commit SHA the change will land on `main` under — a squash-merge or
-rebase-merge produces a new SHA at merge time that doesn't exist yet when
-the agent writes the CHANGELOG entry. Two acceptable options, in order of
-preference:
+Entries reference the change by **PR number**. A commit SHA is not
+required.
 
-1. **If the agent is present when the PR merges** (e.g. asked to merge it,
-   or checks back later), update the CHANGELOG entry's SHA to the actual
-   merge commit at that point.
-2. **Otherwise**, use the short SHA of the branch's own HEAD commit (the
-   one CI ran against) at the time the entry is written. This is still a
-   real, resolvable commit — just not necessarily the one `main` ends up
-   with after merge — and is far more useful than no SHA at all. Don't
-   block on getting the "true final" SHA; that information isn't knowable
-   at PR-creation time and waiting for it defeats the point of the entry
-   existing before the work is considered done.
+The reason is that a commit SHA can't be known when the entry is written:
+
+- A commit can't contain its own SHA, because the SHA is a hash of the
+  commit's contents.
+- This repo squash-merges. Squashing creates a brand-new commit on `main`
+  at merge time, so any SHA written inside the PR (the branch HEAD, or a
+  separate "dev work" commit) no longer appears in `main`'s history once
+  it lands. Putting the CHANGELOG update in its own commit doesn't
+  change this.
+
+The PR number has none of these problems. It exists as soon as the PR is
+opened, never changes, links straight to the merged commit on GitHub, and
+survives squash, rebase, and merge-commit merges alike. Squash merges also
+put `(#N)` in the commit title, so the SHA is still one command away:
+
+```bash
+git log --oneline --grep '(#40)'
+```
+
+**Workflow:** open the PR first. Then add, or finish, the CHANGELOG entry
+with the now-known PR number and push it to the same branch before
+merge. Don't guess the next PR number in advance; a concurrently opened
+issue or PR takes it.
+
+**SHAs are optional extras.** Add one only when it's already known and
+final, i.e. when the entry is written *after* the change merged, as in
+backfilled entries. Never record a pre-merge branch SHA. (This replaces
+the earlier guidance to fall back to the branch HEAD SHA, which ends up
+pointing at a commit that isn't on `main` after a squash merge.)
+
+**Merging two open PRs that both touch the CHANGELOG:** both append at the
+end of the file, so the second one to merge will conflict in `CHANGELOG`
+(only there). Rebase it onto `main` after the first merges, keep both
+entries (same-date entries become bullets under one date line), and make
+sure the file still ends with a newline.
 
 ## Relationship to deploy-time versioning
 

@@ -5,6 +5,7 @@ on:
     branches: ["**"]
   pull_request:
     branches: ["**"]
+  workflow_dispatch:
 
 jobs:
 
@@ -36,17 +37,20 @@ jobs:
             frontend:
               - 'frontend/v1/**'
             api:
-              - 'api/v1/**'
+              - 'api/**'
 
   # ── Job 2: Docker build test (all branches, no push) ─────────────────────────
   # Catches Dockerfile issues on PRs and non-main branches. Only runs when
-  # something under frontend/v1/** or api/v1/** actually changed; builds both
+  # something under frontend/v1/** or api/** actually changed; builds both
   # images when it does (no per-image split here — see job 3 for that).
   docker-build-test:
     name: Docker Build Test
     runs-on: ubuntu-latest
     needs: changes
-    if: needs.changes.outputs.frontend == 'true' || needs.changes.outputs.api == 'true'
+    if: |
+      needs.changes.outputs.frontend == 'true' ||
+      needs.changes.outputs.api == 'true' ||
+      github.event_name == 'workflow_dispatch'
     steps:
       - uses: actions/checkout@v6
 
@@ -58,15 +62,19 @@ jobs:
           context: ./frontend/v1
           push: false
           tags: satellite-status-frontend:ci
+          pull: true
+          no-cache: ${{ github.event_name == 'workflow_dispatch' }}
           cache-from: type=gha,scope=frontend
           cache-to: type=gha,mode=max,scope=frontend
 
       - name: Build api image
         uses: docker/build-push-action@v7
         with:
-          context: ./api/v1
+          context: ./api
           push: false
           tags: satellite-status-api:ci
+          pull: true
+          no-cache: ${{ github.event_name == 'workflow_dispatch' }}
           cache-from: type=gha,scope=api
           cache-to: type=gha,mode=max,scope=api
 
@@ -84,7 +92,7 @@ jobs:
       needs.docker-build-test.result != 'failure' &&
       needs.docker-build-test.result != 'cancelled' &&
       github.ref == 'refs/heads/main' &&
-      github.event_name == 'push'
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     permissions:
       id-token: write   # required for OIDC token request
       contents: read
@@ -104,7 +112,7 @@ jobs:
         run: az acr login --name ${{ vars.AZURE_ACR_NAME }}
 
       - name: Build and push frontend image
-        if: needs.changes.outputs.frontend == 'true'
+        if: needs.changes.outputs.frontend == 'true' || github.event_name == 'workflow_dispatch'
         uses: docker/build-push-action@v7
         with:
           context: ./frontend/v1
@@ -112,24 +120,28 @@ jobs:
           tags: |
             ${{ vars.AZURE_ACR_NAME }}.azurecr.io/satellite-status-frontend:${{ github.sha }}
             ${{ vars.AZURE_ACR_NAME }}.azurecr.io/satellite-status-frontend:latest
+          pull: true
+          no-cache: ${{ github.event_name == 'workflow_dispatch' }}
           cache-from: type=gha,scope=frontend
           cache-to: type=gha,mode=max,scope=frontend
 
       - name: Build and push api image
-        if: needs.changes.outputs.api == 'true'
+        if: needs.changes.outputs.api == 'true' || github.event_name == 'workflow_dispatch'
         uses: docker/build-push-action@v7
         with:
-          context: ./api/v1
+          context: ./api
           push: true
           tags: |
             ${{ vars.AZURE_ACR_NAME }}.azurecr.io/satellite-status-api:${{ github.sha }}
             ${{ vars.AZURE_ACR_NAME }}.azurecr.io/satellite-status-api:latest
+          pull: true
+          no-cache: ${{ github.event_name == 'workflow_dispatch' }}
           cache-from: type=gha,scope=api
           cache-to: type=gha,mode=max,scope=api
 
   # ── Job 4: Configure server environment (main branch only, after job 3) ──────
   # Mirrors configure-env from amsat-discord-bot exactly. Runs even if job 3
-  # pushed no images (nothing under frontend/v1 or api/v1 changed) since the
+  # pushed no images (nothing under frontend/v1 or api changed) since the
   # .env or deploy/docker-compose.yml may still need to ship.
   configure-env:
     name: Configure Server Environment
@@ -142,7 +154,7 @@ jobs:
       needs.push.result != 'failure' &&
       needs.push.result != 'cancelled' &&
       github.ref == 'refs/heads/main' &&
-      github.event_name == 'push'
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     steps:
       - uses: actions/checkout@v6
 
@@ -209,7 +221,7 @@ jobs:
       needs.configure-env.result != 'failure' &&
       needs.configure-env.result != 'cancelled' &&
       github.ref == 'refs/heads/main' &&
-      github.event_name == 'push'
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     steps:
       - name: Configure SSH
         run: |
