@@ -162,7 +162,87 @@ $baseUrl = api_base_url();
       <tr><td>OpenAPI JSON</td><td><a href="<?php echo htmlspecialchars($baseUrl); ?>/openapi.php"><code><?php echo htmlspecialchars($baseUrl); ?>/openapi.php</code></a></td></tr>
       <tr><td>Legacy reports</td><td><a href="<?php echo htmlspecialchars($baseUrl); ?>/sat_info.php?name=AO-91&amp;hours=24"><code><?php echo htmlspecialchars($baseUrl); ?>/sat_info.php?name=AO-91&amp;hours=24</code></a></td></tr>
       <tr><td>Acknowledgements</td><td><a href="./acknowledgements.php"><code><?php echo htmlspecialchars($baseUrl); ?>/acknowledgements.php</code></a></td></tr>
+      <tr><td>Usage guidelines</td><td><a href="#usage">Read before building on this API</a></td></tr>
     </table>
+  </section>
+
+  <section id="usage">
+    <h2>Usage Guidelines</h2>
+    <p>
+      This API is run by volunteers for the amateur satellite community, and it is free to use.
+      In return, please follow these guidelines. Clients that ignore them, especially unidentified
+      ones, may be rate-limited or blocked.
+    </p>
+
+    <h3 id="identify">Identify your client</h3>
+    <p>
+      Send a <code>User-Agent</code> header that names your application, its version, and a way to reach you:
+      a project URL, an email address, or both.
+    </p>
+    <pre><code>User-Agent: MySatTracker/1.2 (+https://github.com/example/mysattracker; you@example.com)</code></pre>
+    <pre><code>curl -A "MySatTracker/1.2 (+https://github.com/example/mysattracker; you@example.com)" \
+  "<?php echo htmlspecialchars($baseUrl); ?>/summary.php?hours=24"</code></pre>
+    <p>
+      Generic library defaults such as <code>python-requests/2.x</code> or <code>curl/8.x</code> tell us nothing.
+      If something you run starts misbehaving, a descriptive User-Agent is how we find you before we block it.
+      Code running in a web browser usually can't set <code>User-Agent</code>; browser clients are identified by
+      their <code>Origin</code>, so serve them from a stable domain. Please don't invent custom identification headers:
+      they will fail the browser CORS preflight.
+    </p>
+
+    <h3 id="polling">Poll gently</h3>
+    <ul>
+      <li>Reports are grouped into 15-minute periods, so polling more often than every <strong>5 minutes</strong> gains you nothing. Please don't.</li>
+      <li>Fetch what you need in one request. Use <code>reports.php</code> without <code>name</code>, or <code>summary.php</code>, rather than one request per satellite.</li>
+      <li>Use <code>since</code> to fetch only reports newer than your last poll.</li>
+      <li>Apps with many users should poll from one server and serve their users from that copy, rather than having every user's device call this API directly.</li>
+      <li>On errors (<code>5xx</code>, or <code>429</code> if rate limiting is introduced), back off rather than retrying immediately.</li>
+    </ul>
+
+    <h3 id="submitting">Submitting reports</h3>
+    <ul>
+      <li>Submit reports only for your own callsign, and only for something actually observed.</li>
+      <li>Set <code>reported_at</code> to the time of the observation, in UTC, not the time you submit it.</li>
+      <li>No synthetic, bulk, or relayed reports (for example, re-posting data from another network) without talking to us first. Automated submitters must identify themselves as described above.</li>
+    </ul>
+
+    <h3 id="data">Data and attribution</h3>
+    <p>
+      Report data returned by this API is available under the
+      <a href="https://creativecommons.org/licenses/by/4.0/">Creative Commons Attribution 4.0 (CC BY 4.0)</a> license.
+      Credit it as:
+    </p>
+    <pre><code>Satellite status data: AMSAT, https://status.amsat.org</code></pre>
+    <p>
+      Reports include callsigns and grid squares submitted by individual operators. Use the data to show and analyze
+      satellite status. Don't use it to track, profile, or contact individual operators, and don't combine it with
+      other data to locate them more precisely than the grid square they chose to share.
+    </p>
+
+    <h3 id="license">Source code</h3>
+    <p>
+      The API and status page source is at
+      <a href="https://github.com/AMSAT-NA/satellite-status">github.com/AMSAT-NA/satellite-status</a> under the
+      <a href="https://github.com/AMSAT-NA/satellite-status/blob/main/LICENSE">Apache License 2.0</a>.
+      Contributions are welcome.
+    </p>
+
+    <h3 id="changes">Stability and changes</h3>
+    <p>
+      <code>/api/v1</code> is a living version. Changes, including occasional breaking changes, are announced in the
+      <a href="https://github.com/AMSAT-NA/satellite-status/blob/main/CHANGELOG">CHANGELOG</a>.
+      Watch the GitHub repository to hear about them. A new major version, when one exists, will get its own base URL,
+      listed in the machine-readable index at <code>/api/</code>.
+      There is no uptime guarantee; check <code>/health.php</code> rather than assuming.
+    </p>
+
+    <h3 id="support">Contact and support</h3>
+    <ol>
+      <li>Open an issue on <a href="https://github.com/AMSAT-NA/satellite-status/issues">GitHub</a>.</li>
+      <li>Ask in the AMSAT Discord server, <code>#open-source-dev</code> channel.</li>
+      <li>Email <a href="mailto:IT@amsat.org">IT@amsat.org</a>.</li>
+    </ol>
+    <p>If you're building something on this API, let us know. It helps us understand who depends on it before we change things.</p>
   </section>
 
   <section>
