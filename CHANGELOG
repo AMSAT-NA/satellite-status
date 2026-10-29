@@ -131,8 +131,11 @@ CHANGE LOG:
       is CC BY 4.0 with attribution. Added API usage guidelines to the
       overview page (overview.php#usage): identify clients with a
       descriptive User-Agent, poll no more than every 5 minutes, submit
-      reports only for your own callsign, don't use report data to track
-      operators, and how breaking changes are announced. The OpenAPI
+      only real observations by the operator whose callsign the report
+      carries (apps submitting on their users' behalf are welcome; imports
+      from other networks or automated reports need agreement first),
+      don't use report data to track operators, and how breaking changes
+      are announced. The OpenAPI
       document now carries license, contact and termsOfService. README
       and this file's header point at status.amsat.org. (Issue #42,
       PR #43)

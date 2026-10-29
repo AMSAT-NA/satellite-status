@@ -115,7 +115,7 @@ npx playwright test --config tests/playwright.config.js
 The public API lives under `/api/v1` and is documented at `/api/v1/overview.php`. `/api/` is a machine-readable index of available API versions; it points at versioned base URLs and is never an alias for "the latest" version.
 Public Swagger documentation is available at `/api/v1/docs.php`.
 
-**Building on the API?** Read the [usage guidelines](https://status.amsat.org/api/v1/overview.php#usage) first: identify your client with a descriptive `User-Agent`, poll no more often than every 5 minutes, and submit reports only for your own callsign. Report data is available under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) with attribution.
+**Building on the API?** Read the [usage guidelines](https://status.amsat.org/api/v1/overview.php#usage) first: identify your client with a descriptive `User-Agent`, poll no more often than every 5 minutes, and submit only real observations made by the operator whose callsign the report carries (apps submitting on their users' behalf are welcome). Report data is available under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) with attribution.
 
 Available API surfaces:
 - `GET /api/v1/catalog.php` lists satellites with links and optional report statistics.

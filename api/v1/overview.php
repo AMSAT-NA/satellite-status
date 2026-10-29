@@ -200,10 +200,16 @@ $baseUrl = api_base_url();
     </ul>
 
     <h3 id="submitting">Submitting reports</h3>
+    <p>
+      Apps that let operators submit their own observations are welcome. That is what <code>POST /reports.php</code> is for.
+      The rules below are about where a report comes from, not which software sends it.
+    </p>
     <ul>
-      <li>Submit reports only for your own callsign, and only for something actually observed.</li>
-      <li>Set <code>reported_at</code> to the time of the observation, in UTC, not the time you submit it.</li>
-      <li>No synthetic, bulk, or relayed reports (for example, re-posting data from another network) without talking to us first. Automated submitters must identify themselves as described above.</li>
+      <li>Each report must describe a real observation by the operator whose callsign it carries. If your app submits for its users, use the user's callsign, not the app's or the developer's.</li>
+      <li>A report should be submitted because the operator chose to submit it, such as by tapping "submit" in your app. Don't have your app submit reports in the background without the operator's action.</li>
+      <li>Set <code>reported_at</code> to the time of the observation, in UTC, not the time it was submitted. This matters most for apps that queue reports offline.</li>
+      <li>Identify your app with a <code>User-Agent</code>, as described <a href="#identify">above</a>, so we can tell which app a report came through if something looks wrong.</li>
+      <li>Talk to us first before submitting reports that no operator entered: imports from another network or dataset, reports generated automatically from decoders or telemetry, or bulk backfills of past observations. These may be fine, but we need to agree on how they're labeled and deduplicated.</li>
     </ul>
 
     <h3 id="data">Data and attribution</h3>

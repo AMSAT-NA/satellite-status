@@ -10,7 +10,7 @@ use OpenApi\Attributes as OA;
         description: 'Public API for amateur satellite status reports. '
             . 'Before building on it, read the usage guidelines (linked as Terms of Service): '
             . 'identify your client with a descriptive User-Agent, poll no more often than every 5 minutes, '
-            . 'and submit reports only for your own callsign. '
+            . 'and submit only real observations made by the operator whose callsign the report carries. '
             . 'Code is licensed under Apache-2.0; report data is available under CC BY 4.0 with attribution.',
         termsOfService: 'https://status.amsat.org/api/v1/overview.php#usage',
         contact: new OA\Contact(
