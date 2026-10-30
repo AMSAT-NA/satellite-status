@@ -128,12 +128,15 @@ CHANGE LOG:
     - Report timestamp precision migration. BREAKING CHANGE for
       API consumers of GET/POST /api/v1/reports.php -- no deprecation
       window. If you consume this API, read this entry before upgrading:
-        - `satellite` gains two real columns: `observed_at` (when the
-          activity happened -- new source of truth) and `submitted_at`
+        - `satellite` gains two real columns: `observation_time` (when the
+          activity happened -- new source of truth) and `submit_time`
           (when the server received the report; DB-generated only, never
           accepted from request payloads). The old `day`/`hour`/`period`
           columns are frozen as a historical archive -- nothing reads or
-          writes them going forward.
+          writes them going forward. These are database columns only:
+          API field names are unchanged (`reported_at` in,
+          `reported_time` out). Column names follow the `_time` suffix
+          convention of Google's API design guide (AIP-142).
         - Fixed a real display bug: `reported_time` in GET/POST responses
           previously always showed `:30:00` regardless of when the report
           actually happened (a `CONCAT(day, "T", LPAD(hour,2,"0"),
@@ -165,7 +168,7 @@ CHANGE LOG:
       already made a report" duplicate-replace warning is gone along with
       the behavior it described. `frontend/v1/index.php`'s status grid,
       tooltips, and "Reports From" list were rewritten against
-      `observed_at` in the same PR, since they'd otherwise show nothing
+      `observation_time` in the same PR, since they'd otherwise show nothing
       for any report submitted after this shipped.
       The production DB migration (db/migrations/) is run manually by
       the project owner against the azure193 database container, as part

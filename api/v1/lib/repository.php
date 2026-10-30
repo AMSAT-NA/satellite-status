@@ -28,7 +28,7 @@ final class ApiRepository
 
         $sql = 'SELECT sn.id, sn.name, sn.html_element_name, sn.website'
             . ($includeStats
-                ? ', DATE_FORMAT(MAX(s.observed_at), "%Y-%m-%dT%H:%i:%sZ") AS latest_reported_time, COUNT(s.id) AS report_count'
+                ? ', DATE_FORMAT(MAX(s.observation_time), "%Y-%m-%dT%H:%i:%sZ") AS latest_reported_time, COUNT(s.id) AS report_count'
                 : '')
             . ' FROM satellite_name sn'
             . ($includeStats ? ' LEFT JOIN satellite s ON s.name = sn.html_element_name' : '')
@@ -84,7 +84,7 @@ final class ApiRepository
         }
 
         if (($filters['since'] ?? '') !== '') {
-            $where[] = 's.observed_at >= ?';
+            $where[] = 's.observation_time >= ?';
             $params[] = $filters['since'];
             $types .= 's';
         }
@@ -93,12 +93,12 @@ final class ApiRepository
         $limit = (int) ($filters['limit'] ?? API_DEFAULT_LIMIT);
 
         $sql = 'SELECT s.id, s.name, sn.name AS satellite_display_name,'
-            . ' DATE_FORMAT(s.observed_at, "%Y-%m-%dT%H:%i:%sZ") AS reported_time,'
+            . ' DATE_FORMAT(s.observation_time, "%Y-%m-%dT%H:%i:%sZ") AS reported_time,'
             . ' s.callsign, s.report, s.grid_square'
             . ' FROM satellite s'
             . ' LEFT JOIN satellite_name sn ON sn.html_element_name = s.name'
             . $whereSql
-            . ' ORDER BY s.observed_at DESC, s.id DESC'
+            . ' ORDER BY s.observation_time DESC, s.id DESC'
             . ' LIMIT ?';
 
         $params[] = $limit;
@@ -109,7 +109,7 @@ final class ApiRepository
 
     /**
      * Pure INSERT -- every submission is stored, nothing is ever deleted
-     * or replaced (Issue #24). submitted_at is not accepted as a
+     * or replaced (Issue #24). submit_time is not accepted as a
      * parameter here: it is always DB-default (CURRENT_TIMESTAMP()),
      * never client-supplied.
      *
@@ -119,7 +119,7 @@ final class ApiRepository
     public function createReport(array $report): array
     {
         $this->execute(
-            'INSERT INTO satellite (name, longname, callsign, report, grid_square, observed_at)'
+            'INSERT INTO satellite (name, longname, callsign, report, grid_square, observation_time)'
             . ' VALUES (?, ?, ?, ?, ?, ?)',
             'ssssss',
             [
@@ -128,7 +128,7 @@ final class ApiRepository
                 $report['callsign'],
                 $report['report'],
                 $report['grid_square'],
-                $report['observed_at'],
+                $report['observation_time'],
             ]
         );
 
@@ -146,10 +146,10 @@ final class ApiRepository
 
         return $this->fetchAll(
             'SELECT s.name, sn.name AS satellite_display_name, s.report, COUNT(*) AS report_count,'
-            . ' DATE_FORMAT(MAX(s.observed_at), "%Y-%m-%dT%H:%i:%sZ") AS latest_reported_time'
+            . ' DATE_FORMAT(MAX(s.observation_time), "%Y-%m-%dT%H:%i:%sZ") AS latest_reported_time'
             . ' FROM satellite s'
             . ' LEFT JOIN satellite_name sn ON sn.html_element_name = s.name'
-            . ' WHERE s.observed_at >= ?'
+            . ' WHERE s.observation_time >= ?'
             . ' GROUP BY s.name, sn.name, s.report'
             . ' ORDER BY s.name ASC, report_count DESC',
             's',

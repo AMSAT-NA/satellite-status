@@ -381,13 +381,13 @@ with (docTips)
 // Get all reports for tooltip generation
 
 // Issue #24: day/hour/period are a frozen historical archive -- reads use
-// observed_at instead. DATE(observed_at)/HOUR(observed_at) substitute
+// observation_time instead. DATE(observation_time)/HOUR(observation_time) substitute
 // mechanically for day/hour below so the bucketing (and thus the grid
 // layout) is unchanged; only the source column differs.
-$result = mysqli_query($db, "SELECT name, report, id, callsign, DATE(observed_at) AS day, HOUR(observed_at) AS hour, FLOOR(HOUR(observed_at) / 2) AS twohour, grid_square, observed_at " .
+$result = mysqli_query($db, "SELECT name, report, id, callsign, DATE(observation_time) AS day, HOUR(observation_time) AS hour, FLOOR(HOUR(observation_time) / 2) AS twohour, grid_square, observation_time " .
                       "FROM satellite " .
-                      "WHERE name IS NOT NULL and FLOOR((23 - HOUR(observed_at)) / 2) + ((TO_DAYS(NOW()) - TO_DAYS(observed_at)) * 12) BETWEEN 0 and " . ($nDays * 12 - 1) . " " .
-                      "ORDER BY name, DATE(observed_at) DESC, FLOOR(HOUR(observed_at) / 2) DESC, ID DESC");
+                      "WHERE name IS NOT NULL and FLOOR((23 - HOUR(observation_time)) / 2) + ((TO_DAYS(NOW()) - TO_DAYS(observation_time)) * 12) BETWEEN 0 and " . ($nDays * 12 - 1) . " " .
+                      "ORDER BY name, DATE(observation_time) DESC, FLOOR(HOUR(observation_time) / 2) DESC, ID DESC");
 
 $sLastName = "";
 $sLastDay = "";
@@ -425,12 +425,12 @@ while ($aRow = mysqli_fetch_array($result))
         $gridSquareElement = "<br>" . $aRow["grid_square"];
     }
 
-    // Issue #24: display the actual observed_at timestamp instead of a
+    // Issue #24: display the actual observation_time timestamp instead of a
     // reconstructed quarter-hour period range -- a precision improvement,
-    // since observed_at is minute-accurate (period was only a 15-minute
+    // since observation_time is minute-accurate (period was only a 15-minute
     // bucket).
-    $observedAtDisplay = date("Y-m-d H:i", strtotime($aRow["observed_at"]));
-    echo($aRow["report"] . "<br>" . $aRow["callsign"] . $gridSquareElement . "<br>" . $observedAtDisplay . " UTC");
+    $observationTimeDisplay = date("Y-m-d H:i", strtotime($aRow["observation_time"]));
+    echo($aRow["report"] . "<br>" . $aRow["callsign"] . $gridSquareElement . "<br>" . $observationTimeDisplay . " UTC");
 
     $bStart = false;
 }
@@ -506,10 +506,10 @@ for ($nDay = 0; $nDay < $nDays; $nDay++)
 echo("</tr>");
 
 
-$result = mysqli_query($db, "SELECT name, report, id, FLOOR((23 - HOUR(observed_at)) / 2) + ((TO_DAYS(NOW()) - TO_DAYS(observed_at)) * 12) AS col " .
+$result = mysqli_query($db, "SELECT name, report, id, FLOOR((23 - HOUR(observation_time)) / 2) + ((TO_DAYS(NOW()) - TO_DAYS(observation_time)) * 12) AS col " .
                       "FROM satellite " .
-                      "WHERE FLOOR((23 - HOUR(observed_at)) / 2) + ((TO_DAYS(NOW()) - TO_DAYS(observed_at)) * 12) BETWEEN 0 and " . ($nDays * 12 - 1) . " " .
-                      "ORDER BY name, FLOOR((23 - HOUR(observed_at)) / 2) + ((TO_DAYS(NOW()) - TO_DAYS(observed_at)) * 12) ASC, ID DESC");
+                      "WHERE FLOOR((23 - HOUR(observation_time)) / 2) + ((TO_DAYS(NOW()) - TO_DAYS(observation_time)) * 12) BETWEEN 0 and " . ($nDays * 12 - 1) . " " .
+                      "ORDER BY name, FLOOR((23 - HOUR(observation_time)) / 2) + ((TO_DAYS(NOW()) - TO_DAYS(observation_time)) * 12) ASC, ID DESC");
 
 $sLastName = "";
 $sLastDay = "";
@@ -714,8 +714,8 @@ echo("</table>");
 <br>
 <div class="reportsFromList">
 <?php
-$result = mysqli_query($db, "SELECT callsign, MAX(observed_at) AS last_report FROM satellite " .
-                      "WHERE FLOOR((23 - HOUR(observed_at)) / 2) + ((TO_DAYS(NOW()) - TO_DAYS(observed_at)) * 12) BETWEEN 0 and " . ($nDays * 12 - 1) . " " .
+$result = mysqli_query($db, "SELECT callsign, MAX(observation_time) AS last_report FROM satellite " .
+                      "WHERE FLOOR((23 - HOUR(observation_time)) / 2) + ((TO_DAYS(NOW()) - TO_DAYS(observation_time)) * 12) BETWEEN 0 and " . ($nDays * 12 - 1) . " " .
                       "AND callsign <> 'TEST' AND callsign <> '' GROUP BY callsign ORDER BY last_report DESC");
 while($value = mysqli_fetch_array($result))
 {

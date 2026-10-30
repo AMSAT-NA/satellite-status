@@ -117,14 +117,14 @@ if ($submit)
          // Every submission is stored as its own report -- nothing is
          // replaced or deleted (Issue #24). Write goes through the API
          // (reports.php POST) instead of MySQL directly.
-         $observedAt = sprintf('%04d-%02d-%02dT%02d:%02d:00Z', (int)$SatYear, (int)$SatMonth, (int)$SatDay, (int)$SatHour, (int)$SatMinute);
+         $observationTime = sprintf('%04d-%02d-%02dT%02d:%02d:00Z', (int)$SatYear, (int)$SatMonth, (int)$SatDay, (int)$SatHour, (int)$SatMinute);
 
          $apiResult = submitReportToApi($apiInternalUrl, [
              'name' => $SatName,
              'report' => $SatReport,
              'callsign' => $SatCall,
              'grid_square' => $SatGridSquare,
-             'reported_at' => $observedAt,
+             'reported_at' => $observationTime,
          ]);
 
          if ($apiResult['status'] !== 201) {

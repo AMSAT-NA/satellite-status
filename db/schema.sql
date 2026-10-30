@@ -13,7 +13,7 @@ CREATE TABLE `satellite` (
   `upmode`       enum('A','B','J','K','L','S','T','V','U','C','X')                       DEFAULT NULL,
   `downmode`     enum('A','B','J','K','L','S','T','V','U','C','X')                       DEFAULT NULL,
   -- `day`/`hour`/`period` are a frozen historical archive (Issue #24).
-  -- Nothing writes to them anymore -- `observed_at` is the source of
+  -- Nothing writes to them anymore -- `observation_time` is the source of
   -- truth for when a report happened. Kept structurally so old data
   -- isn't silently dropped; not dropped in this migration.
   `day`          date                                                                    DEFAULT NULL,
@@ -26,13 +26,13 @@ CREATE TABLE `satellite` (
   -- When the satellite activity happened (source of truth going forward,
   -- Issue #24). Backfilled for historical rows from day/hour/period at
   -- 15-minute precision; see db/migrations/.
-  `observed_at`  timestamp                                                               NOT NULL,
+  `observation_time` timestamp                                                           NOT NULL,
   -- When the report was received by the server. Always DB-default or an
   -- explicit NOW() at insert time -- never accepted from request
   -- payloads. NULL for backfilled historical rows (no honest value).
-  `submitted_at` timestamp                                                               NULL DEFAULT current_timestamp(),
+  `submit_time`  timestamp                                                               NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`id`),
-  KEY `idx_satellite_name_callsign_observed_at` (`name`, `callsign`, `observed_at`)
+  KEY `idx_satellite_name_callsign_observation_time` (`name`, `callsign`, `observation_time`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
 
 CREATE TABLE `satellite_name` (

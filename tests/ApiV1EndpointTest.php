@@ -130,7 +130,7 @@ final class ApiV1EndpointTest extends TestCase
         $this->assertSame('Not Heard', $reports->fetch_assoc()['report']);
     }
 
-    public function testPostReportIgnoresSpoofedSubmittedAt(): void
+    public function testPostReportIgnoresSpoofedSubmitTime(): void
     {
         $resp = $this->newGuestClient()->post('/api/v1/reports.php', [
             'json' => [
@@ -138,20 +138,20 @@ final class ApiV1EndpointTest extends TestCase
                 'report' => 'Heard',
                 'callsign' => 'W5SPF',
                 'reported_at' => gmdate('Y-m-d\TH:i:s\Z', time() - 3600),
-                'submitted_at' => '2000-01-01T00:00:00Z',
+                'submit_time' => '2000-01-01T00:00:00Z',
             ],
         ]);
 
         $this->assertSame(201, $resp->getStatusCode());
-        $submittedAt = $this->db->query(
-            "SELECT submitted_at FROM satellite WHERE callsign='W5SPF'"
-        )->fetch_assoc()['submitted_at'];
+        $submitTime = $this->db->query(
+            "SELECT submit_time FROM satellite WHERE callsign='W5SPF'"
+        )->fetch_assoc()['submit_time'];
 
-        $this->assertNotNull($submittedAt);
+        $this->assertNotNull($submitTime);
         $this->assertGreaterThan(
             strtotime('2000-01-02T00:00:00Z'),
-            strtotime($submittedAt . ' UTC'),
-            'submitted_at must be server-generated, not the spoofed request value'
+            strtotime($submitTime . ' UTC'),
+            'submit_time must be server-generated, not the spoofed request value'
         );
     }
 
@@ -310,11 +310,11 @@ final class ApiV1EndpointTest extends TestCase
         $this->assertArrayHasKey('report_count', $payload['data'][0]);
     }
 
-    public function testSummaryGroupingIsUnchangedByObservedAtMigration(): void
+    public function testSummaryGroupingIsUnchangedByObservationTimeMigration(): void
     {
         // Issue #24 regression: summary()'s GROUP BY (name, display_name,
         // report) and aggregation logic are untouched by the day/hour/
-        // period -> observed_at read-path rewrite -- only the precision
+        // period -> observation_time read-path rewrite -- only the precision
         // of latest_reported_time should differ. TestCase's fixture seeds
         // two AO-91/Heard reports and one FO-29/Heard report.
         $resp = $this->newGuestClient()->get('/api/v1/summary.php', [

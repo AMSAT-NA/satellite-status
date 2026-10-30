@@ -57,7 +57,7 @@ function api_validate_report_payload(array $data, ApiRepository $repository): ar
         api_error_response(422, 'future_reported_at', 'The reported time cannot be in the future.');
     }
 
-    // submitted_at is never read from $data, even if present -- it must
+    // submit_time is never read from $data, even if present -- it must
     // always be DB-default or an explicit NOW() at insert time, never
     // client-supplied. See ApiRepository::createReport().
     return [
@@ -65,7 +65,7 @@ function api_validate_report_payload(array $data, ApiRepository $repository): ar
         'report' => $report,
         'callsign' => $callsign,
         'grid_square' => $gridSquare,
-        'observed_at' => gmdate('Y-m-d H:i:s', $time),
+        'observation_time' => gmdate('Y-m-d H:i:s', $time),
         'reported_time' => gmdate('Y-m-d\TH:i:s\Z', $time),
     ];
 }

@@ -1,11 +1,11 @@
--- Issue #24 -- add observed_at/submitted_at to `satellite`, backfill
--- observed_at from the existing day/hour/period columns, add a
+-- Issue #24 -- add observation_time/submit_time to `satellite`, backfill
+-- observation_time from the existing day/hour/period columns, add a
 -- supporting index. Run manually by the project owner against the
 -- production database container on azure193, after the dallas190 dump
 -- has been loaded there and before this PR is merged (see the cutover
 -- plan in the PR description). From /opt/services/satellite-status:
 --
---   docker compose exec -T db mariadb -u <user> -p<password> <database> < 2026_08_08_add_observed_at_submitted_at.sql
+--   docker compose exec -T db mariadb -u <user> -p<password> <database> < 2026_08_08_add_observation_time_submit_time.sql
 --
 -- (Originally written to run against dallas190 directly; the target
 -- moved to azure193 when the cutover plan changed to dump-then-migrate.)
@@ -60,7 +60,7 @@
 -- Fallback behavior in the UPDATE below:
 --   - day  NULL  -> treated as 1970-01-01 (an obvious sentinel; such rows
 --                   are easy to find again later via
---                   `WHERE observed_at < '1971-01-01'`). Never observed
+--                   `WHERE observation_time < '1971-01-01'`). Never observed
 --                   in production as of the pre-flight run below (0
 --                   rows) -- this remains a defensive fallback only.
 --   - hour NULL  -> treated as 0. Same: 0 rows in production as of the
@@ -114,20 +114,20 @@ SELECT id FROM satellite WHERE period IS NULL OR period NOT BETWEEN 0 AND 3;
 -- Step 1: add both columns, nullable -- see "Expected impact" above for
 -- why this is effectively instant regardless of table size.
 ALTER TABLE satellite
-  ADD COLUMN observed_at  timestamp NULL DEFAULT NULL,
-  ADD COLUMN submitted_at timestamp NULL DEFAULT current_timestamp();
+  ADD COLUMN observation_time timestamp NULL DEFAULT NULL,
+  ADD COLUMN submit_time      timestamp NULL DEFAULT current_timestamp();
 
--- submitted_at is intentionally left NULL for every backfilled historical
+-- submit_time is intentionally left NULL for every backfilled historical
 -- row below -- there is no honest "when was this received by the server"
 -- value for reports that predate this migration.
 
--- Step 2: backfill observed_at. Wrapped so it can be inspected and
+-- Step 2: backfill observation_time. Wrapped so it can be inspected and
 -- rolled back before COMMIT if the fallback counts from the pre-flight
 -- query above look wrong.
 START TRANSACTION;
 
 UPDATE satellite
-SET observed_at = CASE
+SET observation_time = CASE
     WHEN period BETWEEN 0 AND 3
         THEN TIMESTAMP(COALESCE(day, '1970-01-01'), SEC_TO_TIME(COALESCE(hour, 0) * 3600 + period * 900))
     -- period NULL or outside 0-3 (53 known rows in prod, all period = -1,
@@ -141,8 +141,8 @@ SET observed_at = CASE
 END;
 
 -- Inspect here if running interactively, e.g.:
---   SELECT COUNT(*) FROM satellite WHERE observed_at IS NULL;
---   SELECT COUNT(*) FROM satellite WHERE observed_at < '1971-01-01';
+--   SELECT COUNT(*) FROM satellite WHERE observation_time IS NULL;
+--   SELECT COUNT(*) FROM satellite WHERE observation_time < '1971-01-01';
 -- then either COMMIT or ROLLBACK.
 
 COMMIT;
@@ -150,8 +150,8 @@ COMMIT;
 -- Step 3: enforce NOT NULL. Fails loudly (rather than silently) if any
 -- row was somehow missed above.
 ALTER TABLE satellite
-  MODIFY COLUMN observed_at timestamp NOT NULL;
+  MODIFY COLUMN observation_time timestamp NOT NULL;
 
 -- Step 4: index added after the backfill -- see "Expected impact" above.
 ALTER TABLE satellite
-  ADD INDEX idx_satellite_name_callsign_observed_at (name, callsign, observed_at);
+  ADD INDEX idx_satellite_name_callsign_observation_time (name, callsign, observation_time);

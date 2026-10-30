@@ -5,14 +5,14 @@ INSERT INTO satellite_name (name, html_element_name, website) VALUES
   ('RS-44', 'RS-44', 'https://www.amsat.org/status/'),
   ('FO-29', 'FO-29', 'https://www.amsat.org/status/');
 
--- observed_at is derived from the day/hour/period values on each row
+-- observation_time is derived from the day/hour/period values on each row
 -- below using the same TIMESTAMP(day, SEC_TO_TIME(hour*3600+period*900))
 -- formula as the production backfill migration (db/migrations/), just so
 -- dev seed data looks plausible -- day/hour/period themselves are a
 -- frozen historical archive going forward (Issue #24) and nothing reads
 -- or writes them anymore except this seed file.
 INSERT INTO satellite
-  (name, longname, upmode, downmode, day, hour, period, callsign, report, id, grid_square, observed_at)
+  (name, longname, upmode, downmode, day, hour, period, callsign, report, id, grid_square, observation_time)
 VALUES
   ('AO-91', 'AO-91', NULL, NULL, UTC_DATE(), HOUR(UTC_TIME()), 1, 'N0CALL', 'Heard', NULL, 'EM48',
     TIMESTAMP(UTC_DATE(), SEC_TO_TIME(HOUR(UTC_TIME()) * 3600 + 1 * 900))),
