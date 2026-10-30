@@ -8,7 +8,7 @@ declare(strict_types=1);
  * (Issue #24 follow-up).
  *
  * ── Why this exists ──────────────────────────────────────────────────────
- * `observation_time` / `submit_time` (and `satellite_name.date_changed`) are
+ * `observation_time` / `submission_time` (and `satellite_name.date_changed`) are
  * TIMESTAMP columns, which implicitly convert based on the connection's
  * session `time_zone`. Issue #24 made this app's UTC-everywhere assumption
  * explicit by running `SET time_zone = '+00:00'` immediately after every
@@ -246,7 +246,7 @@ function main(array $argv): int
         }
         fwrite(STDERR, "\n");
         fwrite(STDERR,
-            "Why this matters: observation_time/submit_time (and satellite_name.date_changed)\n"
+            "Why this matters: observation_time/submission_time (and satellite_name.date_changed)\n"
             . "are TIMESTAMP columns, which implicitly convert based on this connection's\n"
             . "session time_zone. Without an explicit pin, this connection will silently use\n"
             . "whatever timezone the DB server's session/global default happens to be -- which\n"

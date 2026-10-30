@@ -129,7 +129,7 @@ CHANGE LOG:
       API consumers of GET/POST /api/v1/reports.php -- no deprecation
       window. If you consume this API, read this entry before upgrading:
         - `satellite` gains two real columns: `observation_time` (when the
-          activity happened -- new source of truth) and `submit_time`
+          activity happened -- new source of truth) and `submission_time`
           (when the server received the report; DB-generated only, never
           accepted from request payloads). The old `day`/`hour`/`period`
           columns are frozen as a historical archive -- nothing reads or

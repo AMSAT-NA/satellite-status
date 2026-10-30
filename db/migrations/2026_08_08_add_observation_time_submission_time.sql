@@ -1,11 +1,11 @@
--- Issue #24 -- add observation_time/submit_time to `satellite`, backfill
+-- Issue #24 -- add observation_time/submission_time to `satellite`, backfill
 -- observation_time from the existing day/hour/period columns, add a
 -- supporting index. Run manually by the project owner against the
 -- production database container on azure193, after the dallas190 dump
 -- has been loaded there and before this PR is merged (see the cutover
 -- plan in the PR description). From /opt/services/satellite-status:
 --
---   docker compose exec -T db mariadb -u <user> -p<password> <database> < 2026_08_08_add_observation_time_submit_time.sql
+--   docker compose exec -T db mariadb -u <user> -p<password> <database> < 2026_08_08_add_observation_time_submission_time.sql
 --
 -- (Originally written to run against dallas190 directly; the target
 -- moved to azure193 when the cutover plan changed to dump-then-migrate.)
@@ -115,9 +115,9 @@ SELECT id FROM satellite WHERE period IS NULL OR period NOT BETWEEN 0 AND 3;
 -- why this is effectively instant regardless of table size.
 ALTER TABLE satellite
   ADD COLUMN observation_time timestamp NULL DEFAULT NULL,
-  ADD COLUMN submit_time      timestamp NULL DEFAULT current_timestamp();
+  ADD COLUMN submission_time  timestamp NULL DEFAULT current_timestamp();
 
--- submit_time is intentionally left NULL for every backfilled historical
+-- submission_time is intentionally left NULL for every backfilled historical
 -- row below -- there is no honest "when was this received by the server"
 -- value for reports that predate this migration.
 

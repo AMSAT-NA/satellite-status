@@ -130,7 +130,7 @@ final class ApiV1EndpointTest extends TestCase
         $this->assertSame('Not Heard', $reports->fetch_assoc()['report']);
     }
 
-    public function testPostReportIgnoresSpoofedSubmitTime(): void
+    public function testPostReportIgnoresSpoofedSubmissionTime(): void
     {
         $resp = $this->newGuestClient()->post('/api/v1/reports.php', [
             'json' => [
@@ -138,20 +138,20 @@ final class ApiV1EndpointTest extends TestCase
                 'report' => 'Heard',
                 'callsign' => 'W5SPF',
                 'reported_at' => gmdate('Y-m-d\TH:i:s\Z', time() - 3600),
-                'submit_time' => '2000-01-01T00:00:00Z',
+                'submission_time' => '2000-01-01T00:00:00Z',
             ],
         ]);
 
         $this->assertSame(201, $resp->getStatusCode());
-        $submitTime = $this->db->query(
-            "SELECT submit_time FROM satellite WHERE callsign='W5SPF'"
-        )->fetch_assoc()['submit_time'];
+        $submissionTime = $this->db->query(
+            "SELECT submission_time FROM satellite WHERE callsign='W5SPF'"
+        )->fetch_assoc()['submission_time'];
 
-        $this->assertNotNull($submitTime);
+        $this->assertNotNull($submissionTime);
         $this->assertGreaterThan(
             strtotime('2000-01-02T00:00:00Z'),
-            strtotime($submitTime . ' UTC'),
-            'submit_time must be server-generated, not the spoofed request value'
+            strtotime($submissionTime . ' UTC'),
+            'submission_time must be server-generated, not the spoofed request value'
         );
     }
 

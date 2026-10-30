@@ -5,13 +5,13 @@ namespace AmsatStatus\Tests;
 
 /**
  * Exercises the actual backfill UPDATE from
- * db/migrations/2026_08_08_add_observation_time_submit_time.sql -- not a
+ * db/migrations/2026_08_08_add_observation_time_submission_time.sql -- not a
  * duplicated copy of the formula, but the literal statement extracted
  * from the migration file, so these tests can't silently drift from what
  * the migration script actually runs against dallas190.
  *
  * The migration file's ALTER TABLE statements aren't exercised here:
- * they assume the pre-migration schema (no observation_time/submit_time
+ * they assume the pre-migration schema (no observation_time/submission_time
  * columns yet), which doesn't match this test DB's schema.sql-based
  * shape (those columns already exist). Only the backfill UPDATE itself
  * is schema-shape-independent -- it just reads day/hour/period and
@@ -23,7 +23,7 @@ final class MigrationBackfillTest extends TestCase
 {
     private function backfillUpdateSql(): string
     {
-        $migrationPath = __DIR__ . '/../db/migrations/2026_08_08_add_observation_time_submit_time.sql';
+        $migrationPath = __DIR__ . '/../db/migrations/2026_08_08_add_observation_time_submission_time.sql';
         $migrationSql = file_get_contents($migrationPath);
 
         if ($migrationSql === false) {

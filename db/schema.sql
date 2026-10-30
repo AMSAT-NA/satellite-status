@@ -30,7 +30,7 @@ CREATE TABLE `satellite` (
   -- When the report was received by the server. Always DB-default or an
   -- explicit NOW() at insert time -- never accepted from request
   -- payloads. NULL for backfilled historical rows (no honest value).
-  `submit_time`  timestamp                                                               NULL DEFAULT current_timestamp(),
+  `submission_time` timestamp                                                            NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`id`),
   KEY `idx_satellite_name_callsign_observation_time` (`name`, `callsign`, `observation_time`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;

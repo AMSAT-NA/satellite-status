@@ -109,7 +109,7 @@ final class ApiRepository
 
     /**
      * Pure INSERT -- every submission is stored, nothing is ever deleted
-     * or replaced (Issue #24). submit_time is not accepted as a
+     * or replaced (Issue #24). submission_time is not accepted as a
      * parameter here: it is always DB-default (CURRENT_TIMESTAMP()),
      * never client-supplied.
      *
