@@ -1,6 +1,6 @@
 AMSAT Satellite Status Page and API
 Site: https://status.amsat.org
-API: https://status.amsat.org/api/v1
+API: https://status.amsat.org/api/v1/ (versions index: https://status.amsat.org/api/)
 
 CHANGE LOG:
 2022-07-19: Status page and API shifted to open development. Initial commit to AMSAT Gitlab instance.
