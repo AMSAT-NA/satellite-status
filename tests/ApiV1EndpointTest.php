@@ -369,6 +369,24 @@ final class ApiV1EndpointTest extends TestCase
         $this->assertArrayHasKey('/satellites.php', $payload['paths']);
     }
 
+    /**
+     * Issue #32: API_VERSION (api/v1/lib/version.php) is the single source
+     * of truth. The OpenAPI document must carry the same value as the
+     * X-AMSAT-API-Version header -- this catches a stale, un-regenerated
+     * openapi.json after a version bump. Format is MAJOR.MINOR, and MAJOR
+     * must match the /api/v1 URL version.
+     */
+    public function testApiVersionIsConsistentAcrossHeaderAndOpenApi(): void
+    {
+        $client = $this->newGuestClient();
+
+        $header = $client->get('/api/v1/health.php')->getHeaderLine('X-AMSAT-API-Version');
+        $this->assertMatchesRegularExpression('/^1\.\d+$/', $header);
+
+        $spec = json_decode((string) $client->get('/api/v1/openapi.php')->getBody(), true);
+        $this->assertSame($header, $spec['info']['version']);
+    }
+
     public function testSwaggerDocsPageIsPublic(): void
     {
         $resp = $this->newGuestClient()->get('/api/v1/docs.php');

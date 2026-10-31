@@ -5,8 +5,8 @@ declare(strict_types=1);
 date_default_timezone_set('UTC');
 
 require_once __DIR__ . '/../config.php';
+require_once __DIR__ . '/version.php';
 
-const API_VERSION = '1.0.0';
 const API_DEFAULT_REPORT_HOURS = 72;
 const API_MIN_REPORT_HOURS = 1;
 const API_MAX_REPORT_HOURS = 720;

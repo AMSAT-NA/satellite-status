@@ -143,6 +143,14 @@ CHANGE LOG:
     - Report timestamp precision migration. BREAKING CHANGE for
       API consumers of GET/POST /api/v1/reports.php -- no deprecation
       window. If you consume this API, read this entry before upgrading:
+        - API version is now 1.1 (was 1.0.0), shown in the
+          X-AMSAT-API-Version header, the /api/v1/ discovery document,
+          health.php and the OpenAPI document. Versions are now
+          MAJOR.MINOR: MAJOR matches the URL (/api/v1), MINOR bumps for
+          additive changes. This is the last breaking change shipped
+          within v1; future breaking changes get a new /api/vN URL.
+          API_VERSION in api/v1/lib/version.php is the single source of
+          truth, and CI checks the OpenAPI version matches it (Issue #32).
         - `satellite` gains two real columns: `observation_time` (when the
           activity happened -- new source of truth) and `submission_time`
           (when the server received the report; DB-generated only, never
