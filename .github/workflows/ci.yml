@@ -280,19 +280,25 @@ jobs:
       - name: Existing rows are intact and backfilled correctly
         run: |
           q() { docker exec mig mariadb -uroot -ppw -N pre -e "SET time_zone='+00:00'; $1"; }
-          [ "$(q 'SELECT COUNT(*) FROM satellite')" = "$(cat /tmp/pre_count)" ]
-          [ "$(q 'SELECT COUNT(*) FROM satellite WHERE observation_time IS NULL')" = "0" ]
+          fail=0
+          check() { # label, actual, expected
+            if [ "$2" = "$3" ]; then echo "ok: $1 = $2"; else echo "::error title=migration-dry-run::$1: got '$2', expected '$3'"; fail=1; fi
+          }
+          check "row count preserved" "$(q 'SELECT COUNT(*) FROM satellite')" "$(cat /tmp/pre_count)"
+          check "observation_time NULL rows" "$(q 'SELECT COUNT(*) FROM satellite WHERE observation_time IS NULL')" "0"
           # Historical rows have no honest receive time: submission_time must be NULL
-          [ "$(q 'SELECT COUNT(*) FROM satellite WHERE submission_time IS NOT NULL')" = "0" ]
-          [ "$(q "SELECT observation_time FROM satellite WHERE callsign='W1AW' AND hour=14")" = "2020-03-01 14:00:00" ]
-          [ "$(q "SELECT observation_time FROM satellite WHERE callsign='W1AW' AND hour=15")" = "2020-03-01 15:00:00" ]
+          check "historical rows with submission_time set" "$(q 'SELECT COUNT(*) FROM satellite WHERE submission_time IS NOT NULL')" "0"
+          check "period=-1 row backfill" "$(q "SELECT observation_time FROM satellite WHERE callsign='W1AW' AND hour=14")" "2020-03-01 14:00:00"
+          check "period=NULL row backfill" "$(q "SELECT observation_time FROM satellite WHERE callsign='W1AW' AND hour=15")" "2020-03-01 15:00:00"
+          exit $fail
 
       - name: New inserts behave as the app expects
         run: |
           q() { docker exec mig mariadb -uroot -ppw -N pre -e "SET time_zone='+00:00'; $1"; }
           q "INSERT INTO satellite (name, longname, callsign, report, grid_square, observation_time)
              VALUES ('AO-91','AO-91','K1ABC','Heard','FN31','2026-11-04 14:05:00')"
-          [ "$(q "SELECT day IS NULL AND hour IS NULL AND period IS NULL AND submission_time IS NOT NULL FROM satellite WHERE callsign='K1ABC'")" = "1" ]
+          got="$(q "SELECT CONCAT_WS(',', day IS NULL, hour IS NULL, period IS NULL, submission_time IS NOT NULL) FROM satellite WHERE callsign='K1ABC'")"
+          [ "$got" = "1,1,1,1" ] || { echo "::error title=migration-dry-run::new insert: got '$got', expected '1,1,1,1' (day/hour/period NULL, submission_time set)"; exit 1; }
 
   docker-compose-smoke:
     runs-on: ubuntu-latest
