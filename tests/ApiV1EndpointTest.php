@@ -214,6 +214,49 @@ final class ApiV1EndpointTest extends TestCase
         $this->assertStringContainsString('./openapi.php', $body);
     }
 
+    /**
+     * Issue #42: API consumers asked what license and terms apply. The
+     * OpenAPI info block is where generated clients and Swagger UI look
+     * for that, so pin the license identifier (must match LICENSE and the
+     * composer.json / package.json "license" fields), a contact, and a
+     * termsOfService link that points at the usage-guidelines anchor on
+     * the overview page (checked separately below).
+     */
+    public function testOpenApiDocumentDeclaresLicenseContactAndTerms(): void
+    {
+        $resp = $this->newGuestClient()->get('/api/v1/openapi.php');
+
+        $this->assertSame(200, $resp->getStatusCode());
+        $info = json_decode((string) $resp->getBody(), true)['info'];
+
+        $this->assertSame('Apache-2.0', $info['license']['name']);
+        $this->assertSame('https://www.apache.org/licenses/LICENSE-2.0', $info['license']['url']);
+        $this->assertSame('IT@amsat.org', $info['contact']['email']);
+        $this->assertStringEndsWith('/api/v1/overview.php#usage', $info['termsOfService']);
+    }
+
+    /**
+     * Issue #42: the overview page is the human-readable home of the usage
+     * policy. Each guideline has its own anchor so issues, emails and the
+     * OpenAPI termsOfService link can point at a specific rule; pin those
+     * anchors so a page edit can't silently break inbound links.
+     */
+    public function testOverviewPublishesUsageGuidelines(): void
+    {
+        $resp = $this->newGuestClient()->get('/api/v1/overview.php');
+
+        $this->assertSame(200, $resp->getStatusCode());
+        $body = (string) $resp->getBody();
+
+        foreach (['usage', 'identify', 'polling', 'submitting', 'data', 'license', 'changes', 'support'] as $anchor) {
+            $this->assertStringContainsString('id="' . $anchor . '"', $body, "anchor #{$anchor}");
+        }
+
+        $this->assertStringContainsString('User-Agent', $body);
+        $this->assertStringContainsString('CC BY 4.0', $body);
+        $this->assertStringContainsString('Apache License 2.0', $body);
+    }
+
     public function testLegacySatInfoKeepsExactArrayShape(): void
     {
         $resp = $this->newGuestClient()->get('/api/v1/sat_info.php', [

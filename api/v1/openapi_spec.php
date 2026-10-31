@@ -7,7 +7,21 @@ use OpenApi\Attributes as OA;
 #[OA\OpenApi(
     info: new OA\Info(
         title: 'AMSAT Satellite Status API',
-        description: 'Public API for amateur satellite status reports.',
+        description: 'Public API for amateur satellite status reports. '
+            . 'Before building on it, read the usage guidelines (linked as Terms of Service): '
+            . 'identify your client with a descriptive User-Agent, poll no more often than every 5 minutes, '
+            . 'and submit only real observations made by the operator whose callsign the report carries. '
+            . 'Code is licensed under Apache-2.0; report data is available under CC BY 4.0 with attribution.',
+        termsOfService: 'https://status.amsat.org/api/v1/overview.php#usage',
+        contact: new OA\Contact(
+            name: 'AMSAT IT',
+            url: 'https://github.com/AMSAT-NA/satellite-status/issues',
+            email: 'IT@amsat.org'
+        ),
+        license: new OA\License(
+            name: 'Apache-2.0',
+            url: 'https://www.apache.org/licenses/LICENSE-2.0'
+        ),
         version: '1.0.0'
     ),
     servers: [

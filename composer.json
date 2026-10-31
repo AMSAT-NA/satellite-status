@@ -2,7 +2,7 @@
     "name": "amsat/satellite-status",
     "description": "AMSAT Satellite Status Page and API",
     "type": "project",
-    "license": "proprietary",
+    "license": "Apache-2.0",
     "require-dev": {
         "guzzlehttp/guzzle": "^7.8",
         "phpunit/phpunit": "^10.5",
