@@ -198,6 +198,13 @@ CHANGE LOG:
       of the dallas190 -> status.amsat.org cutover (dump dallas190, load
       it on azure193, migrate, then merge). It is separate from this
       app-code deploy and not wired into CI/CD.
+      The migration also adds an index on observation_time alone, for
+      time-window queries that don't filter by satellite. A new CI job
+      (migration-dry-run) runs the whole migration against a snapshot
+      of the pre-migration schema on MariaDB 12.3 and checks the result
+      matches db/schema.sql. It caught a bug before production: adding
+      submission_time with a CURRENT_TIMESTAMP default would have
+      stamped every historical report with the migration's run time.
       Added a CI check (tools/check-timezone-pins.php) that fails the
       build if a new raw DB connection is added without the UTC
       time_zone pin every connection needs for TIMESTAMP columns to
