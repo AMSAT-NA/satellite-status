@@ -20,8 +20,8 @@
 -- estimate was not re-verified against dallas190 directly for this
 -- script, since this agent has no network access to dallas190).
 --
---   Step 1 (ADD COLUMN x2, both NULL/no rewrite-triggering default):
---   MariaDB 10.11's InnoDB instant-ADD-COLUMN support makes this a
+--   Step 1 (ADD COLUMN x2, both NULL with a NULL default): MariaDB's
+--   InnoDB instant-ADD-COLUMN support makes this a
 --   metadata-only change -- expect it to complete in well under a second
 --   regardless of row count, holding only a brief metadata lock.
 --
@@ -122,7 +122,13 @@ SELECT id FROM satellite WHERE period IS NULL OR period NOT BETWEEN 0 AND 3;
 -- why this is effectively instant regardless of table size.
 ALTER TABLE satellite
   ADD COLUMN observation_time timestamp NULL DEFAULT NULL,
-  ADD COLUMN submission_time  timestamp NULL DEFAULT current_timestamp();
+  -- DEFAULT NULL here, not current_timestamp(): adding a column with a
+  -- default fills every EXISTING row with that default, which would stamp
+  -- all historical reports with the migration's run time. Historical rows
+  -- have no honest receive time, so they must stay NULL. The real default
+  -- is set in step 3b, after which only new rows get it. (Caught by the
+  -- migration-dry-run CI job.)
+  ADD COLUMN submission_time  timestamp NULL DEFAULT NULL;
 
 -- submission_time is intentionally left NULL for every backfilled historical
 -- row below -- there is no honest "when was this received by the server"
@@ -158,6 +164,11 @@ COMMIT;
 -- row was somehow missed above.
 ALTER TABLE satellite
   MODIFY COLUMN observation_time timestamp NOT NULL;
+
+-- Step 3b: now give submission_time its real default. Metadata-only;
+-- existing rows keep their NULL, new inserts get the server's time.
+ALTER TABLE satellite
+  ALTER COLUMN submission_time SET DEFAULT current_timestamp();
 
 -- Step 4: indexes added after the backfill -- see "Expected impact" above.
 -- The second index (observation_time alone) serves time-window queries
