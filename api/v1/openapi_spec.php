@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 use OpenApi\Attributes as OA;
 
+require_once __DIR__ . '/lib/version.php';
+
 #[OA\OpenApi(
     info: new OA\Info(
         title: 'AMSAT Satellite Status API',
@@ -22,7 +24,7 @@ use OpenApi\Attributes as OA;
             name: 'Apache-2.0',
             url: 'https://www.apache.org/licenses/LICENSE-2.0'
         ),
-        version: '1.0.0'
+        version: API_VERSION
     ),
     servers: [
         new OA\Server(url: '/api/v1', description: 'Current host'),
@@ -76,7 +78,6 @@ use OpenApi\Attributes as OA;
         new OA\Property(property: 'callsign', type: 'string'),
         new OA\Property(property: 'report', type: 'string'),
         new OA\Property(property: 'grid_square', type: 'string', nullable: true),
-        new OA\Property(property: 'period', type: 'integer'),
     ],
     type: 'object'
 )]

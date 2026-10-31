@@ -139,3 +139,84 @@ CHANGE LOG:
       document now carries license, contact and termsOfService. README
       and this file's header point at status.amsat.org. (Issue #42,
       PR #43)
+2026-11-04:
+    - Report timestamp precision migration. BREAKING CHANGE for
+      API consumers of GET/POST /api/v1/reports.php -- no deprecation
+      window. If you consume this API, read this entry before upgrading:
+        - API version is now 1.1 (was 1.0.0), shown in the
+          X-AMSAT-API-Version header, the /api/v1/ discovery document,
+          health.php and the OpenAPI document. Versions are now
+          MAJOR.MINOR: MAJOR matches the URL (/api/v1), MINOR bumps for
+          additive changes. This is the last breaking change shipped
+          within v1; future breaking changes get a new /api/vN URL.
+          API_VERSION in api/v1/lib/version.php is the single source of
+          truth, and CI checks the OpenAPI version matches it (Issue #32).
+        - `satellite` gains two real columns: `observation_time` (when the
+          activity happened -- new source of truth) and `submission_time`
+          (when the server received the report; DB-generated only, never
+          accepted from request payloads). The old `day`/`hour`/`period`
+          columns are frozen as a historical archive -- nothing reads or
+          writes them going forward. These are database columns only:
+          API field names are unchanged (`reported_at` in,
+          `reported_time` out). Column names follow the `_time` suffix
+          convention of Google's API design guide (AIP-142).
+        - Fixed a real display bug: `reported_time` in GET/POST responses
+          previously always showed `:30:00` regardless of when the report
+          actually happened (a `CONCAT(day, "T", LPAD(hour,2,"0"),
+          ":30:00Z")` reconstruction bug). It now reflects the real
+          submitted time, down to the minute.
+        - `period` is removed from the GET /reports.php response. It can
+          no longer reflect real data going forward.
+        - `replaced_count` is removed from the POST /reports.php response.
+          Writes are now non-destructive: submitting another report for
+          the same satellite/callsign/time no longer deletes-and-replaces
+          the previous one -- every submission is stored. If your
+          integration relied on the old delete+insert "correction"
+          behavior, you'll need to de-duplicate on your own end (e.g. by
+          taking the most recent `reported_time` per satellite/callsign).
+        - The `since` filter on GET /reports.php now does a real timestamp
+          comparison instead of comparing against the buggy reconstructed
+          string above -- boundary behavior may differ slightly from
+          before for requests near an exact `:30:00`.
+        - Backfilled historical data (everything reported before this
+          migration shipped) is only accurate to 15-minute-bucket
+          precision -- that's the real precision that existed at capture
+          time (the old `period` field), not minute-level. Only reports
+          submitted after this shipped have true minute precision. 53 of
+          712,980 rows in production had no `period` captured at all (a
+          legacy sentinel value) and were backfilled to hour-level
+          precision instead of 15-minute precision.
+      `frontend/v1/submit.php` now POSTs to the API instead of writing to
+      MySQL directly (its first use of the site's own API), and its "you
+      already made a report" duplicate-replace warning is gone along with
+      the behavior it described. `frontend/v1/index.php`'s status grid,
+      tooltips, and "Reports From" list were rewritten against
+      `observation_time` in the same PR, since they'd otherwise show nothing
+      for any report submitted after this shipped.
+      The production DB migration (db/migrations/) is run manually by
+      the project owner against the azure193 database container, as part
+      of the dallas190 -> status.amsat.org cutover (dump dallas190, load
+      it on azure193, migrate, then merge). It is separate from this
+      app-code deploy and not wired into CI/CD.
+      The migration also adds an index on observation_time alone, for
+      time-window queries that don't filter by satellite. A new CI job
+      (migration-dry-run) runs the whole migration against a snapshot
+      of the pre-migration schema on MariaDB 12.3 and checks the result
+      matches db/schema.sql. It caught a bug before production: adding
+      submission_time with a CURRENT_TIMESTAMP default would have
+      stamped every historical report with the migration's run time.
+      Added a CI check (tools/check-timezone-pins.php) that fails the
+      build if a new raw DB connection is added without the UTC
+      time_zone pin every connection needs for TIMESTAMP columns to
+      behave correctly -- a regression guard, not a re-verification of
+      today's connections (see the script's header comment and the PR
+      description for what it does and doesn't catch).
+      The dockerized dev/CD database containers (docker-compose.yml and
+      deploy/docker-compose.yml, both mariadb:12.3) now also set
+      `--default-time-zone=+00:00` at the server level, as a second
+      layer of defense alongside the existing per-connection pinning --
+      so a connection would still get UTC even if it somehow lacked the
+      explicit `SET time_zone` pin. That now includes production, which
+      runs in the azure193 container from this cutover on. The legacy
+      dallas190 host, kept only as a rollback fallback, is not covered.
+      (Issue #24, PR #30)
