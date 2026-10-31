@@ -83,6 +83,13 @@
 -- the fallback behavior above is acceptable for. Read-only, harmless to
 -- run standalone (copy just this statement into your own client) or as
 -- part of this script.
+-- Pin this session to UTC before anything else. The backfill's TIMESTAMP()
+-- values are interpreted in the session time zone, and the DB server's
+-- own --default-time-zone=+00:00 (deploy/docker-compose.yml) only takes
+-- effect once this PR's compose file is deployed, which is *after* this
+-- migration runs during the cutover.
+SET time_zone = '+00:00';
+
 SELECT
   SUM(day IS NULL)                                        AS null_day,
   SUM(hour IS NULL)                                        AS null_hour,
@@ -152,6 +159,11 @@ COMMIT;
 ALTER TABLE satellite
   MODIFY COLUMN observation_time timestamp NOT NULL;
 
--- Step 4: index added after the backfill -- see "Expected impact" above.
+-- Step 4: indexes added after the backfill -- see "Expected impact" above.
+-- The second index (observation_time alone) serves time-window queries
+-- that don't filter by satellite name: the status page grid and
+-- "Reports From" list, GET reports.php?since=... without name=, and
+-- summary.php. Both are built in one ALTER (one pass over the table).
 ALTER TABLE satellite
-  ADD INDEX idx_satellite_name_callsign_observation_time (name, callsign, observation_time);
+  ADD INDEX idx_satellite_name_callsign_observation_time (name, callsign, observation_time),
+  ADD INDEX idx_satellite_observation_time (observation_time);

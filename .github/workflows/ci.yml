@@ -232,6 +232,68 @@ jobs:
             test-results/
           retention-days: 7
 
+  migration-dry-run:
+    # Runs the WHOLE production migration (db/migrations/2026_08_08_*)
+    # against the pre-#24 schema on the production MariaDB version, then
+    # proves the result matches db/schema.sql. MigrationBackfillTest only
+    # exercises the backfill UPDATE; this covers the ALTERs, the NOT NULL
+    # step, the indexes, and what happens to existing rows. The fixture
+    # snapshot in tests/fixtures/pre-issue-24/ is the schema dallas190's
+    # dump will have when it's loaded onto azure193 at cutover.
+    runs-on: ubuntu-latest
+    env:
+      MIG: db/migrations/2026_08_08_add_observation_time_submission_time.sql
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Start MariaDB (production version, no server time zone flag -- as azure193 runs before this PR deploys)
+        run: |
+          docker run -d --name mig -e MARIADB_ROOT_PASSWORD=pw mariadb:12.3
+          until docker exec mig mariadb -uroot -ppw -e "SELECT 1" >/dev/null 2>&1; do sleep 1; done
+
+      - name: Load pre-#24 schema + seed, plus sentinel rows
+        run: |
+          docker exec mig mariadb -uroot -ppw -e "CREATE DATABASE pre; CREATE DATABASE fresh;"
+          docker exec -i mig mariadb -uroot -ppw pre < tests/fixtures/pre-issue-24/schema.sql
+          docker exec -i mig mariadb -uroot -ppw pre < tests/fixtures/pre-issue-24/seed.sql
+          # period = -1 (the 53 known production rows) and NULL period
+          docker exec mig mariadb -uroot -ppw pre -e "
+            INSERT INTO satellite (name, longname, day, hour, period, callsign, report)
+            VALUES ('AO-91','AO-91','2020-03-01',14,-1,'W1AW','Heard'),
+                   ('AO-91','AO-91','2020-03-01',15,NULL,'W1AW','Heard');"
+          docker exec mig mariadb -uroot -ppw -N pre -e "SELECT COUNT(*) FROM satellite" > /tmp/pre_count
+
+      - name: Run the full migration
+        run: docker exec -i mig mariadb -uroot -ppw pre < "$MIG"
+
+      - name: Migrated table structure matches db/schema.sql
+        run: |
+          docker exec -i mig mariadb -uroot -ppw fresh < db/schema.sql
+          for t in satellite satellite_name users; do
+            for db in pre fresh; do
+              docker exec mig mariadb -uroot -ppw -N -e "SHOW CREATE TABLE $db.$t" \
+                | cut -f2- | sed -E 's/ AUTO_INCREMENT=[0-9]+//' > /tmp/$db.$t.sql
+            done
+            echo "== $t"; diff /tmp/pre.$t.sql /tmp/fresh.$t.sql
+          done
+
+      - name: Existing rows are intact and backfilled correctly
+        run: |
+          q() { docker exec mig mariadb -uroot -ppw -N pre -e "SET time_zone='+00:00'; $1"; }
+          [ "$(q 'SELECT COUNT(*) FROM satellite')" = "$(cat /tmp/pre_count)" ]
+          [ "$(q 'SELECT COUNT(*) FROM satellite WHERE observation_time IS NULL')" = "0" ]
+          # Historical rows have no honest receive time: submission_time must be NULL
+          [ "$(q 'SELECT COUNT(*) FROM satellite WHERE submission_time IS NOT NULL')" = "0" ]
+          [ "$(q "SELECT observation_time FROM satellite WHERE callsign='W1AW' AND hour=14")" = "2020-03-01 14:00:00" ]
+          [ "$(q "SELECT observation_time FROM satellite WHERE callsign='W1AW' AND hour=15")" = "2020-03-01 15:00:00" ]
+
+      - name: New inserts behave as the app expects
+        run: |
+          q() { docker exec mig mariadb -uroot -ppw -N pre -e "SET time_zone='+00:00'; $1"; }
+          q "INSERT INTO satellite (name, longname, callsign, report, grid_square, observation_time)
+             VALUES ('AO-91','AO-91','K1ABC','Heard','FN31','2026-11-04 14:05:00')"
+          [ "$(q "SELECT day IS NULL AND hour IS NULL AND period IS NULL AND submission_time IS NOT NULL FROM satellite WHERE callsign='K1ABC'")" = "1" ]
+
   docker-compose-smoke:
     runs-on: ubuntu-latest
     env:

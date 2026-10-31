@@ -18,7 +18,8 @@
 -- here, just a table rebuild).
 
 ALTER TABLE satellite
-  DROP INDEX idx_satellite_name_callsign_observation_time;
+  DROP INDEX idx_satellite_name_callsign_observation_time,
+  DROP INDEX idx_satellite_observation_time;
 
 ALTER TABLE satellite
   DROP COLUMN observation_time,

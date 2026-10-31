@@ -32,7 +32,8 @@ CREATE TABLE `satellite` (
   -- payloads. NULL for backfilled historical rows (no honest value).
   `submission_time` timestamp                                                            NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`id`),
-  KEY `idx_satellite_name_callsign_observation_time` (`name`, `callsign`, `observation_time`)
+  KEY `idx_satellite_name_callsign_observation_time` (`name`, `callsign`, `observation_time`),
+  KEY `idx_satellite_observation_time` (`observation_time`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
 
 CREATE TABLE `satellite_name` (
