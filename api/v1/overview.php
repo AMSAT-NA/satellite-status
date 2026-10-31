@@ -192,7 +192,7 @@ $baseUrl = api_base_url();
 
     <h3 id="polling">Poll gently</h3>
     <ul>
-      <li>Reports are grouped into 15-minute periods, so polling more often than every <strong>5 minutes</strong> gains you nothing. Please don't.</li>
+      <li>Reports arrive a few at a time and the status grid summarizes them in 2-hour windows, so polling more often than every <strong>5 minutes</strong> gains you nothing. Please don't.</li>
       <li>Fetch what you need in one request. Use <code>reports.php</code> without <code>name</code>, or <code>summary.php</code>, rather than one request per satellite.</li>
       <li>Use <code>since</code> to fetch only reports newer than your last poll.</li>
       <li>Apps with many users should poll from one server and serve their users from that copy, rather than having every user's device call this API directly.</li>
