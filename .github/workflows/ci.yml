@@ -296,8 +296,8 @@ jobs:
         run: |
           q() { docker exec mig mariadb -uroot -ppw -N pre -e "SET time_zone='+00:00'; $1"; }
           q "INSERT INTO satellite (name, longname, callsign, report, grid_square, observation_time)
-             VALUES ('AO-91','AO-91','K1ABC','Heard','FN31','2026-11-04 14:05:00')"
-          got="$(q "SELECT CONCAT_WS(',', day IS NULL, hour IS NULL, period IS NULL, submission_time IS NOT NULL) FROM satellite WHERE callsign='K1ABC'")"
+             VALUES ('AO-91','AO-91','ZZ9MIG','Heard','FN31','2026-11-04 14:05:00')"
+          got="$(q "SELECT CONCAT_WS(',', day IS NULL, hour IS NULL, period IS NULL, submission_time IS NOT NULL) FROM satellite WHERE callsign='ZZ9MIG'")"
           [ "$got" = "1,1,1,1" ] || { echo "::error title=migration-dry-run::new insert: got '$got', expected '1,1,1,1' (day/hour/period NULL, submission_time set)"; exit 1; }
 
   docker-compose-smoke:
