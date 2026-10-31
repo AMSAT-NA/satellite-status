@@ -2,7 +2,7 @@
 Satellite Status App and API
 
 ## Description
-This is a project space for development of the Satellite Status App and API, hosted at https://www.amsat.org/status.
+This is a project space for development of the Satellite Status App and API, hosted at https://status.amsat.org.
 
 ## Repository structure
 
@@ -115,6 +115,8 @@ npx playwright test --config tests/playwright.config.js
 The public API lives under `/api/v1` and is documented at `/api/v1/overview.php`. `/api/` is a machine-readable index of available API versions; it points at versioned base URLs and is never an alias for "the latest" version.
 Public Swagger documentation is available at `/api/v1/docs.php`.
 
+**Building on the API?** Read the [usage guidelines](https://status.amsat.org/api/v1/overview.php#usage) first: identify your client with a descriptive `User-Agent`, poll no more often than every 5 minutes, and submit only real observations made by the operator whose callsign the report carries (apps submitting on their users' behalf are welcome). Report data is available under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) with attribution.
+
 Available API surfaces:
 - `GET /api/v1/catalog.php` lists satellites with links and optional report statistics.
 - `GET /api/v1/reports.php` searches recent reports by satellite, time window, callsign, grid square, and status.
@@ -142,4 +144,10 @@ curl "$SITE_URL/api/v1/reports.php?name=AO-91&hours=24&limit=25"
 - PRs for break/fix also welcome!
 
 ## License
-- TBD
+Copyright Radio Amateur Satellite Corporation (AMSAT) and contributors.
+
+The source code in this repository is licensed under the [Apache License 2.0](LICENSE). Contributions are accepted under the same license (see section 5 of the license).
+
+Status report data served by the API is licensed separately, under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). See the [API usage guidelines](https://status.amsat.org/api/v1/overview.php#usage) for attribution and acceptable use.
+
+Third-party components keep their own licenses: Parsedown (MIT, `frontend/v1/lib/Parsedown-LICENSE.txt`).
