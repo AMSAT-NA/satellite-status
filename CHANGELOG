@@ -139,3 +139,10 @@ CHANGE LOG:
       document now carries license, contact and termsOfService. README
       and this file's header point at status.amsat.org. (Issue #42,
       PR #43)
+2026-11-01:
+    - API usage guidelines (overview.php): caching responses on your own
+      infrastructure is expected despite the current Cache-Control:
+      no-store header; where to show the data attribution (web footer, or
+      an app's credits/about screen); since is for clients keeping their
+      own copy of reports, not rolling-window clients. Clarifications from
+      API consumer feedback in #47. (PR #48)
