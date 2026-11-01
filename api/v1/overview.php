@@ -243,7 +243,9 @@ $baseUrl = api_base_url();
       <a href="https://github.com/AMSAT-NA/satellite-status/blob/main/CHANGELOG">CHANGELOG</a>.
       Watch the GitHub repository to hear about them. A new major version, when one exists, will get its own base URL,
       listed in the machine-readable index at <code>/api/</code>.
-      There is no uptime guarantee; check <code>/health.php</code> rather than assuming.
+      There is no uptime guarantee; check <code>/health.php</code> rather than assuming. It reports
+      <code>"status": "degraded"</code> (still HTTP 200) when the API is up but has no reports, or the newest report is
+      more than a day old. Treat that as "reachable, but the data may not be current".
     </p>
 
     <h3 id="support">Contact and support</h3>
@@ -319,7 +321,12 @@ $baseUrl = api_base_url();
 
     <div class="endpoint">
       <h3><span class="method">GET</span><code>/health.php</code></h3>
-      <p>Checks API availability and database connectivity.</p>
+      <p>
+        Checks API availability, database connectivity, and data freshness. <code>status</code> is <code>ok</code>,
+        or <code>degraded</code> with a <code>reason</code> (<code>no_reports</code> or <code>stale_data</code>) when
+        the newest report is older than <code>data_freshness.stale_after_seconds</code> (one day). A database outage
+        returns HTTP <code>503</code> instead.
+      </p>
       <pre><code>curl "<?php echo htmlspecialchars($baseUrl); ?>/health.php"</code></pre>
     </div>
   </section>

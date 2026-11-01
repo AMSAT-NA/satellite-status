@@ -249,10 +249,41 @@ final class ApiV1OpenApiSpec
     #[OA\Get(
         path: '/health.php',
         operationId: 'getHealth',
-        summary: 'Check API and database availability.',
+        summary: 'Check API and database availability, and data freshness.',
+        description: 'Returns 200 whenever the database is reachable. status is "ok" when data is fresh, or "degraded" '
+            . 'when there are no reports (reason no_reports) or the newest report is older than '
+            . 'data_freshness.stale_after_seconds (reason stale_data). Freshness is the newest report\'s receive time, '
+            . 'or its observation time for reports imported before receive times were recorded.',
         tags: ['Metadata'],
         responses: [
-            new OA\Response(response: 200, description: 'API and database are reachable.'),
+            new OA\Response(
+                response: 200,
+                description: 'Database reachable; status is "ok" or "degraded".',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(
+                            property: 'data',
+                            properties: [
+                                new OA\Property(property: 'status', type: 'string', enum: ['ok', 'degraded']),
+                                new OA\Property(property: 'reason', type: 'string', enum: ['no_reports', 'stale_data'], description: 'Present only when status is "degraded".'),
+                                new OA\Property(property: 'version', type: 'string', example: '1.2'),
+                                new OA\Property(property: 'time', type: 'string', format: 'date-time'),
+                                new OA\Property(
+                                    property: 'data_freshness',
+                                    properties: [
+                                        new OA\Property(property: 'latest_report_time', type: 'string', format: 'date-time', nullable: true),
+                                        new OA\Property(property: 'age_seconds', type: 'integer', nullable: true),
+                                        new OA\Property(property: 'stale_after_seconds', type: 'integer', example: 86400),
+                                    ],
+                                    type: 'object'
+                                ),
+                            ],
+                            type: 'object'
+                        ),
+                    ],
+                    type: 'object'
+                )
+            ),
             new OA\Response(response: 503, description: 'Database is unavailable.'),
         ]
     )]
