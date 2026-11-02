@@ -6,16 +6,18 @@ namespace AmsatStatus\Tests;
 /**
  * Status grid counting under non-destructive writes (PR #30).
  *
- * Every submission is stored, so a resubmission no longer replaces the
- * earlier report. The grid instead counts only each callsign's most
- * recent submission per cell (satellite x 2-hour column). These tests pin
- * that down from three angles:
+ * Every submission is stored, so a resubmission no longer deletes the
+ * earlier report. To keep the grid behaving exactly as it did under
+ * delete+insert, only each callsign's latest submission per satellite per
+ * 15-minute period is counted; cells are still 2-hour columns. These
+ * tests pin that down:
  *
- *  - a correction by the same operator shows the corrected status, not
- *    "conflicting" (the user-facing promise in the help text);
- *  - two *different* operators who disagree still show as conflicting
- *    (dedup is per callsign, not per cell);
- *  - one operator submitting the same status repeatedly gets one vote.
+ *  - a correction by the same operator in the same period shows the
+ *    corrected status, not "conflicting" (the help text's promise);
+ *  - the same operator in two *different* periods of one cell still counts
+ *    twice, as under 1.0 (two separate observations);
+ *  - two *different* operators who disagree still show as conflicting;
+ *  - one operator submitting repeatedly in one period gets one vote.
  *
  * Reports are inserted directly on yesterday's date so they always land
  * inside the 6-day window, whatever time of day the suite runs. The ISS
@@ -30,7 +32,7 @@ final class StatusGridTest extends TestCase
     public function testCorrectionBySameCallsignShowsLatestStatus(): void
     {
         $this->insertReport('W5FIX', 'Heard', '10:05');
-        $this->insertReport('W5FIX', 'Not Heard', '10:40');
+        $this->insertReport('W5FIX', 'Not Heard', '10:10');
 
         $body = (string) $this->newGuestClient()->get('/')->getBody();
         $row  = $this->issRow($body);
@@ -42,6 +44,19 @@ final class StatusGridTest extends TestCase
         // Both reports are still listed in the tooltip; the earlier one is
         // marked as replaced.
         $this->assertStringContainsString('corrected by a later report', $body);
+    }
+
+    public function testSameCallsignInDifferentPeriodsCountsTwice(): void
+    {
+        // 10:05 and 10:40 are different 15-minute periods (as under 1.0,
+        // neither replaces the other) in the same 2-hour cell.
+        $this->insertReport('W5TWO', 'Heard', '10:05');
+        $this->insertReport('W5TWO', 'Not Heard', '10:40');
+
+        $body = (string) $this->newGuestClient()->get('/')->getBody();
+
+        $this->assertStringContainsString(self::COLOR_CONFLICTING, $this->issRow($body));
+        $this->assertStringNotContainsString('corrected by a later report', $body);
     }
 
     public function testDisagreementBetweenDifferentCallsignsIsConflicting(): void

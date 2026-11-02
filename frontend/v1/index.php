@@ -385,17 +385,20 @@ with (docTips)
 // mechanically for day/hour below so the bucketing (and thus the grid
 // layout) is unchanged; only the source column differs.
 //
-// Latest-report-per-callsign (PR #30): writes are non-destructive, so a
-// resubmission (e.g. correcting a mistaken status) adds a row instead of
-// replacing one. Within each grid cell (satellite x 2-hour column) only
-// each callsign's most recent submission counts toward the cell's colour
-// -- "most recent" by id, which is monotonic and so also orders the
-// historical rows whose submission_time is NULL. Older submissions from
-// the same callsign stay in the database and are still listed in the
-// tooltip, greyed out and marked as replaced. Rows with an empty callsign
-// (legacy data only) are never collapsed together.
+// Corrected reports (PR #30): writes are non-destructive since Issue #24,
+// so a resubmission (e.g. correcting a mistaken status) adds a row instead
+// of deleting and replacing the earlier one. To keep the grid exactly as
+// it behaved under delete+insert, only each callsign's latest submission
+// per satellite per 15-minute period counts toward a cell's colour --
+// "latest" by id, which is monotonic and so also orders historical rows
+// whose submission_time is NULL. The grid's 2-hour cells and layout are
+// unchanged; this only decides which rows inside a cell are counted.
+// Earlier submissions stay in the database and are still listed in the
+// tooltip, greyed out and marked as corrected. Rows with an empty callsign
+// (legacy data only) are never collapsed together. Same rule as the API
+// (LATEST_PER_CALLSIGN_SQL in api/v1/lib/repository.php).
 $sGridColumn = "FLOOR((23 - HOUR(observation_time)) / 2) + ((TO_DAYS(NOW()) - TO_DAYS(observation_time)) * 12)";
-$sLatestPerCallsign = "ROW_NUMBER() OVER (PARTITION BY name, " . $sGridColumn . ", COALESCE(NULLIF(callsign, ''), CONCAT('#', id)) ORDER BY id DESC)";
+$sLatestPerCallsign = "ROW_NUMBER() OVER (PARTITION BY name, DATE(observation_time), HOUR(observation_time), FLOOR(MINUTE(observation_time) / 15), COALESCE(NULLIF(callsign, ''), CONCAT('#', id)) ORDER BY id DESC)";
 
 $result = mysqli_query($db, "SELECT name, report, id, callsign, DATE(observation_time) AS day, HOUR(observation_time) AS hour, FLOOR(HOUR(observation_time) / 2) AS twohour, grid_square, observation_time, " .
                       $sLatestPerCallsign . " = 1 AS counted " .
@@ -759,8 +762,8 @@ while($value = mysqli_fetch_array($result))
 <table bgcolor=ffcccc>
 <tr><td>
 <b>To correct a report made in error:</b>
-<br>Submit a new report for the same satellite with the correct status.
-<br>Only your most recent report in each 2-hour block counts toward the status table.
+<br>Enter the same data as before, except with the correct status.
+<br>Then click submit---the original entry will be corrected.
 </td></tr>
 </table>
 </center>

@@ -5,18 +5,42 @@ declare(strict_types=1);
 final class ApiRepository
 {
     /**
-     * Every report row plus rn = its rank within (satellite, 2-hour UTC
-     * block, callsign), newest submission first. rn = 1 is the report that
-     * counts; rn > 1 has been replaced by a later submission from the same
-     * callsign. Mirrors the status grid in frontend/v1/index.php (PR #30).
-     * Callers append their own WHERE on s.* and wrap this as a derived table.
+     * Every report row plus rn = its rank within (satellite, UTC date, hour,
+     * 15-minute period, callsign), newest submission first. rn = 1 is the
+     * report that counts; rn > 1 was corrected by a later submission from
+     * the same callsign for the same period.
+     *
+     * Writes are non-destructive since Issue #24 (every submission is
+     * stored), so this reproduces on read exactly what 1.0's delete+insert
+     * did on write: one report per callsign per satellite per 15-minute
+     * period, the latest one. The status grid in frontend/v1/index.php
+     * uses the same rule (PR #30). "Latest" is highest id, which is
+     * monotonic and so also orders historical rows whose submission_time
+     * is NULL. Rows with an empty callsign (legacy data only) are never
+     * collapsed. Callers append their own WHERE on s.* and wrap this as a
+     * derived table.
      */
     private const LATEST_PER_CALLSIGN_SQL =
         'SELECT s.*, ROW_NUMBER() OVER ('
-        . 'PARTITION BY s.name, DATE(s.observation_time), FLOOR(HOUR(s.observation_time) / 2),'
+        . 'PARTITION BY s.name, DATE(s.observation_time), HOUR(s.observation_time),'
+        . ' FLOOR(MINUTE(s.observation_time) / 15),'
         . " COALESCE(NULLIF(s.callsign, ''), CONCAT('#', s.id))"
         . ' ORDER BY s.id DESC) AS rn'
         . ' FROM satellite s';
+
+    /** Seconds in one dedup period (see LATEST_PER_CALLSIGN_SQL). */
+    private const PERIOD_SECONDS = 900;
+
+    /**
+     * Start of the 15-minute period containing $isoTime. Ranking runs from
+     * here rather than from the exact lower bound, so a report corrected by
+     * a submission just before the bound is still recognised as corrected.
+     */
+    private static function periodStart(string $isoTime): string
+    {
+        $ts = (int) strtotime($isoTime);
+        return gmdate('Y-m-d\TH:i:s\Z', $ts - ($ts % self::PERIOD_SECONDS));
+    }
 
     private mysqli $db;
 
@@ -69,50 +93,63 @@ final class ApiRepository
      */
     public function reports(array $filters): array
     {
-        $where = [];
+        // Corrected reports (rn > 1) are excluded, matching 1.0, where a
+        // resubmission deleted them (see LATEST_PER_CALLSIGN_SQL). Filters
+        // on the partition keys (name, callsign) and the time lower bound
+        // go inside the ranking; status and grid_square go outside it, so
+        // e.g. status=Heard can't return a Heard report that was later
+        // corrected to something else.
+        $inner = [];
+        $outer = ['l.rn = 1'];
         $params = [];
         $types = '';
 
         if (($filters['name'] ?? '') !== '') {
-            $where[] = 's.name = ?';
+            $inner[] = 's.name = ?';
             $params[] = $filters['name'];
             $types .= 's';
         }
 
         if (($filters['callsign'] ?? '') !== '') {
-            $where[] = 's.callsign = ?';
+            $inner[] = 's.callsign = ?';
             $params[] = strtoupper((string) $filters['callsign']);
             $types .= 's';
         }
 
+        if (($filters['since'] ?? '') !== '') {
+            $inner[] = 's.observation_time >= ?';
+            $params[] = self::periodStart((string) $filters['since']);
+            $types .= 's';
+        }
+
         if (($filters['grid_square'] ?? '') !== '') {
-            $where[] = 's.grid_square = ?';
+            $outer[] = 'l.grid_square = ?';
             $params[] = $filters['grid_square'];
             $types .= 's';
         }
 
         if (($filters['status'] ?? '') !== '') {
-            $where[] = 's.report = ?';
+            $outer[] = 'l.report = ?';
             $params[] = $filters['status'];
             $types .= 's';
         }
 
         if (($filters['since'] ?? '') !== '') {
-            $where[] = 's.observation_time >= ?';
+            $outer[] = 'l.observation_time >= ?';
             $params[] = $filters['since'];
             $types .= 's';
         }
 
-        $whereSql = $where === [] ? '' : ' WHERE ' . implode(' AND ', $where);
+        $innerSql = $inner === [] ? '' : ' WHERE ' . implode(' AND ', $inner);
         $limit = (int) ($filters['limit'] ?? API_DEFAULT_LIMIT);
 
-        $sql = 'SELECT s.id, s.name, sn.name AS satellite_display_name,'
-            . ' DATE_FORMAT(s.observation_time, "%Y-%m-%dT%H:%i:%sZ") AS reported_time,'
-            . ' s.callsign, s.report, s.grid_square'
-            . ' FROM satellite s'
-            . ' LEFT JOIN satellite_name sn ON sn.html_element_name = s.name'
-            . $whereSql
-            . ' ORDER BY s.observation_time DESC, s.id DESC'
+        $sql = 'SELECT l.id, l.name, sn.name AS satellite_display_name,'
+            . ' DATE_FORMAT(l.observation_time, "%Y-%m-%dT%H:%i:%sZ") AS reported_time,'
+            . ' l.callsign, l.report, l.grid_square'
+            . ' FROM (' . self::LATEST_PER_CALLSIGN_SQL . $innerSql . ') l'
+            . ' LEFT JOIN satellite_name sn ON sn.html_element_name = l.name'
+            . ' WHERE ' . implode(' AND ', $outer)
+            . ' ORDER BY l.observation_time DESC, l.id DESC'
             . ' LIMIT ?';
 
         $params[] = $limit;
@@ -156,19 +193,12 @@ final class ApiRepository
      */
     public function summary(int $hours): array
     {
-        // Counts follow the status grid on the website (PR #30): writes are
-        // non-destructive, so a resubmission adds a row instead of replacing
-        // one. Only each callsign's most recent submission (highest id) per
-        // satellite per 2-hour UTC block is counted -- a correction counts
-        // once, as the corrected status, and repeats don't inflate counts.
-        //
-        // The ranking runs over rows from the start of the 2-hour block that
-        // contains the window's lower bound, so a report replaced by a
-        // submission just before the bound is still recognised as replaced.
-        // Rows with an empty callsign (legacy data only) are never collapsed.
-        $sinceTs = time() - ($hours * 3600);
-        $since = gmdate('Y-m-d\TH:i:s\Z', $sinceTs);
-        $blockStart = gmdate('Y-m-d\TH:i:s\Z', $sinceTs - ($sinceTs % 7200));
+        // Counts follow the same rule as reports() and the status grid
+        // (PR #30): corrected reports don't count -- one report per callsign
+        // per satellite per 15-minute period, the latest, exactly as 1.0's
+        // delete+insert left it. See LATEST_PER_CALLSIGN_SQL.
+        $since = gmdate('Y-m-d\TH:i:s\Z', time() - ($hours * 3600));
+        $blockStart = self::periodStart($since);
 
         return $this->fetchAll(
             'SELECT l.name, sn.name AS satellite_display_name, l.report, COUNT(*) AS report_count,'

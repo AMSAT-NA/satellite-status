@@ -305,7 +305,7 @@ $baseUrl = api_base_url();
 
     <div class="endpoint">
       <h3><span class="method">GET</span><code>/summary.php</code></h3>
-      <p>Returns report counts grouped by satellite and report value for a rolling UTC window. Counts match the status grid on the website: only each callsign's most recent report per satellite per 2-hour UTC block is counted, so a corrected report counts once, as its latest status.</p>
+      <p>Returns report counts grouped by satellite and report value for a rolling UTC window. As in API 1.0, a resubmission from the same callsign for the same satellite and 15-minute UTC period corrects the earlier report: only the latest one is counted. Corrected reports are still stored, but are not counted here or returned by <code>/reports.php</code>.</p>
       <pre><code>curl "<?php echo htmlspecialchars($baseUrl); ?>/summary.php?hours=24"</code></pre>
     </div>
 

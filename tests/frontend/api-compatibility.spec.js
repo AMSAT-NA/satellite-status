@@ -237,9 +237,11 @@ test.describe('public frontend/API compatibility', () => {
     );
   });
 
-  test('legacy submit form does not replace a second report for the same time', async ({ page }) => {
-    // Issue #24: writes are non-destructive now -- resubmitting for the
-    // same satellite/callsign/time stores both reports.
+  test('legacy submit form correction: latest report wins, as under 1.0', async ({ page }) => {
+    // Issue #24: writes are non-destructive -- resubmitting for the same
+    // satellite/callsign/time stores both reports (PHPUnit checks the DB
+    // rows). PR #30: the API still returns only the latest one, exactly as
+    // 1.0's delete+insert did, so the legacy API sees the correction.
     const callsign = uniqueLegacyCallsign();
     const reportTime = legacyReportTime();
 
@@ -251,8 +253,8 @@ test.describe('public frontend/API compatibility', () => {
 
     const reports = await legacyReportsForCallsign(page, callsign);
 
-    expect(reports).toHaveLength(2);
-    expect(reports.map((r) => r.report).sort()).toEqual(['Heard', 'Telemetry Only']);
+    expect(reports).toHaveLength(1);
+    expect(reports[0].report).toBe('Telemetry Only');
   });
 
   test('legacy submit form rejects validation errors before confirmation', async ({ page }) => {

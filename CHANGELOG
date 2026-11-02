@@ -176,23 +176,21 @@ CHANGE LOG:
           no longer reflect real data going forward.
         - `replaced_count` is removed from the POST /reports.php response.
           Writes are now non-destructive: submitting another report for
-          the same satellite/callsign/time no longer deletes-and-replaces
-          the previous one -- every submission is stored. If your
-          integration relied on the old delete+insert "correction"
-          behavior, you'll need to de-duplicate on your own end (e.g. by
-          taking the most recent `reported_time` per satellite/callsign).
-        - GET /summary.php `report_count` now counts only each callsign's
-          most recent submission per satellite per 2-hour UTC block, the
-          same rule the status grid on the website uses. Under 1.0 a
-          resubmission deleted the earlier report, so counts were already
-          one per callsign per (15-minute) period; without this rule,
-          non-destructive writes would have made every correction or
-          repeat inflate the count. A corrected report now counts once,
-          as its latest status. Note the block is 2 hours, not 1.0's 15
-          minutes, so two different statuses from one callsign within the
-          same 2-hour block count as one (the later). The `report_count`
-          in GET /catalog.php's optional statistics remains a raw count of
-          stored reports.
+          the same satellite/callsign/time no longer deletes the previous
+          one -- every submission is stored. What the API returns is
+          unchanged from 1.0: a resubmission from the same callsign for the
+          same satellite and 15-minute UTC period still corrects the
+          earlier report, so GET /reports.php (and legacy sat_info.php)
+          return only the latest one and GET /summary.php counts only the
+          latest one, exactly as after 1.0's delete+insert. Filters such as
+          `status` apply after corrections, so they never return a
+          corrected report. The 15-minute periods are :00-:14, :15-:29,
+          :30-:44 and :45-:59; 1.0's form used :00-:15, :16-:30, ..., so a
+          report entered at exactly :15, :30 or :45 falls in the next
+          period. Corrected reports remain in the database; a way to fetch
+          them through the API may be added later as an opt-in. The
+          `report_count` in GET /catalog.php's optional statistics is a
+          raw count of stored reports, corrected ones included.
         - The `since` filter on GET /reports.php now does a real timestamp
           comparison instead of comparing against the buggy reconstructed
           string above -- boundary behavior may differ slightly from
@@ -212,17 +210,16 @@ CHANGE LOG:
       tooltips, and "Reports From" list were rewritten against
       `observation_time` in the same PR, since they'd otherwise show nothing
       for any report submitted after this shipped.
-      Because resubmitting no longer replaces the earlier report, the
-      status grid now counts only each callsign's most recent submission
-      per cell (satellite x 2-hour block). A correction by the same
-      operator shows the corrected status instead of "conflicting", and
-      one operator submitting repeatedly gets one vote; operators who
-      genuinely disagree still show as conflicting. Replaced reports stay
-      in the database and are still listed in the cell's tooltip, greyed
-      out and marked "corrected by a later report". The "To correct a
-      report made in error" help text, which promised the original entry
-      would be overwritten, now describes this. Frontend only -- the API
-      is unchanged by this part. New tests: tests/StatusGridTest.php.
+      Because resubmitting no longer deletes the earlier report, the
+      status grid applies the same rule as the API: within each cell
+      (unchanged 2-hour columns), only each callsign's latest submission
+      per satellite per 15-minute period is counted -- what 1.0's
+      delete+insert left behind, so the grid's colours behave exactly as
+      before. Corrected reports are still listed in the cell's tooltip,
+      greyed out and marked "corrected by a later report". The "To correct
+      a report made in error" help text is unchanged and still accurate.
+      New tests: tests/StatusGridTest.php, plus API tests for corrections
+      in /reports.php, /summary.php and sat_info.php.
       The production DB migration (db/migrations/) is run manually by
       the project owner against the azure193 database container, as part
       of the dallas190 -> status.amsat.org cutover (dump dallas190, load

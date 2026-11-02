@@ -336,29 +336,53 @@ final class ApiV1EndpointTest extends TestCase
         $this->assertSame(1, $fo29Rows[0]['report_count']);
     }
 
-    public function testSummaryCountsLatestReportPerCallsignPerBlock(): void
+    /**
+     * Inserts ISS reports for yesterday at the given HH:MM (UTC), in order,
+     * so later rows get higher ids. Returns nothing; read back via the API.
+     *
+     * @param array<int, array{0: string, 1: string, 2: string}> $rows [callsign, report, HH:MM]
+     */
+    private function insertIssReports(array $rows): void
     {
-        // PR #30: summary counts match the status grid. In one 2-hour
-        // block, W5FIX corrects Heard -> Not Heard (counts once, as Not
-        // Heard); in another, W5REP submits Heard three times (counts
-        // once). Expected ISS counts: Heard 1, Not Heard 1.
         $yesterday = gmdate('Y-m-d', time() - 86400);
         $stmt = $this->db->prepare(
             'INSERT INTO satellite (name, longname, callsign, report, grid_square, observation_time) '
-            . "VALUES ('ISS', 'ISS', ?, ?, '', ?)"
+            . "VALUES ('ISS', 'ISS', ?, ?, 'FN42', ?)"
         );
-        foreach ([
-            ['W5FIX', 'Heard',     '10:05'],
-            ['W5FIX', 'Not Heard', '10:40'],
-            ['W5REP', 'Heard',     '14:01'],
-            ['W5REP', 'Heard',     '14:02'],
-            ['W5REP', 'Heard',     '14:03'],
-        ] as [$callsign, $report, $time]) {
+        foreach ($rows as [$callsign, $report, $time]) {
             $observationTime = "{$yesterday} {$time}:00";
             $stmt->bind_param('sss', $callsign, $report, $observationTime);
             $stmt->execute();
         }
         $stmt->close();
+    }
+
+    /** @return array<int, array<string, mixed>> */
+    private function getIssReports(array $query = []): array
+    {
+        $resp = $this->newGuestClient()->get('/api/v1/reports.php', [
+            'query' => ['name' => 'ISS', 'hours' => 72] + $query,
+        ]);
+        $this->assertSame(200, $resp->getStatusCode());
+        return json_decode((string) $resp->getBody(), true)['data'];
+    }
+
+    public function testSummaryCountsLatestReportPerCallsignPerPeriod(): void
+    {
+        // PR #30: counts match 1.0's delete+insert and the status grid.
+        // W5FIX corrects Heard -> Not Heard within one 15-minute period
+        // (counts once, as Not Heard); W5REP submits Heard three times in
+        // one period (counts once); W5TWO reports in two different periods
+        // (counts twice, as under 1.0). Expected ISS: Heard 3, Not Heard 1.
+        $this->insertIssReports([
+            ['W5FIX', 'Heard',     '10:05'],
+            ['W5FIX', 'Not Heard', '10:10'],
+            ['W5REP', 'Heard',     '14:01'],
+            ['W5REP', 'Heard',     '14:02'],
+            ['W5REP', 'Heard',     '14:03'],
+            ['W5TWO', 'Heard',     '16:05'],
+            ['W5TWO', 'Heard',     '16:40'],
+        ]);
 
         $resp = $this->newGuestClient()->get('/api/v1/summary.php', [
             'query' => ['hours' => 72],
@@ -373,7 +397,78 @@ final class ApiV1EndpointTest extends TestCase
             }
         }
         ksort($iss);
-        $this->assertSame(['Heard' => 1, 'Not Heard' => 1], $iss);
+        $this->assertSame(['Heard' => 3, 'Not Heard' => 1], $iss);
+    }
+
+    public function testReportsOmitCorrectedReport(): void
+    {
+        // PR #30: a resubmission in the same 15-minute period hides the
+        // earlier report, as 1.0's delete+insert did.
+        $this->insertIssReports([
+            ['W5FIX', 'Heard',     '10:05'],
+            ['W5FIX', 'Not Heard', '10:10'],
+        ]);
+
+        $data = $this->getIssReports();
+
+        $this->assertCount(1, $data);
+        $this->assertSame('Not Heard', $data[0]['report']);
+        $this->assertStringEndsWith('T10:10:00Z', $data[0]['reported_time']);
+    }
+
+    public function testReportsKeepSameCallsignInDifferentPeriods(): void
+    {
+        // Different 15-minute periods never replaced each other under 1.0.
+        $this->insertIssReports([
+            ['W5TWO', 'Heard',     '10:05'],
+            ['W5TWO', 'Not Heard', '10:40'],
+        ]);
+
+        $this->assertCount(2, $this->getIssReports());
+    }
+
+    public function testReportsStatusFilterDoesNotReturnCorrectedReport(): void
+    {
+        // The status filter applies after corrections are resolved, so the
+        // corrected Heard report must not come back for status=Heard.
+        $this->insertIssReports([
+            ['W5FIX', 'Heard',     '10:05'],
+            ['W5FIX', 'Not Heard', '10:10'],
+        ]);
+
+        $this->assertSame([], $this->getIssReports(['status' => 'Heard']));
+        $this->assertCount(1, $this->getIssReports(['status' => 'Not Heard']));
+    }
+
+    public function testReportsSinceInsidePeriodStillHonoursCorrection(): void
+    {
+        // The correction is submitted later (higher id) but entered with an
+        // earlier minute (10:01) in the same period as the original (10:05). The
+        // original is inside the since window, the correction is not; the
+        // original must still be treated as corrected, not resurface.
+        $this->insertIssReports([
+            ['W5FIX', 'Heard',     '10:05'],
+            ['W5FIX', 'Not Heard', '10:01'],
+        ]);
+        $since = gmdate('Y-m-d', time() - 86400) . 'T10:03:00Z';
+
+        $this->assertSame([], $this->getIssReports(['since' => $since]));
+    }
+
+    public function testLegacySatInfoOmitsCorrectedReport(): void
+    {
+        $this->insertIssReports([
+            ['W5FIX', 'Heard',     '10:05'],
+            ['W5FIX', 'Not Heard', '10:10'],
+        ]);
+
+        $resp = $this->newGuestClient()->get('/api/v1/sat_info.php', [
+            'query' => ['name' => 'ISS', 'hours' => 72],
+        ]);
+        $rows = json_decode((string) $resp->getBody(), true);
+
+        $this->assertCount(1, $rows);
+        $this->assertSame('Not Heard', $rows[0]['report']);
     }
 
     public function testStatusesReturnsCanonicalValues(): void
