@@ -185,6 +185,8 @@ CHANGE LOG:
           201 response now has a documented schema in the OpenAPI document.
           The legacy submit form uses it to show "This report corrects the
           previous one", as 1.0 did when it replaced a report.
+          The API overview page's POST note, which said nothing is ever
+          replaced, now describes corrections.
           Writes are now non-destructive: submitting another report for
           the same satellite/callsign/time no longer deletes the previous
           one -- every submission is stored. What the API returns is

@@ -298,8 +298,10 @@ $baseUrl = api_base_url();
     "reported_at": "2026-05-23T08:30:00Z"
   }'</code></pre>
       <p class="note">
-        Every submission is stored as its own report -- nothing is ever replaced or deleted, even for the same
-        satellite, callsign, and time.
+        Every submission is stored; nothing is deleted. A resubmission from the same callsign for the same
+        satellite and 15-minute UTC period (:00-:14, :15-:29, :30-:44, :45-:59) corrects the earlier report, as in
+        API 1.0: <code>GET /reports.php</code> and <code>/summary.php</code> return and count only the latest one,
+        and the response's <code>correction</code> field is <code>true</code>.
       </p>
     </div>
 
