@@ -200,6 +200,17 @@ CHANGE LOG:
       tooltips, and "Reports From" list were rewritten against
       `observation_time` in the same PR, since they'd otherwise show nothing
       for any report submitted after this shipped.
+      Because resubmitting no longer replaces the earlier report, the
+      status grid now counts only each callsign's most recent submission
+      per cell (satellite x 2-hour block). A correction by the same
+      operator shows the corrected status instead of "conflicting", and
+      one operator submitting repeatedly gets one vote; operators who
+      genuinely disagree still show as conflicting. Replaced reports stay
+      in the database and are still listed in the cell's tooltip, greyed
+      out and marked "replaced by a later report". The "To correct a
+      report made in error" help text, which promised the original entry
+      would be overwritten, now describes this. Frontend only -- the API
+      is unchanged by this part. New tests: tests/StatusGridTest.php.
       The production DB migration (db/migrations/) is run manually by
       the project owner against the azure193 database container, as part
       of the dallas190 -> status.amsat.org cutover (dump dallas190, load

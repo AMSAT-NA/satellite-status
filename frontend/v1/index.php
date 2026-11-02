@@ -384,9 +384,23 @@ with (docTips)
 // observation_time instead. DATE(observation_time)/HOUR(observation_time) substitute
 // mechanically for day/hour below so the bucketing (and thus the grid
 // layout) is unchanged; only the source column differs.
-$result = mysqli_query($db, "SELECT name, report, id, callsign, DATE(observation_time) AS day, HOUR(observation_time) AS hour, FLOOR(HOUR(observation_time) / 2) AS twohour, grid_square, observation_time " .
+//
+// Latest-report-per-callsign (PR #30): writes are non-destructive, so a
+// resubmission (e.g. correcting a mistaken status) adds a row instead of
+// replacing one. Within each grid cell (satellite x 2-hour column) only
+// each callsign's most recent submission counts toward the cell's colour
+// -- "most recent" by id, which is monotonic and so also orders the
+// historical rows whose submission_time is NULL. Older submissions from
+// the same callsign stay in the database and are still listed in the
+// tooltip, greyed out and marked as replaced. Rows with an empty callsign
+// (legacy data only) are never collapsed together.
+$sGridColumn = "FLOOR((23 - HOUR(observation_time)) / 2) + ((TO_DAYS(NOW()) - TO_DAYS(observation_time)) * 12)";
+$sLatestPerCallsign = "ROW_NUMBER() OVER (PARTITION BY name, " . $sGridColumn . ", COALESCE(NULLIF(callsign, ''), CONCAT('#', id)) ORDER BY id DESC)";
+
+$result = mysqli_query($db, "SELECT name, report, id, callsign, DATE(observation_time) AS day, HOUR(observation_time) AS hour, FLOOR(HOUR(observation_time) / 2) AS twohour, grid_square, observation_time, " .
+                      $sLatestPerCallsign . " = 1 AS counted " .
                       "FROM satellite " .
-                      "WHERE name IS NOT NULL and FLOOR((23 - HOUR(observation_time)) / 2) + ((TO_DAYS(NOW()) - TO_DAYS(observation_time)) * 12) BETWEEN 0 and " . ($nDays * 12 - 1) . " " .
+                      "WHERE name IS NOT NULL and " . $sGridColumn . " BETWEEN 0 and " . ($nDays * 12 - 1) . " " .
                       "ORDER BY name, DATE(observation_time) DESC, FLOOR(HOUR(observation_time) / 2) DESC, ID DESC");
 
 $sLastName = "";
@@ -430,7 +444,14 @@ while ($aRow = mysqli_fetch_array($result))
     // since observation_time is minute-accurate (period was only a 15-minute
     // bucket).
     $observationTimeDisplay = date("Y-m-d H:i", strtotime($aRow["observation_time"]));
-    echo($aRow["report"] . "<br>" . $aRow["callsign"] . $gridSquareElement . "<br>" . $observationTimeDisplay . " UTC");
+    $tipEntry = $aRow["report"] . "<br>" . $aRow["callsign"] . $gridSquareElement . "<br>" . $observationTimeDisplay . " UTC";
+    if (!$aRow["counted"]) {
+        // Superseded by a later submission from the same callsign in this
+        // cell -- shown for transparency, not counted. No quotes in this
+        // markup: the tooltip body is a single-quoted JS string.
+        $tipEntry = "<font color=#999999><s>" . $tipEntry . "</s><br><i>replaced by a later report</i></font>";
+    }
+    echo($tipEntry);
 
     $bStart = false;
 }
@@ -506,10 +527,16 @@ for ($nDay = 0; $nDay < $nDays; $nDay++)
 echo("</tr>");
 
 
-$result = mysqli_query($db, "SELECT name, report, id, FLOOR((23 - HOUR(observation_time)) / 2) + ((TO_DAYS(NOW()) - TO_DAYS(observation_time)) * 12) AS col " .
+// Only each callsign's latest submission per cell is counted (see the
+// tooltip query above). The cell's tooltip key is the highest id in the
+// cell, which is always a counted row, so it still matches the tooltip.
+$result = mysqli_query($db, "SELECT name, report, id, col FROM (" .
+                      "SELECT name, report, id, " . $sGridColumn . " AS col, " . $sLatestPerCallsign . " AS rn " .
                       "FROM satellite " .
-                      "WHERE FLOOR((23 - HOUR(observation_time)) / 2) + ((TO_DAYS(NOW()) - TO_DAYS(observation_time)) * 12) BETWEEN 0 and " . ($nDays * 12 - 1) . " " .
-                      "ORDER BY name, FLOOR((23 - HOUR(observation_time)) / 2) + ((TO_DAYS(NOW()) - TO_DAYS(observation_time)) * 12) ASC, ID DESC");
+                      "WHERE " . $sGridColumn . " BETWEEN 0 and " . ($nDays * 12 - 1) .
+                      ") latest " .
+                      "WHERE rn = 1 " .
+                      "ORDER BY name, col ASC, id DESC");
 
 $sLastName = "";
 $sLastDay = "";
@@ -732,8 +759,8 @@ while($value = mysqli_fetch_array($result))
 <table bgcolor=ffcccc>
 <tr><td>
 <b>To correct a report made in error:</b>
-<br>Enter the same data as before, except with the correct status.
-<br>Then click submit---the original entry will be corrected.
+<br>Submit a new report for the same satellite with the correct status.
+<br>Only your most recent report in each 2-hour block counts toward the status table.
 </td></tr>
 </table>
 </center>
