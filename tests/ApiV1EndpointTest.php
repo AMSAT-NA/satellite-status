@@ -122,12 +122,36 @@ final class ApiV1EndpointTest extends TestCase
         $secondPayload = json_decode((string) $second->getBody(), true);
         $this->assertArrayNotHasKey('replaced_count', $firstPayload['data']);
         $this->assertArrayNotHasKey('replaced_count', $secondPayload['data']);
+        // PR #30: replaced_count's replacement is the boolean correction.
+        $this->assertFalse($firstPayload['data']['correction']);
+        $this->assertTrue($secondPayload['data']['correction']);
         $this->assertNotSame($firstPayload['data']['id'], $secondPayload['data']['id']);
         $this->assertSame(2, $this->countRows('satellite', "callsign='W5DUP'"));
 
         $reports = $this->db->query("SELECT report FROM satellite WHERE callsign='W5DUP' ORDER BY id ASC");
         $this->assertSame('Heard', $reports->fetch_assoc()['report']);
         $this->assertSame('Not Heard', $reports->fetch_assoc()['report']);
+    }
+
+    public function testPostReportInDifferentPeriodIsNotCorrection(): void
+    {
+        // :10 and :20 are different 15-minute periods, so the second
+        // report is a separate observation, not a correction -- exactly the
+        // mistake `correction: false` lets a client catch.
+        $client = $this->newGuestClient();
+        $base = gmdate('Y-m-d\TH', time() - 3600);
+        foreach (['10' => false, '20' => false] as $minute => $expected) {
+            $resp = $client->post('/api/v1/reports.php', [
+                'json' => [
+                    'name' => 'AO-91',
+                    'report' => 'Heard',
+                    'callsign' => 'W5PER',
+                    'reported_at' => "{$base}:{$minute}:00Z",
+                ],
+            ]);
+            $this->assertSame(201, $resp->getStatusCode());
+            $this->assertSame($expected, json_decode((string) $resp->getBody(), true)['data']['correction']);
+        }
     }
 
     public function testPostReportIgnoresSpoofedSubmissionTime(): void

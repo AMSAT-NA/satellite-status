@@ -121,7 +121,9 @@ final class SecurityRegressionTest extends TestCase
         $resp = $this->newGuestClient()->get('/submit.php', ['query' => $params]);
 
         $this->assertStringContainsString('Thank you for your submission', (string) $resp->getBody());
-        $this->assertStringNotContainsString('already made a report', (string) $resp->getBody());
+        // PR #30: the second submission is a correction; the form says so
+        // (as 1.0 did), but both rows are kept.
+        $this->assertStringContainsString('This report corrects the previous one.', (string) $resp->getBody());
         $this->assertSame(2, $this->countRows('satellite', "callsign='W5DUP'"));
     }
 

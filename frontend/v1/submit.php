@@ -134,6 +134,13 @@ if ($submit)
          }
 
 	 setcookie("amsatCallsign", $SatCall);
+	 // PR #30: the API says whether this corrects an earlier report from
+	 // the same callsign for the same satellite and 15-minute period (1.0
+	 // showed the same notice when it deleted+replaced that report).
+	 if (!empty($apiResult['body']['data']['correction'])) {
+	     echo "<center><br>It appears that you have already made a report for this satellite for the selected time period.";
+	     echo "<br>This report corrects the previous one.</center>";
+	 }
 	 echo "<br><br><center>Thank you for your submission</center>" ;
    ?>
 

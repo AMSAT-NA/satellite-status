@@ -169,6 +169,27 @@ final class ApiRepository
      */
     public function createReport(array $report): array
     {
+        // correction: does this submission correct an earlier report? True
+        // when the same callsign already has a report for this satellite in
+        // the same 15-minute UTC period -- the report this one now replaces
+        // in the grid and the API (LATEST_PER_CALLSIGN_SQL). Nothing is
+        // deleted. Equivalent to 1.0's replaced_count > 0. Uses the
+        // (name, callsign, observation_time) index.
+        $ts = (int) strtotime($report['observation_time'] . ' UTC');
+        $periodStart = $ts - ($ts % self::PERIOD_SECONDS);
+        $existing = $this->fetchAll(
+            'SELECT 1 FROM satellite'
+            . ' WHERE name = ? AND callsign = ? AND observation_time >= ? AND observation_time < ?'
+            . ' LIMIT 1',
+            'ssss',
+            [
+                $report['name'],
+                $report['callsign'],
+                gmdate('Y-m-d H:i:s', $periodStart),
+                gmdate('Y-m-d H:i:s', $periodStart + self::PERIOD_SECONDS),
+            ]
+        );
+
         $this->execute(
             'INSERT INTO satellite (name, longname, callsign, report, grid_square, observation_time)'
             . ' VALUES (?, ?, ?, ?, ?, ?)',
@@ -185,6 +206,7 @@ final class ApiRepository
 
         return [
             'id' => $this->db->insert_id,
+            'correction' => $existing !== [],
         ];
     }
 

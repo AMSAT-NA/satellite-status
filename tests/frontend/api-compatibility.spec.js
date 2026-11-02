@@ -163,6 +163,7 @@ test.describe('public frontend/API compatibility', () => {
         callsign,
         report: 'Not Heard',
         grid_square: 'EM25',
+        correction: false,
       })
     );
     expect(createPayload.body.data).not.toHaveProperty('replaced_count');
@@ -248,8 +249,8 @@ test.describe('public frontend/API compatibility', () => {
     await submitLegacyReport(page, { callsign, report: 'Heard', reportTime });
     await submitLegacyReport(page, { callsign, report: 'Telemetry Only', reportTime });
 
-    await expect(page.locator('body')).not.toContainText('already made a report');
-    await expect(page.locator('body')).not.toContainText('replace the previous one');
+    // The form tells the user the second submission is a correction.
+    await expect(page.locator('body')).toContainText('This report corrects the previous one.');
 
     const reports = await legacyReportsForCallsign(page, callsign);
 

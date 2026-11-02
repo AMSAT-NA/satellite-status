@@ -23,6 +23,7 @@ if ($method === 'POST') {
                 'callsign' => $report['callsign'],
                 'report' => $report['report'],
                 'grid_square' => $report['grid_square'],
+                'correction' => (bool) $writeResult['correction'],
             ],
             'links' => [
                 'satellite_reports' => api_self_url('reports.php?name=' . rawurlencode($report['name'])),

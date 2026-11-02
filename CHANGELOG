@@ -174,7 +174,17 @@ CHANGE LOG:
           submitted time, down to the minute.
         - `period` is removed from the GET /reports.php response. It can
           no longer reflect real data going forward.
-        - `replaced_count` is removed from the POST /reports.php response.
+        - `replaced_count` (never documented) is removed from the POST
+          /reports.php response and replaced by `correction`, a boolean:
+          true if this report corrects an earlier one from the same
+          callsign for the same satellite and 15-minute period (what
+          `replaced_count > 0` meant in 1.0), false otherwise. Clients can
+          use it to confirm a correction landed in the same period as the
+          original. Named per Google AIP-140 (booleans omit an "is"
+          prefix), like the existing `legacy` / `deprecated` flags. The
+          201 response now has a documented schema in the OpenAPI document.
+          The legacy submit form uses it to show "This report corrects the
+          previous one", as 1.0 did when it replaced a report.
           Writes are now non-destructive: submitting another report for
           the same satellite/callsign/time no longer deletes the previous
           one -- every submission is stored. What the API returns is

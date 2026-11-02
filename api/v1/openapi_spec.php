@@ -183,7 +183,32 @@ final class ApiV1OpenApiSpec
             content: new OA\JsonContent(ref: '#/components/schemas/ReportCreate')
         ),
         responses: [
-            new OA\Response(response: 201, description: 'Report created.'),
+            new OA\Response(
+                response: 201,
+                description: 'Report created.',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(
+                            property: 'data',
+                            type: 'object',
+                            properties: [
+                                new OA\Property(property: 'id', type: 'integer'),
+                                new OA\Property(property: 'name', type: 'string'),
+                                new OA\Property(property: 'reported_time', type: 'string', format: 'date-time'),
+                                new OA\Property(property: 'callsign', type: 'string'),
+                                new OA\Property(property: 'report', type: 'string'),
+                                new OA\Property(property: 'grid_square', type: 'string'),
+                                new OA\Property(
+                                    property: 'correction',
+                                    type: 'boolean',
+                                    description: 'True if this report corrects an earlier one: the same callsign already reported this satellite in the same 15-minute UTC period (:00-:14, :15-:29, :30-:44, :45-:59). The earlier report is kept but no longer counted or returned. False if this is the first report from this callsign for that period.'
+                                ),
+                            ]
+                        ),
+                    ],
+                    type: 'object'
+                )
+            ),
             new OA\Response(response: 422, description: 'Validation failed.'),
         ]
     )]
