@@ -4,6 +4,20 @@ declare(strict_types=1);
 
 final class ApiRepository
 {
+    /**
+     * Every report row plus rn = its rank within (satellite, 2-hour UTC
+     * block, callsign), newest submission first. rn = 1 is the report that
+     * counts; rn > 1 has been replaced by a later submission from the same
+     * callsign. Mirrors the status grid in frontend/v1/index.php (PR #30).
+     * Callers append their own WHERE on s.* and wrap this as a derived table.
+     */
+    private const LATEST_PER_CALLSIGN_SQL =
+        'SELECT s.*, ROW_NUMBER() OVER ('
+        . 'PARTITION BY s.name, DATE(s.observation_time), FLOOR(HOUR(s.observation_time) / 2),'
+        . " COALESCE(NULLIF(s.callsign, ''), CONCAT('#', s.id))"
+        . ' ORDER BY s.id DESC) AS rn'
+        . ' FROM satellite s';
+
     private mysqli $db;
 
     public function __construct(mysqli $db)
@@ -142,18 +156,30 @@ final class ApiRepository
      */
     public function summary(int $hours): array
     {
-        $since = gmdate('Y-m-d\TH:i:s\Z', time() - ($hours * 3600));
+        // Counts follow the status grid on the website (PR #30): writes are
+        // non-destructive, so a resubmission adds a row instead of replacing
+        // one. Only each callsign's most recent submission (highest id) per
+        // satellite per 2-hour UTC block is counted -- a correction counts
+        // once, as the corrected status, and repeats don't inflate counts.
+        //
+        // The ranking runs over rows from the start of the 2-hour block that
+        // contains the window's lower bound, so a report replaced by a
+        // submission just before the bound is still recognised as replaced.
+        // Rows with an empty callsign (legacy data only) are never collapsed.
+        $sinceTs = time() - ($hours * 3600);
+        $since = gmdate('Y-m-d\TH:i:s\Z', $sinceTs);
+        $blockStart = gmdate('Y-m-d\TH:i:s\Z', $sinceTs - ($sinceTs % 7200));
 
         return $this->fetchAll(
-            'SELECT s.name, sn.name AS satellite_display_name, s.report, COUNT(*) AS report_count,'
-            . ' DATE_FORMAT(MAX(s.observation_time), "%Y-%m-%dT%H:%i:%sZ") AS latest_reported_time'
-            . ' FROM satellite s'
-            . ' LEFT JOIN satellite_name sn ON sn.html_element_name = s.name'
-            . ' WHERE s.observation_time >= ?'
-            . ' GROUP BY s.name, sn.name, s.report'
-            . ' ORDER BY s.name ASC, report_count DESC',
-            's',
-            [$since]
+            'SELECT l.name, sn.name AS satellite_display_name, l.report, COUNT(*) AS report_count,'
+            . ' DATE_FORMAT(MAX(l.observation_time), "%Y-%m-%dT%H:%i:%sZ") AS latest_reported_time'
+            . ' FROM (' . self::LATEST_PER_CALLSIGN_SQL . ' WHERE s.observation_time >= ?) l'
+            . ' LEFT JOIN satellite_name sn ON sn.html_element_name = l.name'
+            . ' WHERE l.rn = 1 AND l.observation_time >= ?'
+            . ' GROUP BY l.name, sn.name, l.report'
+            . ' ORDER BY l.name ASC, report_count DESC',
+            'ss',
+            [$blockStart, $since]
         );
     }
 

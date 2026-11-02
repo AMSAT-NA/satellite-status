@@ -181,6 +181,18 @@ CHANGE LOG:
           integration relied on the old delete+insert "correction"
           behavior, you'll need to de-duplicate on your own end (e.g. by
           taking the most recent `reported_time` per satellite/callsign).
+        - GET /summary.php `report_count` now counts only each callsign's
+          most recent submission per satellite per 2-hour UTC block, the
+          same rule the status grid on the website uses. Under 1.0 a
+          resubmission deleted the earlier report, so counts were already
+          one per callsign per (15-minute) period; without this rule,
+          non-destructive writes would have made every correction or
+          repeat inflate the count. A corrected report now counts once,
+          as its latest status. Note the block is 2 hours, not 1.0's 15
+          minutes, so two different statuses from one callsign within the
+          same 2-hour block count as one (the later). The `report_count`
+          in GET /catalog.php's optional statistics remains a raw count of
+          stored reports.
         - The `since` filter on GET /reports.php now does a real timestamp
           comparison instead of comparing against the buggy reconstructed
           string above -- boundary behavior may differ slightly from

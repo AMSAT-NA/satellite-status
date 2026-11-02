@@ -336,6 +336,46 @@ final class ApiV1EndpointTest extends TestCase
         $this->assertSame(1, $fo29Rows[0]['report_count']);
     }
 
+    public function testSummaryCountsLatestReportPerCallsignPerBlock(): void
+    {
+        // PR #30: summary counts match the status grid. In one 2-hour
+        // block, W5FIX corrects Heard -> Not Heard (counts once, as Not
+        // Heard); in another, W5REP submits Heard three times (counts
+        // once). Expected ISS counts: Heard 1, Not Heard 1.
+        $yesterday = gmdate('Y-m-d', time() - 86400);
+        $stmt = $this->db->prepare(
+            'INSERT INTO satellite (name, longname, callsign, report, grid_square, observation_time) '
+            . "VALUES ('ISS', 'ISS', ?, ?, '', ?)"
+        );
+        foreach ([
+            ['W5FIX', 'Heard',     '10:05'],
+            ['W5FIX', 'Not Heard', '10:40'],
+            ['W5REP', 'Heard',     '14:01'],
+            ['W5REP', 'Heard',     '14:02'],
+            ['W5REP', 'Heard',     '14:03'],
+        ] as [$callsign, $report, $time]) {
+            $observationTime = "{$yesterday} {$time}:00";
+            $stmt->bind_param('sss', $callsign, $report, $observationTime);
+            $stmt->execute();
+        }
+        $stmt->close();
+
+        $resp = $this->newGuestClient()->get('/api/v1/summary.php', [
+            'query' => ['hours' => 72],
+        ]);
+        $this->assertSame(200, $resp->getStatusCode());
+        $payload = json_decode((string) $resp->getBody(), true);
+
+        $iss = [];
+        foreach ($payload['data'] as $row) {
+            if ($row['name'] === 'ISS') {
+                $iss[$row['report']] = $row['report_count'];
+            }
+        }
+        ksort($iss);
+        $this->assertSame(['Heard' => 1, 'Not Heard' => 1], $iss);
+    }
+
     public function testStatusesReturnsCanonicalValues(): void
     {
         $resp = $this->newGuestClient()->get('/api/v1/statuses.php');

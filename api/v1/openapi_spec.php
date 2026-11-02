@@ -195,6 +195,7 @@ final class ApiV1OpenApiSpec
         path: '/summary.php',
         operationId: 'getSummary',
         summary: 'Summarize report activity by satellite and report status.',
+        description: "Counts are per satellite and report value over a rolling UTC window. Only each callsign's most recent submission per satellite per 2-hour UTC block is counted, matching the status grid on the website: a resubmitted (corrected) report counts once, as its latest status, and repeated submissions are not counted twice. Replaced reports are still stored and returned by /reports.php.",
         tags: ['Reports'],
         parameters: [
             new OA\Parameter(name: 'hours', in: 'query', schema: new OA\Schema(type: 'integer', minimum: 1, maximum: 720)),
