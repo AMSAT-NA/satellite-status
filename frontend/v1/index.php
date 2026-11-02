@@ -449,7 +449,7 @@ while ($aRow = mysqli_fetch_array($result))
         // Superseded by a later submission from the same callsign in this
         // cell -- shown for transparency, not counted. No quotes in this
         // markup: the tooltip body is a single-quoted JS string.
-        $tipEntry = "<font color=#999999><s>" . $tipEntry . "</s><br><i>replaced by a later report</i></font>";
+        $tipEntry = "<font color=#999999><s>" . $tipEntry . "</s><br><i>corrected by a later report</i></font>";
     }
     echo($tipEntry);
 

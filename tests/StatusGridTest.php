@@ -41,7 +41,7 @@ final class StatusGridTest extends TestCase
 
         // Both reports are still listed in the tooltip; the earlier one is
         // marked as replaced.
-        $this->assertStringContainsString('replaced by a later report', $body);
+        $this->assertStringContainsString('corrected by a later report', $body);
     }
 
     public function testDisagreementBetweenDifferentCallsignsIsConflicting(): void

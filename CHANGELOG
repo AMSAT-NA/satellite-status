@@ -219,7 +219,7 @@ CHANGE LOG:
       one operator submitting repeatedly gets one vote; operators who
       genuinely disagree still show as conflicting. Replaced reports stay
       in the database and are still listed in the cell's tooltip, greyed
-      out and marked "replaced by a later report". The "To correct a
+      out and marked "corrected by a later report". The "To correct a
       report made in error" help text, which promised the original entry
       would be overwritten, now describes this. Frontend only -- the API
       is unchanged by this part. New tests: tests/StatusGridTest.php.
