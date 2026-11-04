@@ -110,6 +110,34 @@ final class SecurityRegressionTest extends TestCase
         $this->assertSame(1, $this->countRows('satellite', "callsign='W5XYZ'"));
     }
 
+    /**
+     * Issue #53: a normal submission must not raise PHP notices. Before the
+     * fix it raised a CallSignParser dynamic-property deprecation and a
+     * "headers already sent" warning from a dead setcookie() call. The CI
+     * dev server runs without a php.ini, so display_errors is on here and
+     * any notice lands in the response body. That's what lets this test
+     * see them, even though production (php.ini-production, #51) hides them.
+     */
+    public function testSubmitRaisesNoPhpNotices(): void
+    {
+        $body = (string) $this->newGuestClient()->get('/submit.php', [
+            'query' => $this->buildSubmitQuery([
+                'SatName' => 'AO-91',
+                'SatCall' => 'W5NTC',
+                'SatTime' => '08:00',
+            ]),
+        ])->getBody();
+
+        $this->assertStringContainsString('Thank you for your submission', $body);
+        // Matches both PHP's HTML format ("<b>Deprecated</b>:") and plain
+        // text ("Deprecated:").
+        $this->assertDoesNotMatchRegularExpression(
+            '#\b(Deprecated|Warning|Notice|Fatal error)(</b>)?:#',
+            $body,
+            'PHP notice in submit.php output'
+        );
+    }
+
     public function testDuplicateSubmissionIsNotReplaced(): void
     {
         $params = $this->buildSubmitQuery([
