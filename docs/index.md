@@ -14,3 +14,4 @@ See [log.md](log.md) for a history of changes to this bundle.
 # Sections
 
 * [agents/](agents/) - Design decisions and guidance for AI agents working on this codebase
+* [runbooks/](runbooks/) - Operational runbooks and as-run records (e.g. the 2026-11-04 cutover)

@@ -274,12 +274,16 @@ jobs:
           docker exec mig mariadb -uroot -ppw -e "CREATE DATABASE pre; CREATE DATABASE fresh;"
           docker exec -i mig mariadb -uroot -ppw pre < tests/fixtures/pre-issue-24/schema.sql
           docker exec -i mig mariadb -uroot -ppw pre < tests/fixtures/pre-issue-24/seed.sql
-          # period = -1 (the 53 known production rows) and NULL period
+          # period = -1 (the 53 known production rows), NULL period, and a
+          # 1970-01-01 / hour 0 / period 0 row: the exact kind of row that
+          # stopped the 4 Nov production run (below the TIMESTAMP minimum).
           docker exec mig mariadb -uroot -ppw pre -e "
             INSERT INTO satellite (name, longname, day, hour, period, callsign, report)
             VALUES ('AO-91','AO-91','2020-03-01',14,-1,'W1AW','Heard'),
-                   ('AO-91','AO-91','2020-03-01',15,NULL,'W1AW','Heard');"
-          docker exec mig mariadb -uroot -ppw -N pre -e "SELECT COUNT(*) FROM satellite" > /tmp/pre_count
+                   ('AO-91','AO-91','2020-03-01',15,NULL,'W1AW','Heard'),
+                   ('AO-91','AO-91','1970-01-01',0,0,'ZZ1970','Heard');"
+          # step 0 removes pre-1970-01-02 rows, so they don't count toward "preserved"
+          docker exec mig mariadb -uroot -ppw -N pre -e "SELECT COUNT(*) FROM satellite WHERE day >= '1970-01-02'" > /tmp/pre_count
 
       - name: Run the full migration
         run: docker exec -i mig mariadb -uroot -ppw pre < "$MIG"
@@ -302,7 +306,8 @@ jobs:
           check() { # label, actual, expected
             if [ "$2" = "$3" ]; then echo "ok: $1 = $2"; else echo "::error title=migration-dry-run::$1: got '$2', expected '$3'"; fail=1; fi
           }
-          check "row count preserved" "$(q 'SELECT COUNT(*) FROM satellite')" "$(cat /tmp/pre_count)"
+          check "row count preserved (minus pre-1970 rows)" "$(q 'SELECT COUNT(*) FROM satellite')" "$(cat /tmp/pre_count)"
+          check "pre-1970 rows removed" "$(q "SELECT COUNT(*) FROM satellite WHERE callsign='ZZ1970'")" "0"
           check "observation_time NULL rows" "$(q 'SELECT COUNT(*) FROM satellite WHERE observation_time IS NULL')" "0"
           # Historical rows have no honest receive time: submission_time must be NULL
           check "historical rows with submission_time set" "$(q 'SELECT COUNT(*) FROM satellite WHERE submission_time IS NOT NULL')" "0"
