@@ -8,6 +8,10 @@ require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/version.php';
 
 const API_DEFAULT_REPORT_HOURS = 72;
+// health.php reports "degraded" when the newest report is older than this
+// (Issue #47). Reports average a few hundred a day, but quiet hours happen,
+// so a day avoids false alarms while still catching a stalled instance.
+const API_HEALTH_STALE_AFTER_SECONDS = 86400;
 const API_MIN_REPORT_HOURS = 1;
 const API_MAX_REPORT_HOURS = 720;
 const API_LEGACY_MAX_REPORT_HOURS = 96;

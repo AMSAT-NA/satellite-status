@@ -514,6 +514,67 @@ final class ApiV1EndpointTest extends TestCase
         $this->assertSame(200, $resp->getStatusCode());
         $payload = json_decode((string) $resp->getBody(), true);
         $this->assertSame('ok', $payload['data']['status']);
+        $this->assertArrayNotHasKey('reason', $payload['data']);
+
+        $freshness = $payload['data']['data_freshness'];
+        $this->assertMatchesRegularExpression('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/', $freshness['latest_report_time']);
+        $this->assertIsInt($freshness['age_seconds']);
+        $this->assertGreaterThanOrEqual(0, $freshness['age_seconds']);
+        $this->assertSame(86400, $freshness['stale_after_seconds']);
+    }
+
+    /**
+     * Issue #47: an instance that is up but has no reports must not look
+     * healthy. Still HTTP 200 (reachable), but "degraded".
+     */
+    public function testHealthIsDegradedWithNoReports(): void
+    {
+        $this->db->query('DELETE FROM satellite');
+
+        $resp = $this->newGuestClient()->get('/api/v1/health.php');
+
+        $this->assertSame(200, $resp->getStatusCode());
+        $data = json_decode((string) $resp->getBody(), true)['data'];
+        $this->assertSame('degraded', $data['status']);
+        $this->assertSame('no_reports', $data['reason']);
+        $this->assertNull($data['data_freshness']['latest_report_time']);
+        $this->assertNull($data['data_freshness']['age_seconds']);
+    }
+
+    /**
+     * Issue #47: reports exist, but the newest is older than the threshold
+     * (e.g. submissions silently stopped).
+     */
+    public function testHealthIsDegradedWhenNewestReportIsStale(): void
+    {
+        $this->db->query(
+            'UPDATE satellite SET submission_time = NOW() - INTERVAL 2 DAY,'
+            . ' observation_time = NOW() - INTERVAL 2 DAY'
+        );
+
+        $data = json_decode((string) $this->newGuestClient()->get('/api/v1/health.php')->getBody(), true)['data'];
+
+        $this->assertSame('degraded', $data['status']);
+        $this->assertSame('stale_data', $data['reason']);
+        $this->assertGreaterThan(86400, $data['data_freshness']['age_seconds']);
+    }
+
+    /**
+     * Imported pre-#24 rows have no submission_time; freshness falls back to
+     * observation_time, so a freshly loaded production dump reads as fresh
+     * (not "no data") right after the cutover.
+     */
+    public function testHealthFallsBackToObservationTimeForImportedRows(): void
+    {
+        $this->db->query(
+            'UPDATE satellite SET submission_time = NULL, observation_time = NOW() - INTERVAL 1 HOUR'
+        );
+
+        $data = json_decode((string) $this->newGuestClient()->get('/api/v1/health.php')->getBody(), true)['data'];
+
+        $this->assertSame('ok', $data['status']);
+        $this->assertGreaterThanOrEqual(3600 - 120, $data['data_freshness']['age_seconds']);
+        $this->assertLessThanOrEqual(3600 + 120, $data['data_freshness']['age_seconds']);
     }
 
     public function testOpenApiDocumentIsAvailable(): void

@@ -13,7 +13,7 @@
             "name": "Apache-2.0",
             "url": "https://www.apache.org/licenses/LICENSE-2.0"
         },
-        "version": "1.1"
+        "version": "1.2"
     },
     "servers": [
         {
@@ -278,11 +278,67 @@
                 "tags": [
                     "Metadata"
                 ],
-                "summary": "Check API and database availability.",
+                "summary": "Check API and database availability, and data freshness.",
+                "description": "Returns 200 whenever the database is reachable. status is \"ok\" when data is fresh, or \"degraded\" when there are no reports (reason no_reports) or the newest report is older than data_freshness.stale_after_seconds (reason stale_data). Freshness is the newest report's receive time, or its observation time for reports imported before receive times were recorded.",
                 "operationId": "getHealth",
                 "responses": {
                     "200": {
-                        "description": "API and database are reachable."
+                        "description": "Database reachable; status is \"ok\" or \"degraded\".",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "properties": {
+                                                "status": {
+                                                    "type": "string",
+                                                    "enum": [
+                                                        "ok",
+                                                        "degraded"
+                                                    ]
+                                                },
+                                                "reason": {
+                                                    "description": "Present only when status is \"degraded\".",
+                                                    "type": "string",
+                                                    "enum": [
+                                                        "no_reports",
+                                                        "stale_data"
+                                                    ]
+                                                },
+                                                "version": {
+                                                    "type": "string",
+                                                    "example": "1.2"
+                                                },
+                                                "time": {
+                                                    "type": "string",
+                                                    "format": "date-time"
+                                                },
+                                                "data_freshness": {
+                                                    "properties": {
+                                                        "latest_report_time": {
+                                                            "type": "string",
+                                                            "format": "date-time",
+                                                            "nullable": true
+                                                        },
+                                                        "age_seconds": {
+                                                            "type": "integer",
+                                                            "nullable": true
+                                                        },
+                                                        "stale_after_seconds": {
+                                                            "type": "integer",
+                                                            "example": 86400
+                                                        }
+                                                    },
+                                                    "type": "object"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
                     },
                     "503": {
                         "description": "Database is unavailable."
