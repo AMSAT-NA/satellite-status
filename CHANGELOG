@@ -264,3 +264,10 @@ CHANGE LOG:
       warnings were shown to visitors on the submit page, and with output
       buffering off the form's "remember my callsign" cookie silently
       failed. Found during the cutover smoke test. (PR #51)
+    - health.php reports data freshness (newest report's time and age)
+      and returns status "degraded" with a reason (no_reports or
+      stale_data) when there are no reports or the newest is more than a
+      day old. Still HTTP 200 when the database is reachable, 503 only
+      when it isn't. API version 1.2 (additive fields). Raised by an API
+      consumer: the old SELECT 1 check reported ok on an instance with no
+      data. (Issue #47, PR #49)
