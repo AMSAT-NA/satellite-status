@@ -13,7 +13,7 @@
             "name": "Apache-2.0",
             "url": "https://www.apache.org/licenses/LICENSE-2.0"
         },
-        "version": "1.0.0"
+        "version": "1.1"
     },
     "servers": [
         {
@@ -188,7 +188,44 @@
                 },
                 "responses": {
                     "201": {
-                        "description": "Report created."
+                        "description": "Report created.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "properties": {
+                                                "id": {
+                                                    "type": "integer"
+                                                },
+                                                "name": {
+                                                    "type": "string"
+                                                },
+                                                "reported_time": {
+                                                    "type": "string",
+                                                    "format": "date-time"
+                                                },
+                                                "callsign": {
+                                                    "type": "string"
+                                                },
+                                                "report": {
+                                                    "type": "string"
+                                                },
+                                                "grid_square": {
+                                                    "type": "string"
+                                                },
+                                                "correction": {
+                                                    "description": "True if this report corrects an earlier one: the same callsign already reported this satellite in the same 15-minute UTC period (:00-:14, :15-:29, :30-:44, :45-:59). The earlier report is kept but no longer counted or returned. False if this is the first report from this callsign for that period.",
+                                                    "type": "boolean"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
                     },
                     "422": {
                         "description": "Validation failed."
@@ -202,6 +239,7 @@
                     "Reports"
                 ],
                 "summary": "Summarize report activity by satellite and report status.",
+                "description": "Counts are per satellite and report value over a rolling UTC window. As in API 1.0, a resubmission from the same callsign for the same satellite and 15-minute UTC period corrects the earlier report: only the latest one is counted. Corrected reports are still stored, but are not counted here or returned by /reports.php.",
                 "operationId": "getSummary",
                 "parameters": [
                     {
@@ -385,9 +423,6 @@
                     "grid_square": {
                         "type": "string",
                         "nullable": true
-                    },
-                    "period": {
-                        "type": "integer"
                     }
                 },
                 "type": "object"

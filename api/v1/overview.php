@@ -298,14 +298,16 @@ $baseUrl = api_base_url();
     "reported_at": "2026-05-23T08:30:00Z"
   }'</code></pre>
       <p class="note">
-        Submitting another report for the same satellite, callsign, hour, and 15-minute period replaces the previous one,
-        matching the legacy form behavior.
+        Every submission is stored; nothing is deleted. A resubmission from the same callsign for the same
+        satellite and 15-minute UTC period (:00-:14, :15-:29, :30-:44, :45-:59) corrects the earlier report, as in
+        API 1.0: <code>GET /reports.php</code> and <code>/summary.php</code> return and count only the latest one,
+        and the response's <code>correction</code> field is <code>true</code>.
       </p>
     </div>
 
     <div class="endpoint">
       <h3><span class="method">GET</span><code>/summary.php</code></h3>
-      <p>Returns report counts grouped by satellite and report value for a rolling UTC window.</p>
+      <p>Returns report counts grouped by satellite and report value for a rolling UTC window. As in API 1.0, a resubmission from the same callsign for the same satellite and 15-minute UTC period corrects the earlier report: only the latest one is counted. Corrected reports are still stored, but are not counted here or returned by <code>/reports.php</code>.</p>
       <pre><code>curl "<?php echo htmlspecialchars($baseUrl); ?>/summary.php?hours=24"</code></pre>
     </div>
 

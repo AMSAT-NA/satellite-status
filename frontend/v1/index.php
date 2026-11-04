@@ -95,6 +95,7 @@ $nDays = 6;
 
 $db = mysqli_connect($mysqlHost, $mysqlUsername,$mysqlPassword);
 mysqli_select_db($db, $mysqlDatabase);
+mysqli_query($db, "SET time_zone = '+00:00'");
 
 ?>
 <!--       TIPSTER v3.0        -->
@@ -379,10 +380,31 @@ with (docTips)
 
 // Get all reports for tooltip generation
 
-$result = mysqli_query($db, "SELECT name, report, id, callsign, day, hour, period, FLOOR(hour / 2) AS twohour, grid_square " .
+// Issue #24: day/hour/period are a frozen historical archive -- reads use
+// observation_time instead. DATE(observation_time)/HOUR(observation_time) substitute
+// mechanically for day/hour below so the bucketing (and thus the grid
+// layout) is unchanged; only the source column differs.
+//
+// Corrected reports (PR #30): writes are non-destructive since Issue #24,
+// so a resubmission (e.g. correcting a mistaken status) adds a row instead
+// of deleting and replacing the earlier one. To keep the grid exactly as
+// it behaved under delete+insert, only each callsign's latest submission
+// per satellite per 15-minute period counts toward a cell's colour --
+// "latest" by id, which is monotonic and so also orders historical rows
+// whose submission_time is NULL. The grid's 2-hour cells and layout are
+// unchanged; this only decides which rows inside a cell are counted.
+// Earlier submissions stay in the database and are still listed in the
+// tooltip, greyed out and marked as corrected. Rows with an empty callsign
+// (legacy data only) are never collapsed together. Same rule as the API
+// (LATEST_PER_CALLSIGN_SQL in api/v1/lib/repository.php).
+$sGridColumn = "FLOOR((23 - HOUR(observation_time)) / 2) + ((TO_DAYS(NOW()) - TO_DAYS(observation_time)) * 12)";
+$sLatestPerCallsign = "ROW_NUMBER() OVER (PARTITION BY name, DATE(observation_time), HOUR(observation_time), FLOOR(MINUTE(observation_time) / 15), COALESCE(NULLIF(callsign, ''), CONCAT('#', id)) ORDER BY id DESC)";
+
+$result = mysqli_query($db, "SELECT name, report, id, callsign, DATE(observation_time) AS day, HOUR(observation_time) AS hour, FLOOR(HOUR(observation_time) / 2) AS twohour, grid_square, observation_time, " .
+                      $sLatestPerCallsign . " = 1 AS counted " .
                       "FROM satellite " .
-                      "WHERE name IS NOT NULL and FLOOR((23 - hour) / 2) + ((TO_DAYS(NOW()) - TO_DAYS(day)) * 12) BETWEEN 0 and " . ($nDays * 12 - 1) . " " .
-                      "ORDER BY name, day DESC, FLOOR(hour / 2) DESC, ID DESC");
+                      "WHERE name IS NOT NULL and " . $sGridColumn . " BETWEEN 0 and " . ($nDays * 12 - 1) . " " .
+                      "ORDER BY name, DATE(observation_time) DESC, FLOOR(HOUR(observation_time) / 2) DESC, ID DESC");
 
 $sLastName = "";
 $sLastDay = "";
@@ -415,31 +437,24 @@ while ($aRow = mysqli_fetch_array($result))
         echo("<br><br>");
     }
 
-    $sPeriod = "";
-    switch ($aRow["period"])
-    {
-        case 0:
-            $sPeriod = ":00-:15";
-            break;
-        case 1:
-            $sPeriod = ":16-:30";
-            break;
-        case 2:
-            $sPeriod = ":31-:45";
-            break;
-        case 3:
-            $sPeriod = ":46-:59";
-            break;
-        default:
-            $sPeriod = ":??";
-    }
-    
     $gridSquareElement = "";
     if ($aRow["grid_square"] != "") {
         $gridSquareElement = "<br>" . $aRow["grid_square"];
     }
 
-    echo($aRow["report"] . "<br>" . $aRow["callsign"] . $gridSquareElement . "<br>" . $aRow["day"] . "<br>" . $aRow["hour"] . $sPeriod . " UTC");
+    // Issue #24: display the actual observation_time timestamp instead of a
+    // reconstructed quarter-hour period range -- a precision improvement,
+    // since observation_time is minute-accurate (period was only a 15-minute
+    // bucket).
+    $observationTimeDisplay = date("Y-m-d H:i", strtotime($aRow["observation_time"]));
+    $tipEntry = $aRow["report"] . "<br>" . $aRow["callsign"] . $gridSquareElement . "<br>" . $observationTimeDisplay . " UTC";
+    if (!$aRow["counted"]) {
+        // Superseded by a later submission from the same callsign in this
+        // cell -- shown for transparency, not counted. No quotes in this
+        // markup: the tooltip body is a single-quoted JS string.
+        $tipEntry = "<font color=#999999><s>" . $tipEntry . "</s><br><i>corrected by a later report</i></font>";
+    }
+    echo($tipEntry);
 
     $bStart = false;
 }
@@ -515,10 +530,16 @@ for ($nDay = 0; $nDay < $nDays; $nDay++)
 echo("</tr>");
 
 
-$result = mysqli_query($db, "SELECT name, report, id, FLOOR((23 - hour) / 2) + ((TO_DAYS(NOW()) - TO_DAYS(day)) * 12) AS col " .
+// Only each callsign's latest submission per cell is counted (see the
+// tooltip query above). The cell's tooltip key is the highest id in the
+// cell, which is always a counted row, so it still matches the tooltip.
+$result = mysqli_query($db, "SELECT name, report, id, col FROM (" .
+                      "SELECT name, report, id, " . $sGridColumn . " AS col, " . $sLatestPerCallsign . " AS rn " .
                       "FROM satellite " .
-                      "WHERE FLOOR((23 - hour) / 2) + ((TO_DAYS(NOW()) - TO_DAYS(day)) * 12) BETWEEN 0 and " . ($nDays * 12 - 1) . " " .
-                      "ORDER BY name, FLOOR((23 - hour) / 2) + ((TO_DAYS(NOW()) - TO_DAYS(day)) * 12) ASC, ID DESC");
+                      "WHERE " . $sGridColumn . " BETWEEN 0 and " . ($nDays * 12 - 1) .
+                      ") latest " .
+                      "WHERE rn = 1 " .
+                      "ORDER BY name, col ASC, id DESC");
 
 $sLastName = "";
 $sLastDay = "";
@@ -538,6 +559,7 @@ if ($aRow)
 
 // Print rows in satellite status table
 $conn = new mysqli($mysqlHost, $mysqlUsername, $mysqlPassword, $mysqlDatabase);
+$conn->query("SET time_zone = '+00:00'");
 // Prepared once and re-executed per row inside the loop below.
 $websiteLookup = $conn->prepare("SELECT website FROM satellite_name WHERE html_element_name = ?");
 while ($aRow)
@@ -722,8 +744,8 @@ echo("</table>");
 <br>
 <div class="reportsFromList">
 <?php
-$result = mysqli_query($db, "SELECT callsign, MAX(CONCAT(day, ' ', LPAD(hour, 2, '0'))) AS last_report FROM satellite " .
-                      "WHERE FLOOR((23 - hour) / 2) + ((TO_DAYS(NOW()) - TO_DAYS(day)) * 12) BETWEEN 0 and " . ($nDays * 12 - 1) . " " .
+$result = mysqli_query($db, "SELECT callsign, MAX(observation_time) AS last_report FROM satellite " .
+                      "WHERE FLOOR((23 - HOUR(observation_time)) / 2) + ((TO_DAYS(NOW()) - TO_DAYS(observation_time)) * 12) BETWEEN 0 and " . ($nDays * 12 - 1) . " " .
                       "AND callsign <> 'TEST' AND callsign <> '' GROUP BY callsign ORDER BY last_report DESC");
 while($value = mysqli_fetch_array($result))
 {
@@ -767,6 +789,7 @@ $conn = new mysqli($mysqlHost, $mysqlUsername, $mysqlPassword, $mysqlDatabase);
 if ($conn->connect_error) {
     die("Connection failed: " . $conn->connect_error);
 }
+$conn->query("SET time_zone = '+00:00'");
 
 $sql = "SELECT * FROM satellite_name ORDER BY name ASC";
 $result = $conn->query($sql);
@@ -859,62 +882,7 @@ $conn->close();
 <tr>
 <td><font size=4><b>Time Heard (UTC)</b></font></td>
 <td>
-<select name=SatHour>
-<?php printf("<option value=%s>%s", date("H"), date("H")); ?>
-<option value="00">00
-<option value="01">01
-<option value="02">02
-<option value="03">03
-<option value="04">04
-<option value="05">05
-<option value="06">06
-<option value="07">07
-<option value="08">08
-<option value="09">09
-<option value="10">10
-<option value="11">11
-<option value="12">12
-<option value="13">13
-<option value="14">14
-<option value="15">15
-<option value="16">16
-<option value="17">17
-<option value="18">18
-<option value="19">19
-<option value="20">20
-<option value="21">21
-<option value="22">22
-<option value="23">23
-</select>
-<select name="SatPeriod">
-<?php
-$secs = date("i");
-if ($secs <= 15)
- {
-  $SPeriod=0;
-  $PName=":00-:15";
-}
-else if ($secs > 15 && $secs <= 30 )
-{
-  $SPeriod=1;
-  $PName=":16-:30";
-}
-else if ($secs > 30 && $secs <= 45 )
-{
-  $SPeriod=2;
-  $PName=":31-:45";
-}
-else if ( $secs> 45 && $secs <= 59 )
-{
-  $SPeriod=3;
-  $PName=":46-:59";
-}
-printf("<option value=%s>%s", $SPeriod, $PName); ?>
-<option value="0">:00-:15
-<option value="1">:16-:30
-<option value="2">:31-:45
-<option value="3">:46-:59
-</select>
+<input type="time" name="SatTime" value="<?php echo date("H:i"); ?>">
 </td></tr>
 
 <tr>

@@ -3,6 +3,8 @@ services:
     image: amsatorg.azurecr.io/satellite-status-frontend:latest
     restart: unless-stopped
     env_file: .env
+    environment:
+      API_INTERNAL_URL: http://api/api/v1
     # Site banner: this image has no app-code bind mount (unlike local
     # dev), so content/ needs its own explicit mount. Resolves on the
     # deploy host to /opt/services/satellite-status/content/banner.md --
@@ -44,6 +46,14 @@ services:
   db:
     image: mariadb:12.3
     restart: unless-stopped
+    # Issue #24: server-level UTC default, as defense in depth alongside
+    # the app's own per-connection `SET time_zone = '+00:00'` pinning --
+    # see docker-compose.yml's identical setting for the full rationale.
+    # This is the azure193 dockerized production DB; the separate legacy
+    # dallas190 host is not dockerized and is not touched by this repo --
+    # its global timezone config is handled by the project owner
+    # directly on that host, outside this compose file/CD pipeline.
+    command: --default-time-zone=+00:00
     env_file: .env
     volumes:
       - db-data:/var/lib/mysql

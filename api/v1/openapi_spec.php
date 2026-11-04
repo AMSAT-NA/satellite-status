@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 use OpenApi\Attributes as OA;
 
+require_once __DIR__ . '/lib/version.php';
+
 #[OA\OpenApi(
     info: new OA\Info(
         title: 'AMSAT Satellite Status API',
@@ -22,7 +24,7 @@ use OpenApi\Attributes as OA;
             name: 'Apache-2.0',
             url: 'https://www.apache.org/licenses/LICENSE-2.0'
         ),
-        version: '1.0.0'
+        version: API_VERSION
     ),
     servers: [
         new OA\Server(url: '/api/v1', description: 'Current host'),
@@ -76,7 +78,6 @@ use OpenApi\Attributes as OA;
         new OA\Property(property: 'callsign', type: 'string'),
         new OA\Property(property: 'report', type: 'string'),
         new OA\Property(property: 'grid_square', type: 'string', nullable: true),
-        new OA\Property(property: 'period', type: 'integer'),
     ],
     type: 'object'
 )]
@@ -182,7 +183,32 @@ final class ApiV1OpenApiSpec
             content: new OA\JsonContent(ref: '#/components/schemas/ReportCreate')
         ),
         responses: [
-            new OA\Response(response: 201, description: 'Report created.'),
+            new OA\Response(
+                response: 201,
+                description: 'Report created.',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(
+                            property: 'data',
+                            type: 'object',
+                            properties: [
+                                new OA\Property(property: 'id', type: 'integer'),
+                                new OA\Property(property: 'name', type: 'string'),
+                                new OA\Property(property: 'reported_time', type: 'string', format: 'date-time'),
+                                new OA\Property(property: 'callsign', type: 'string'),
+                                new OA\Property(property: 'report', type: 'string'),
+                                new OA\Property(property: 'grid_square', type: 'string'),
+                                new OA\Property(
+                                    property: 'correction',
+                                    type: 'boolean',
+                                    description: 'True if this report corrects an earlier one: the same callsign already reported this satellite in the same 15-minute UTC period (:00-:14, :15-:29, :30-:44, :45-:59). The earlier report is kept but no longer counted or returned. False if this is the first report from this callsign for that period.'
+                                ),
+                            ]
+                        ),
+                    ],
+                    type: 'object'
+                )
+            ),
             new OA\Response(response: 422, description: 'Validation failed.'),
         ]
     )]
@@ -194,6 +220,7 @@ final class ApiV1OpenApiSpec
         path: '/summary.php',
         operationId: 'getSummary',
         summary: 'Summarize report activity by satellite and report status.',
+        description: "Counts are per satellite and report value over a rolling UTC window. As in API 1.0, a resubmission from the same callsign for the same satellite and 15-minute UTC period corrects the earlier report: only the latest one is counted. Corrected reports are still stored, but are not counted here or returned by /reports.php.",
         tags: ['Reports'],
         parameters: [
             new OA\Parameter(name: 'hours', in: 'query', schema: new OA\Schema(type: 'integer', minimum: 1, maximum: 720)),
