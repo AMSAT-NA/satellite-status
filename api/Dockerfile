@@ -8,6 +8,13 @@ RUN docker-php-ext-install mysqli \
     && apt-get install -y --no-install-recommends curl \
     && rm -rf /var/lib/apt/lists/*
 
+# Use PHP's production settings. The official image ships no php.ini, so
+# PHP otherwise runs on built-in defaults: display_errors on (warnings and
+# deprecations printed to visitors) and no output buffering (setcookie()
+# after the page starts printing fails -- broke the callsign cookie in
+# frontend submit.php). Errors still go to the container logs.
+RUN mv "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini"
+
 # Serve bare /api directly instead of letting mod_dir 301 it to /api/.
 # Behind Traefik, Apache only ever sees plain http, so that redirect
 # would be built as http://... and cost a second hop through Traefik's
