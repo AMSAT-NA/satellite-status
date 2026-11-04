@@ -259,3 +259,8 @@ CHANGE LOG:
       runs in the azure193 container from this cutover on. The legacy
       dallas190 host, kept only as a rollback fallback, is not covered.
       (Issue #24, PR #30)
+    - Frontend and API containers now use PHP's production settings
+      (php.ini-production). The image ships no php.ini, so legacy
+      warnings were shown to visitors on the submit page, and with output
+      buffering off the form's "remember my callsign" cookie silently
+      failed. Found during the cutover smoke test. (PR #51)
