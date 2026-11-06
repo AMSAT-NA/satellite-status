@@ -33,7 +33,7 @@
                     {
                         "name": "name",
                         "in": "query",
-                        "description": "Exact satellite API name.",
+                        "description": "Exact satellite API name or display name. No match returns 404 satellite_not_found.",
                         "required": false,
                         "schema": {
                             "type": "string"
@@ -42,7 +42,7 @@
                     {
                         "name": "include_stats",
                         "in": "query",
-                        "description": "Include report count and latest report timestamp.",
+                        "description": "Add report_count and latest_reported_time to each satellite. Accepts 1, true, yes or on; anything else is false.",
                         "required": false,
                         "schema": {
                             "type": "boolean"
@@ -61,6 +61,14 @@
                                             "items": {
                                                 "$ref": "#/components/schemas/Satellite"
                                             }
+                                        },
+                                        "meta": {
+                                            "properties": {
+                                                "count": {
+                                                    "type": "integer"
+                                                }
+                                            },
+                                            "type": "object"
                                         }
                                     },
                                     "type": "object"
@@ -69,7 +77,14 @@
                         }
                     },
                     "404": {
-                        "description": "Satellite not found."
+                        "description": "Satellite not found (satellite_not_found).",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -85,6 +100,7 @@
                     {
                         "name": "name",
                         "in": "query",
+                        "description": "Exact satellite API name. An unknown name returns 404 satellite_not_found.",
                         "schema": {
                             "type": "string"
                         }
@@ -92,8 +108,10 @@
                     {
                         "name": "hours",
                         "in": "query",
+                        "description": "Rolling UTC window, in hours. Ignored when since is given. Out-of-range values are clamped to the nearest bound, not rejected; a non-integer returns 400 invalid_parameter.",
                         "schema": {
                             "type": "integer",
+                            "default": 72,
                             "maximum": 720,
                             "minimum": 1
                         }
@@ -101,6 +119,7 @@
                     {
                         "name": "since",
                         "in": "query",
+                        "description": "Return reports observed at or after this time (ISO 8601). Overrides hours. An unparseable value returns 400 invalid_since.",
                         "schema": {
                             "type": "string",
                             "format": "date-time"
@@ -109,8 +128,10 @@
                     {
                         "name": "limit",
                         "in": "query",
+                        "description": "Maximum number of reports, newest first. Out-of-range values are clamped to the nearest bound, not rejected; a non-integer returns 400 invalid_parameter.",
                         "schema": {
                             "type": "integer",
+                            "default": 100,
                             "maximum": 500,
                             "minimum": 1
                         }
@@ -118,6 +139,7 @@
                     {
                         "name": "callsign",
                         "in": "query",
+                        "description": "Exact callsign, case-insensitive.",
                         "schema": {
                             "type": "string"
                         }
@@ -125,6 +147,7 @@
                     {
                         "name": "grid_square",
                         "in": "query",
+                        "description": "Exact Maidenhead locator, case-insensitive. A 4-character grid does not match 6-character reports. An invalid locator returns 400 invalid_grid_square.",
                         "schema": {
                             "type": "string"
                         }
@@ -132,6 +155,7 @@
                     {
                         "name": "status",
                         "in": "query",
+                        "description": "Report value. Accepts the same aliases as POST /reports.php. An unsupported value returns 400 invalid_status.",
                         "schema": {
                             "type": "string",
                             "enum": [
@@ -155,6 +179,27 @@
                                             "items": {
                                                 "$ref": "#/components/schemas/Report"
                                             }
+                                        },
+                                        "meta": {
+                                            "properties": {
+                                                "count": {
+                                                    "type": "integer"
+                                                },
+                                                "limit": {
+                                                    "description": "The limit applied, after clamping.",
+                                                    "type": "integer"
+                                                },
+                                                "since": {
+                                                    "description": "The lower bound applied, normalized to UTC.",
+                                                    "type": "string",
+                                                    "format": "date-time"
+                                                },
+                                                "hours": {
+                                                    "description": "The hours value after clamping (default 72). Still present when since was given, but not applied.",
+                                                    "type": "integer"
+                                                }
+                                            },
+                                            "type": "object"
                                         }
                                     },
                                     "type": "object"
@@ -163,10 +208,24 @@
                         }
                     },
                     "400": {
-                        "description": "Invalid filter."
+                        "description": "Invalid filter (invalid_parameter, invalid_since, invalid_grid_square or invalid_status).",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
                     },
                     "404": {
-                        "description": "Satellite not found."
+                        "description": "Satellite not found (satellite_not_found).",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
                     }
                 }
             },
@@ -177,9 +236,15 @@
                 "summary": "Submit a satellite status report.",
                 "operationId": "createReport",
                 "requestBody": {
+                    "description": "Send JSON with Content-Type: application/json, or form data (application/x-www-form-urlencoded).",
                     "required": true,
                     "content": {
                         "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ReportCreate"
+                            }
+                        },
+                        "application/x-www-form-urlencoded": {
                             "schema": {
                                 "$ref": "#/components/schemas/ReportCreate"
                             }
@@ -220,6 +285,15 @@
                                                 }
                                             },
                                             "type": "object"
+                                        },
+                                        "links": {
+                                            "properties": {
+                                                "satellite_reports": {
+                                                    "type": "string",
+                                                    "format": "uri"
+                                                }
+                                            },
+                                            "type": "object"
                                         }
                                     },
                                     "type": "object"
@@ -227,8 +301,25 @@
                             }
                         }
                     },
+                    "400": {
+                        "description": "Request body is not valid JSON (invalid_json).",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
                     "422": {
-                        "description": "Validation failed."
+                        "description": "Validation failed (missing_name, unknown_satellite, invalid_report, invalid_callsign, invalid_grid_square, invalid_reported_at, missing_reported_at or future_reported_at).",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -245,8 +336,10 @@
                     {
                         "name": "hours",
                         "in": "query",
+                        "description": "Rolling UTC window, in hours. Out-of-range values are clamped to the nearest bound, not rejected; a non-integer returns 400 invalid_parameter.",
                         "schema": {
                             "type": "integer",
+                            "default": 24,
                             "maximum": 720,
                             "minimum": 1
                         }
@@ -254,7 +347,44 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Summary response."
+                        "description": "Summary response: one entry per satellite and report value, ordered by satellite name, then count.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/SummaryEntry"
+                                            }
+                                        },
+                                        "meta": {
+                                            "properties": {
+                                                "hours": {
+                                                    "description": "The window applied, after clamping.",
+                                                    "type": "integer"
+                                                },
+                                                "count": {
+                                                    "type": "integer"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "hours is not an integer (invalid_parameter).",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -268,7 +398,30 @@
                 "operationId": "getStatuses",
                 "responses": {
                     "200": {
-                        "description": "Status values response."
+                        "description": "Status values response.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/StatusValue"
+                                            }
+                                        },
+                                        "meta": {
+                                            "properties": {
+                                                "count": {
+                                                    "type": "integer"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -341,7 +494,14 @@
                         }
                     },
                     "503": {
-                        "description": "Database is unavailable."
+                        "description": "Database is unavailable (database_unavailable or database_unhealthy).",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -355,7 +515,17 @@
                 "operationId": "getLegacySatellites",
                 "responses": {
                     "200": {
-                        "description": "Plain JSON array of satellites."
+                        "description": "Plain JSON array of satellites.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/LegacySatellite"
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -371,6 +541,7 @@
                     {
                         "name": "name",
                         "in": "query",
+                        "description": "Satellite API name. If missing or unknown, the response is an empty array.",
                         "schema": {
                             "type": "string"
                         }
@@ -378,8 +549,10 @@
                     {
                         "name": "hours",
                         "in": "query",
+                        "description": "Rolling UTC window, in hours. Out-of-range values are clamped to the nearest bound; a non-numeric value is ignored and the default is used.",
                         "schema": {
                             "type": "integer",
+                            "default": 72,
                             "maximum": 96,
                             "minimum": 1
                         }
@@ -387,7 +560,17 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Plain JSON array of reports."
+                        "description": "Plain JSON array of up to 100 reports, newest first.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/LegacyReport"
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -396,6 +579,7 @@
     "components": {
         "schemas": {
             "ErrorResponse": {
+                "description": "Error envelope used by every endpoint except the legacy satellites.php and sat_info.php. code is stable and meant for programs; message is for people and may change. New codes may be added. Codes by HTTP status -- 400: invalid_parameter (hours or limit is not an integer), invalid_since, invalid_grid_square, invalid_status, invalid_json. 404: satellite_not_found. 405: method_not_allowed (any endpoint; the Allow header lists the supported methods). 422: missing_name, unknown_satellite, invalid_report, invalid_callsign, invalid_grid_square, invalid_reported_at, missing_reported_at, future_reported_at. 500: query_failed, query_prepare_failed, write_failed. 503: database_unavailable (any endpoint that reads the database), database_unhealthy (health.php), openapi_spec_missing (openapi.php and the /api/v1/ index).",
                 "properties": {
                     "error": {
                         "properties": {
@@ -409,6 +593,11 @@
                             "status": {
                                 "type": "integer",
                                 "example": 400
+                            },
+                            "details": {
+                                "description": "Present on some errors only: the rejected parameter and value for invalid_parameter, or allowed_values for invalid_report.",
+                                "type": "object",
+                                "additionalProperties": true
                             }
                         },
                         "type": "object"
@@ -417,6 +606,7 @@
                 "type": "object"
             },
             "ReportCreate": {
+                "description": "New clients should send name, report, callsign, grid_square and reported_at. The other fields are accepted for compatibility with older clients and the v1 submit form.",
                 "required": [
                     "name",
                     "report",
@@ -425,10 +615,12 @@
                 ],
                 "properties": {
                     "name": {
+                        "description": "Satellite API name, as listed by /catalog.php.",
                         "type": "string",
                         "example": "AO-91"
                     },
                     "report": {
+                        "description": "Report value. Matched case-insensitively, and these aliases are also accepted: active, satellite active (Heard); telemetry, beacon, telemetry/beacon only (Telemetry Only); no signal (Not Heard); iss crew active, iss crew (voice) active (Crew Active).",
                         "type": "string",
                         "enum": [
                             "Heard",
@@ -439,16 +631,47 @@
                         "example": "Heard"
                     },
                     "callsign": {
+                        "description": "Amateur radio callsign, uppercased and truncated to 14 characters. If grid_square is empty and the callsign ends in a grid square after - or / (for example N0CALL/EM48), the grid is taken from the callsign.",
                         "type": "string",
                         "example": "N0CALL"
                     },
                     "grid_square": {
+                        "description": "Optional Maidenhead locator (4 or 6 characters).",
                         "type": "string",
                         "example": "EM48"
                     },
                     "reported_at": {
+                        "description": "Time of the observation (not of submission). Any ISO 8601 timestamp is parsed; send UTC. Must not be in the future.",
                         "type": "string",
                         "format": "date-time"
+                    },
+                    "satellite": {
+                        "description": "Alias for name. Used only when name is absent.",
+                        "type": "string"
+                    },
+                    "status": {
+                        "description": "Alias for report. Used only when report is absent.",
+                        "type": "string"
+                    },
+                    "year": {
+                        "description": "Legacy time fields, used only when reported_at is absent: year, month, day and hour (UTC) are then all required.",
+                        "type": "integer"
+                    },
+                    "month": {
+                        "description": "Legacy; see year.",
+                        "type": "integer"
+                    },
+                    "day": {
+                        "description": "Legacy; see year.",
+                        "type": "integer"
+                    },
+                    "hour": {
+                        "description": "Legacy; see year. 0-23, UTC.",
+                        "type": "integer"
+                    },
+                    "minute": {
+                        "description": "Legacy; see year. 0-59. Defaults to 30 if omitted, so legacy clients should always send it.",
+                        "type": "integer"
                     }
                 },
                 "type": "object"
@@ -498,6 +721,120 @@
                     },
                     "website": {
                         "type": "string"
+                    },
+                    "links": {
+                        "properties": {
+                            "self": {
+                                "type": "string",
+                                "format": "uri"
+                            },
+                            "reports": {
+                                "type": "string",
+                                "format": "uri"
+                            }
+                        },
+                        "type": "object"
+                    },
+                    "report_count": {
+                        "description": "Only with include_stats=true. All stored reports for this satellite, all time, including corrected ones.",
+                        "type": "integer"
+                    },
+                    "latest_reported_time": {
+                        "description": "Only with include_stats=true. Observation time of the newest report; null if there are none.",
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    }
+                },
+                "type": "object"
+            },
+            "SummaryEntry": {
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "example": "AO-91"
+                    },
+                    "satellite_display_name": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "report": {
+                        "type": "string",
+                        "enum": [
+                            "Heard",
+                            "Telemetry Only",
+                            "Not Heard",
+                            "Crew Active"
+                        ]
+                    },
+                    "report_count": {
+                        "type": "integer"
+                    },
+                    "latest_reported_time": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                },
+                "type": "object"
+            },
+            "StatusValue": {
+                "properties": {
+                    "value": {
+                        "type": "string",
+                        "enum": [
+                            "Heard",
+                            "Telemetry Only",
+                            "Not Heard",
+                            "Crew Active"
+                        ]
+                    },
+                    "label": {
+                        "type": "string",
+                        "example": "Satellite active"
+                    }
+                },
+                "type": "object"
+            },
+            "LegacySatellite": {
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "name": {
+                        "description": "Display name.",
+                        "type": "string",
+                        "example": "AO-91 Mode U/v FM"
+                    },
+                    "html_element_name": {
+                        "description": "API name.",
+                        "type": "string",
+                        "example": "AO-91"
+                    },
+                    "website": {
+                        "type": "string"
+                    }
+                },
+                "type": "object"
+            },
+            "LegacyReport": {
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "example": "AO-91"
+                    },
+                    "reported_time": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "callsign": {
+                        "type": "string"
+                    },
+                    "report": {
+                        "type": "string"
+                    },
+                    "grid_square": {
+                        "type": "string",
+                        "nullable": true
                     }
                 },
                 "type": "object"

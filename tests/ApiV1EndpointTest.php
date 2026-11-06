@@ -804,4 +804,148 @@ final class ApiV1EndpointTest extends TestCase
         $payload = json_decode((string) $resp->getBody(), true);
         $this->assertSame('method_not_allowed', $payload['error']['code']);
     }
+
+    /**
+     * Issue #42: every field the API actually returns must be described in
+     * the OpenAPI document, so the spec can't silently fall behind the code
+     * again (summary.php, statuses.php, the legacy arrays, the meta/links
+     * envelope and the error body were all undocumented before). Walks each
+     * real response against its documented schema, resolving $ref, and
+     * fails on any key the schema doesn't list. One call per endpoint and
+     * status, named in the failure message, rather than a generic loop.
+     */
+    public function testEveryReturnedFieldIsDocumentedInOpenApi(): void
+    {
+        $client = $this->newGuestClient();
+        $spec = json_decode((string) $client->get('/api/v1/openapi.php')->getBody(), true);
+        $reportedAt = gmdate('Y-m-d\TH:i:s\Z', time() - 3600);
+
+        $cases = [
+            ['GET /catalog.php?include_stats=true', '/catalog.php', 'get', 200,
+                $client->get('/api/v1/catalog.php', ['query' => ['include_stats' => 'true']])],
+            ['GET /catalog.php (unknown name)', '/catalog.php', 'get', 404,
+                $client->get('/api/v1/catalog.php', ['query' => ['name' => 'NO-SUCH-SAT']])],
+            ['GET /reports.php', '/reports.php', 'get', 200,
+                $client->get('/api/v1/reports.php', ['query' => ['hours' => 72]])],
+            ['GET /reports.php (bad hours)', '/reports.php', 'get', 400,
+                $client->get('/api/v1/reports.php', ['query' => ['hours' => 'x']])],
+            ['POST /reports.php', '/reports.php', 'post', 201,
+                $client->post('/api/v1/reports.php', ['json' => [
+                    'name' => 'AO-91', 'report' => 'Heard', 'callsign' => 'W5DOC',
+                    'grid_square' => 'EM25', 'reported_at' => $reportedAt,
+                ]])],
+            ['POST /reports.php (invalid report)', '/reports.php', 'post', 422,
+                $client->post('/api/v1/reports.php', ['json' => [
+                    'name' => 'AO-91', 'report' => 'Loud', 'callsign' => 'W5DOC', 'reported_at' => $reportedAt,
+                ]])],
+            ['GET /summary.php', '/summary.php', 'get', 200,
+                $client->get('/api/v1/summary.php', ['query' => ['hours' => 72]])],
+            ['GET /statuses.php', '/statuses.php', 'get', 200, $client->get('/api/v1/statuses.php')],
+            ['GET /health.php', '/health.php', 'get', 200, $client->get('/api/v1/health.php')],
+            ['GET /satellites.php', '/satellites.php', 'get', 200, $client->get('/api/v1/satellites.php')],
+            ['GET /sat_info.php', '/sat_info.php', 'get', 200,
+                $client->get('/api/v1/sat_info.php', ['query' => ['name' => 'AO-91', 'hours' => 72]])],
+        ];
+
+        foreach ($cases as [$label, $path, $method, $status, $resp]) {
+            $this->assertSame($status, $resp->getStatusCode(), $label);
+            $documented = $spec['paths'][$path][$method]['responses'][(string) $status] ?? null;
+            $this->assertNotNull($documented, "{$label}: HTTP {$status} is not documented");
+            $schema = $documented['content']['application/json']['schema'] ?? null;
+            $this->assertNotNull($schema, "{$label}: HTTP {$status} has no response schema");
+
+            $body = json_decode((string) $resp->getBody(), true);
+            $this->assertNotEmpty($body, "{$label}: empty body, nothing to check");
+            $this->assertFieldsDocumented($spec, $schema, $body, $label);
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $spec
+     * @param array<string, mixed> $schema
+     */
+    private function assertFieldsDocumented(array $spec, array $schema, mixed $value, string $where): void
+    {
+        if (isset($schema['$ref'])) {
+            $name = substr($schema['$ref'], strlen('#/components/schemas/'));
+            $schema = $spec['components']['schemas'][$name];
+        }
+
+        if (!is_array($value) || ($schema['additionalProperties'] ?? false) === true) {
+            return;
+        }
+
+        if (array_is_list($value)) {
+            if (($schema['type'] ?? null) === 'array') {
+                foreach ($value as $i => $item) {
+                    $this->assertFieldsDocumented($spec, $schema['items'], $item, "{$where}[{$i}]");
+                }
+            }
+            return;
+        }
+
+        foreach ($value as $key => $child) {
+            $this->assertArrayHasKey($key, $schema['properties'] ?? [], "{$where}: field \"{$key}\" is returned but not documented");
+            $this->assertFieldsDocumented($spec, $schema['properties'][$key], $child, "{$where}.{$key}");
+        }
+    }
+
+    /**
+     * Issue #42: out-of-range hours and limit are clamped to the nearest
+     * bound, not rejected (documented in the OpenAPI parameters and the
+     * overview page). meta echoes the value actually applied.
+     */
+    public function testOutOfRangeHoursAndLimitAreClampedNotRejected(): void
+    {
+        $client = $this->newGuestClient();
+
+        $reports = $client->get('/api/v1/reports.php', ['query' => ['hours' => 9999, 'limit' => 0]]);
+        $this->assertSame(200, $reports->getStatusCode());
+        $meta = json_decode((string) $reports->getBody(), true)['meta'];
+        $this->assertSame(720, $meta['hours']);
+        $this->assertSame(1, $meta['limit']);
+
+        $reports = $client->get('/api/v1/reports.php', ['query' => ['limit' => 100000]]);
+        $this->assertSame(500, json_decode((string) $reports->getBody(), true)['meta']['limit']);
+
+        $summary = $client->get('/api/v1/summary.php', ['query' => ['hours' => 0]]);
+        $this->assertSame(200, $summary->getStatusCode());
+        $this->assertSame(1, json_decode((string) $summary->getBody(), true)['meta']['hours']);
+    }
+
+    /**
+     * Issue #42: POST /reports.php still accepts the legacy form fields
+     * (satellite/status aliases, year/month/day/hour/minute instead of
+     * reported_at). Documented, so pinned here -- including the trap that a
+     * missing minute defaults to :30.
+     */
+    public function testPostReportAcceptsDocumentedLegacyFields(): void
+    {
+        $yesterday = time() - 86400;
+        $legacy = [
+            'satellite' => 'AO-91',
+            'status' => 'heard',
+            'callsign' => 'W5LEG',
+            'year' => gmdate('Y', $yesterday),
+            'month' => gmdate('n', $yesterday),
+            'day' => gmdate('j', $yesterday),
+            'hour' => '14',
+        ];
+        $client = $this->newGuestClient();
+
+        $withMinute = $client->post('/api/v1/reports.php', ['form_params' => $legacy + ['minute' => '07']]);
+        $this->assertSame(201, $withMinute->getStatusCode());
+        $data = json_decode((string) $withMinute->getBody(), true)['data'];
+        $this->assertSame('AO-91', $data['name']);
+        $this->assertSame('Heard', $data['report']);
+        $this->assertSame(gmdate('Y-m-d', $yesterday) . 'T14:07:00Z', $data['reported_time']);
+
+        $legacy['callsign'] = 'W5LEH';
+        $noMinute = $client->post('/api/v1/reports.php', ['form_params' => $legacy]);
+        $this->assertSame(201, $noMinute->getStatusCode());
+        $this->assertSame(
+            gmdate('Y-m-d', $yesterday) . 'T14:30:00Z',
+            json_decode((string) $noMinute->getBody(), true)['data']['reported_time']
+        );
+    }
 }
