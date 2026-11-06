@@ -49,8 +49,9 @@ if ($submit)
      exit;
  }
  
- // Error if the time isn't HH:MM (a tampered/hand-built request -- the
- // <input type="time"> form control enforces this in normal use)
+ // Error if the time isn't 24-hour HH:MM. The form's text input has a
+ // matching pattern attribute, but that's only a browser-side hint -- this
+ // is the authoritative check.
  if (!preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', (string) $SatTime)) {
     echo "<br><br><div style=\" font-family: Helvetica,Arial,sans-serif;padding: 10px; font-size:20px; width: 50%; margin: 0 auto; color: #a94442;background-color: #f2dede;border-color: #ebccd1;\">The time heard you entered does not appear to be valid</div>";
     echo "<br><br><center><a href=\"index.php\">Go back</a></center>";
