@@ -289,4 +289,4 @@ CHANGE LOG:
       report value aliases, and legacy year/month/day/hour/minute fields
       (minute defaults to 30 if omitted). No behavior change. A new test
       fails if a response returns a field the spec doesn't document.
-      (Issue #42, PR #TBD)
+      (Issue #42, PR #57)
