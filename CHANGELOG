@@ -261,9 +261,10 @@ CHANGE LOG:
       (Issue #24, PR #30)
     - Frontend and API containers now use PHP's production settings
       (php.ini-production). The image ships no php.ini, so legacy
-      warnings were shown to visitors on the submit page, and with output
-      buffering off the form's "remember my callsign" cookie silently
-      failed. Found during the cutover smoke test. (PR #51)
+      warnings were shown to visitors on the submit page. Found during
+      the cutover smoke test. (PR #51; entry corrected in PR #54: it
+      originally said the form's "remember my callsign" cookie had
+      broken, but nothing has read that cookie since 2017.)
     - health.php reports data freshness (newest report's time and age)
       and returns status "degraded" with a reason (no_reports or
       stale_data) when there are no reports or the newest is more than a
@@ -271,3 +272,8 @@ CHANGE LOG:
       when it isn't. API version 1.2 (additive fields). Raised by an API
       consumer: the old SELECT 1 check reported ok on an instance with no
       data. (Issue #47, PR #49)
+    - submit.php: declared CallSignParser's $callSign property (PHP 8.2+
+      deprecation; expected to be an error in PHP 9) and removed a dead
+      setcookie("amsatCallsign") call. Nothing has read that cookie since
+      2017, and it raised a "headers already sent" warning on every
+      submission. (Issue #53, PR #54)

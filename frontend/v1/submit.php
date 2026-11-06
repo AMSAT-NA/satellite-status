@@ -133,7 +133,6 @@ if ($submit)
              exit;
          }
 
-	 setcookie("amsatCallsign", $SatCall);
 	 // PR #30: the API says whether this corrects an earlier report from
 	 // the same callsign for the same satellite and 15-minute period (1.0
 	 // showed the same notice when it deleted+replaced that report).
@@ -348,6 +347,10 @@ function standardizedGridSquare($gridSquare) {
  *
  */
 class CallSignParser {
+    // Declared explicitly: PHP 8.2+ deprecates creating properties on the
+    // fly (and PHP 9 is expected to make it an error). Issue #53.
+    private $callSign;
+
     private function delimitersRegex() {
         return "/[-\/]/";
     }
