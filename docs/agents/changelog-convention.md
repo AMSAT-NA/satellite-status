@@ -3,7 +3,7 @@ type: Decision Record
 title: CHANGELOG Convention for Agent Work
 description: How AI agents working on this codebase should update the root CHANGELOG file, and why this is a documented convention rather than a CI-enforced check.
 tags: [changelog, agents, process]
-timestamp: 2026-10-27T00:00:00Z
+timestamp: 2026-11-07T00:00:00Z
 ---
 
 # CHANGELOG Convention for Agent Work
@@ -24,7 +24,9 @@ the work explicitly says otherwise** for that PR.
 
 An entry should include, at minimum:
 
-- The date (`YYYY-MM-DD`)
+- The date (`YYYY-MM-DD`): **the date the PR merges** (UTC), not the date the
+  entry was written. If the entry was written earlier, re-date it when
+  rebasing or just before merging, so the file stays in true merge order.
 - A one-line description of what changed and why (not just what files
   moved — the existing entries in the file are the style guide)
 - **The PR number** — required, e.g. `(PR #40)` (see "Referencing the

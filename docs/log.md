@@ -1,6 +1,8 @@
 # Knowledge Bundle Update Log
 
-## 2026-11-04
+## 2026-11-07
+* **Update**: [agents/changelog-convention](/agents/changelog-convention.md): CHANGELOG entries are
+  dated by **merge date** (UTC), not the date they were written.
 * **Creation**: Added [runbooks/2026-11-04-cutover](/runbooks/2026-11-04-cutover.md), the as-run record of
   the amsat.org/status to status.amsat.org cutover: timeline, deviations from the plan (the migration's
   1970-dated-row failure and recovery, the php.ini hotfix #51, #30's late corrections commits, the #49
