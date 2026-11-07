@@ -321,3 +321,10 @@ CHANGE LOG:
       report, so this restores 1.0's count. It is a bug fix with no
       response-shape change, so no version bump. latest_reported_time is
       unchanged. (Issue #59, PR #61)
+    - Status page: the 6-day window in the grid, tooltip and "Reports
+      From" queries is now a plain range on observation_time instead of
+      a per-row expression, so MariaDB can use
+      idx_satellite_observation_time rather than scanning the whole
+      satellite table three times per page load. Selects exactly the
+      same rows; a new test checks both filters against rows on every
+      day boundary. No visible change. (Issue #46, PR #TBD)
