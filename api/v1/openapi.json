@@ -239,12 +239,12 @@
                     "description": "Send JSON with Content-Type: application/json, or form data (application/x-www-form-urlencoded).",
                     "required": true,
                     "content": {
-                        "application/json": {
+                        "application/x-www-form-urlencoded": {
                             "schema": {
                                 "$ref": "#/components/schemas/ReportCreate"
                             }
                         },
-                        "application/x-www-form-urlencoded": {
+                        "application/json": {
                             "schema": {
                                 "$ref": "#/components/schemas/ReportCreate"
                             }
@@ -579,7 +579,7 @@
     "components": {
         "schemas": {
             "ErrorResponse": {
-                "description": "Error envelope used by every endpoint except the legacy satellites.php and sat_info.php. code is stable and meant for programs; message is for people and may change. New codes may be added. Codes by HTTP status -- 400: invalid_parameter (hours or limit is not an integer), invalid_since, invalid_grid_square, invalid_status, invalid_json. 404: satellite_not_found. 405: method_not_allowed (any endpoint; the Allow header lists the supported methods). 422: missing_name, unknown_satellite, invalid_report, invalid_callsign, invalid_grid_square, invalid_reported_at, missing_reported_at, future_reported_at. 500: query_failed, query_prepare_failed, write_failed. 503: database_unavailable (any endpoint that reads the database), database_unhealthy (health.php), openapi_spec_missing (openapi.php and the /api/v1/ index).",
+                "description": "Error envelope used by every endpoint for errors, including the legacy satellites.php and sat_info.php (only their successful responses are plain arrays). code is stable and meant for programs; message is for people and may change. New codes may be added. Each endpoint documents its own request-specific errors; in addition, any endpoint can return 405 method_not_allowed, 500 and 503 as listed below, which are not repeated per endpoint. Codes by HTTP status -- 400: invalid_parameter (hours or limit is not an integer), invalid_since, invalid_grid_square, invalid_status, invalid_json. 404: satellite_not_found. 405: method_not_allowed (any endpoint; the Allow header lists the supported methods). 422: missing_name, unknown_satellite, invalid_report, invalid_callsign, invalid_grid_square, invalid_reported_at, missing_reported_at, future_reported_at. 500: query_failed, query_prepare_failed, write_failed. 503: database_unavailable (any endpoint that reads the database), database_unhealthy (health.php), openapi_spec_missing (openapi.php and the /api/v1/ index).",
                 "properties": {
                     "error": {
                         "properties": {

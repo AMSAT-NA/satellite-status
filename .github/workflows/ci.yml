@@ -93,6 +93,18 @@ jobs:
       - name: Check platform requirements
         run: php composer.phar check-platform-reqs
 
+      - name: openapi.json is up to date with openapi_spec.php
+        # The served OpenAPI document is generated (composer openapi) and
+        # committed. Regenerate it and fail if the committed copy differs,
+        # so the spec can't drift from its source. Added after #57, whose
+        # openapi.json was produced without swagger-php and came out in a
+        # different key order.
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          php composer.phar run openapi
+          git diff --exit-code api/v1/openapi.json \
+            || { echo "::error title=openapi.json is stale::Run 'composer openapi' and commit api/v1/openapi.json"; exit 1; }
+
   phpunit:
     runs-on: ubuntu-latest
     container: php:cli

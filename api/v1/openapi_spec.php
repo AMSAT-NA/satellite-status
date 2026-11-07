@@ -38,8 +38,11 @@ require_once __DIR__ . '/lib/version.php';
 )]
 #[OA\Schema(
     schema: 'ErrorResponse',
-    description: 'Error envelope used by every endpoint except the legacy satellites.php and sat_info.php. '
+    description: 'Error envelope used by every endpoint for errors, including the legacy satellites.php and '
+        . 'sat_info.php (only their successful responses are plain arrays). '
         . 'code is stable and meant for programs; message is for people and may change. New codes may be added. '
+        . 'Each endpoint documents its own request-specific errors; in addition, any endpoint can return 405 '
+        . 'method_not_allowed, 500 and 503 as listed below, which are not repeated per endpoint. '
         . 'Codes by HTTP status -- 400: invalid_parameter (hours or limit is not an integer), invalid_since, '
         . 'invalid_grid_square, invalid_status, invalid_json. 404: satellite_not_found. '
         . '405: method_not_allowed (any endpoint; the Allow header lists the supported methods). '

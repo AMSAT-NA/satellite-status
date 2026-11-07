@@ -357,7 +357,10 @@ $baseUrl = api_base_url();
     <p>
       <code>code</code> is stable and meant for programs; <code>message</code> is for people and may change. Some errors
       add a <code>details</code> object. The OpenAPI document lists every code, and which endpoint and status return it.
-      The legacy <code>satellites.php</code> and <code>sat_info.php</code> endpoints return plain arrays, never this envelope.
+      The legacy <code>satellites.php</code> and <code>sat_info.php</code> endpoints return plain arrays when they succeed,
+      but use this same envelope for errors (for example <code>405</code> or <code>503</code>). Any endpoint can return
+      <code>405 method_not_allowed</code>, <code>500</code> and <code>503</code> errors in addition to the ones listed
+      for it.
     </p>
   </section>
 
