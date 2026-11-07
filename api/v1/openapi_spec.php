@@ -150,8 +150,9 @@ require_once __DIR__ . '/lib/version.php';
         ),
         new OA\Property(
             property: 'report_count',
-            description: 'Only with include_stats=true. All stored reports for this satellite, all time, '
-                . 'including corrected ones.',
+            description: 'Only with include_stats=true. Reports for this satellite, all time, counted the same '
+                . 'way as reports.php and summary.php: one per callsign per 15-minute period, the latest. '
+                . 'Corrected reports are not counted.',
             type: 'integer'
         ),
         new OA\Property(

@@ -23,6 +23,58 @@ final class ApiV1EndpointTest extends TestCase
         $this->assertArrayHasKey('report_count', $payload['data'][0]);
     }
 
+    /**
+     * Issue #59: catalog.php report_count used to count every stored
+     * report, corrected ones included, while reports.php and summary.php
+     * count only the latest per callsign per 15-minute period. It must
+     * follow the same rule: a correction in the same period adds nothing,
+     * a report in another period adds one.
+     */
+    public function testCatalogReportCountExcludesCorrectedReports(): void
+    {
+        $before = $this->catalogReportCount('FO-29');
+
+        // Period-aligned, safely in the past: two submissions in one
+        // 15-minute period (the second corrects the first), one in the next.
+        $periodStart = intdiv(time() - 7200, 900) * 900;
+        foreach ([$periodStart + 60, $periodStart + 120, $periodStart + 960] as $ts) {
+            $resp = $this->newGuestClient()->post('/api/v1/reports.php', [
+                'json' => [
+                    'name' => 'FO-29',
+                    'report' => 'Heard',
+                    'callsign' => 'W5CNT',
+                    'reported_at' => gmdate('Y-m-d\TH:i:s\Z', $ts),
+                ],
+            ]);
+            $this->assertSame(201, $resp->getStatusCode());
+        }
+
+        $this->assertSame(3, $this->countRows('satellite', "callsign='W5CNT'"));
+        $this->assertSame($before + 2, $this->catalogReportCount('FO-29'));
+    }
+
+    /**
+     * Issue #59: a satellite with no reports still gets report_count 0.
+     */
+    public function testCatalogReportCountIsZeroWithoutReports(): void
+    {
+        $this->db->query("DELETE FROM satellite WHERE name = 'ISS'");
+
+        $this->assertSame(0, $this->catalogReportCount('ISS'));
+    }
+
+    private function catalogReportCount(string $name): int
+    {
+        $resp = $this->newGuestClient()->get('/api/v1/catalog.php', [
+            'query' => ['name' => $name, 'include_stats' => 'true'],
+        ]);
+        $this->assertSame(200, $resp->getStatusCode());
+        $payload = json_decode((string) $resp->getBody(), true);
+        $this->assertCount(1, $payload['data']);
+
+        return $payload['data'][0]['report_count'];
+    }
+
     public function testReportsSearchFiltersBySatellite(): void
     {
         $resp = $this->newGuestClient()->get('/api/v1/reports.php', [
