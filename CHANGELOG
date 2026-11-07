@@ -299,3 +299,10 @@ CHANGE LOG:
       Minute precision from #24 is unchanged. A single-digit hour (9:05)
       is accepted and padded to HH:MM (09:05) by the server-side check
       before use. (PR #55)
+    - The #24 migration script now removes rows dated before 1970-01-02
+      first (new step 0), matching what was done by hand during the
+      cutover after the first run failed on 14 rows dated 1970-01-01
+      (below the TIMESTAMP minimum). The CI migration dry run now includes
+      such a row. Added an as-run record of the cutover under
+      docs/runbooks/. CHANGELOG convention: entries are dated by the date
+      the PR merges. (PR #52)

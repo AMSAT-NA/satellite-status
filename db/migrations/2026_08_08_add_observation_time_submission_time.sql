@@ -58,11 +58,15 @@
 -- could not inspect the real dallas190 data directly.
 --
 -- Fallback behavior in the UPDATE below:
---   - day  NULL  -> treated as 1970-01-01 (an obvious sentinel; such rows
+--   - day  NULL  -> treated as 1970-01-02 (an obvious sentinel; such rows
 --                   are easy to find again later via
 --                   `WHERE observation_time < '1971-01-01'`). Never observed
 --                   in production as of the pre-flight run below (0
 --                   rows) -- this remains a defensive fallback only.
+--                   (Was 1970-01-01 until after the 4 Nov run; changed
+--                   because 1970-01-01 at hour 0 is below the TIMESTAMP
+--                   minimum -- see step 0. No effect on the production
+--                   result: 0 rows had a NULL day.)
 --   - hour NULL  -> treated as 0. Same: 0 rows in production as of the
 --                   pre-flight run below, defensive only.
 --   - period NULL or outside 0-3 -> lands on the top of its hour (no
@@ -95,6 +99,7 @@ SELECT
   SUM(hour IS NULL)                                        AS null_hour,
   SUM(period IS NULL)                                      AS null_period,
   SUM(period IS NOT NULL AND period NOT BETWEEN 0 AND 3)   AS bad_period,
+  SUM(day < '1970-01-02')                                  AS pre_1970,
   COUNT(*)                                                 AS total_rows
 FROM satellite;
 
@@ -117,6 +122,24 @@ SELECT id FROM satellite WHERE period IS NULL OR period NOT BETWEEN 0 AND 3;
 -- transaction below, which is the one statement here where that's
 -- meaningful (it lets you inspect the backfilled values and ROLLBACK
 -- before committing, if something looks wrong).
+
+-- Step 0: remove rows dated before 1970-01-02. A TIMESTAMP column can't
+-- hold anything earlier than 1970-01-01 00:00:01 UTC, so a row dated
+-- 1970-01-01 at hour 0 / period 0 makes the step 2 backfill fail with
+-- ERROR 1292 (Incorrect datetime value '1970-01-01 00:00:00'). Rows
+-- dated 1970-01-01 come from clients whose clock was never set: the date
+-- carries no information, so there is nothing honest to backfill them
+-- with. Same treatment as the future-dated rows cleaned up under #23.
+--
+-- Production run, 4 Nov 2026 cutover: this step did not exist yet. The
+-- first run stopped at step 2 on exactly such a row (after step 1 had
+-- added the columns). The dump was reloaded, these rows were deleted by
+-- hand with this exact statement (14 rows, 731,180 -> 731,166), and the
+-- script was re-run successfully. The originals remain on dallas190 and
+-- in the cutover dump. Added here so the script in the repo matches what
+-- actually ran, and so a re-run elsewhere succeeds first time.
+SELECT COUNT(*) AS pre_1970_rows_removed FROM satellite WHERE day < '1970-01-02';
+DELETE FROM satellite WHERE day < '1970-01-02';
 
 -- Step 1: add both columns, nullable -- see "Expected impact" above for
 -- why this is effectively instant regardless of table size.
@@ -142,7 +165,7 @@ START TRANSACTION;
 UPDATE satellite
 SET observation_time = CASE
     WHEN period BETWEEN 0 AND 3
-        THEN TIMESTAMP(COALESCE(day, '1970-01-01'), SEC_TO_TIME(COALESCE(hour, 0) * 3600 + period * 900))
+        THEN TIMESTAMP(COALESCE(day, '1970-01-02'), SEC_TO_TIME(COALESCE(hour, 0) * 3600 + period * 900))
     -- period NULL or outside 0-3 (53 known rows in prod, all period = -1,
     -- see the sentinel-row audit above): day/hour are real, trustworthy
     -- data for these rows, so land on the top of the hour using them
@@ -150,7 +173,7 @@ SET observation_time = CASE
     -- never captured. (SQL's `NULL BETWEEN ...` evaluates to NULL, not
     -- TRUE, so a NULL period falls into this branch too without an
     -- explicit IS NOT NULL check.)
-    ELSE TIMESTAMP(COALESCE(day, '1970-01-01'), SEC_TO_TIME(COALESCE(hour, 0) * 3600))
+    ELSE TIMESTAMP(COALESCE(day, '1970-01-02'), SEC_TO_TIME(COALESCE(hour, 0) * 3600))
 END;
 
 -- Inspect here if running interactively, e.g.:
