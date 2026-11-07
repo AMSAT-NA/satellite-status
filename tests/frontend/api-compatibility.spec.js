@@ -258,6 +258,37 @@ test.describe('public frontend/API compatibility', () => {
     expect(reports[0].report).toBe('Telemetry Only');
   });
 
+  test('legacy submit form time field is 24-hour regardless of browser locale', async ({ browser }) => {
+    // Regression: <input type="time"> renders AM/PM on en-US devices,
+    // which is wrong next to a UTC label. The field must be locale-free.
+    const context = await browser.newContext({ locale: 'en-US' });
+    const page = await context.newPage();
+    await page.goto('/');
+
+    const timeInput = page.locator('input[name="SatTime"]');
+    await expect(timeInput).toHaveAttribute('type', 'text');
+    await expect(timeInput).toHaveValue(/^([01]\d|2[0-3]):[0-5]\d$/);
+
+    // An afternoon time stays as typed -- no 12-hour conversion.
+    await timeInput.fill('14:37');
+    await expect(timeInput).toHaveValue('14:37');
+    expect(await timeInput.evaluate((el) => el.checkValidity())).toBe(true);
+
+    // A single-digit hour is accepted (the server pads it to HH:MM).
+    await timeInput.fill('9:05');
+    expect(await timeInput.evaluate((el) => el.checkValidity())).toBe(true);
+
+    // Out-of-range hours are rejected.
+    await timeInput.fill('24:00');
+    expect(await timeInput.evaluate((el) => el.checkValidity())).toBe(false);
+
+    // 12-hour input is rejected by the browser-side pattern.
+    await timeInput.fill('2:37 PM');
+    expect(await timeInput.evaluate((el) => el.checkValidity())).toBe(false);
+
+    await context.close();
+  });
+
   test('legacy submit form rejects validation errors before confirmation', async ({ page }) => {
     const reportTime = legacyReportTime();
 

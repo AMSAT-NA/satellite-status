@@ -272,12 +272,13 @@ CHANGE LOG:
       when it isn't. API version 1.2 (additive fields). Raised by an API
       consumer: the old SELECT 1 check reported ok on an instance with no
       data. (Issue #47, PR #49)
+2026-11-06:
     - submit.php: declared CallSignParser's $callSign property (PHP 8.2+
       deprecation; expected to be an error in PHP 9) and removed a dead
       setcookie("amsatCallsign") call. Nothing has read that cookie since
       2017, and it raised a "headers already sent" warning on every
       submission. (Issue #53, PR #54)
-2026-11-06:
+2026-11-07:
     - OpenAPI document and API overview now describe everything the API
       returns: response schemas for summary.php, statuses.php and the
       legacy satellites.php / sat_info.php arrays; the meta and links
@@ -291,3 +292,10 @@ CHANGE LOG:
       fails if a response returns a field the spec doesn't document, and
       CI now fails if the committed openapi.json differs from what
       composer openapi generates. (Issue #42, PR #57)
+    - The submit form's "Time Heard (UTC)" field is a 24-hour HH:MM text
+      field again. PR #30 had replaced the hour/period dropdowns with
+      <input type="time">, which browsers render in the device locale,
+      so users on en-US devices saw an AM/PM picker next to a UTC label.
+      Minute precision from #24 is unchanged. A single-digit hour (9:05)
+      is accepted and padded to HH:MM (09:05) by the server-side check
+      before use. (PR #55)
