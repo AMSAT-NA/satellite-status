@@ -102,8 +102,13 @@ jobs:
         run: |
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
           php composer.phar run openapi
-          git diff --exit-code api/v1/openapi.json \
-            || { echo "::error title=openapi.json is stale::Run 'composer openapi' and commit api/v1/openapi.json"; exit 1; }
+          php --version | head -1
+          if ! git diff --quiet api/v1/openapi.json; then
+            git diff api/v1/openapi.json | tee /tmp/openapi.diff
+            # Surface the diff in the run summary as an annotation too.
+            echo "::error title=openapi.json is stale::Run 'composer openapi' and commit api/v1/openapi.json. Diff: $(head -c 3000 /tmp/openapi.diff | sed ':a;N;$!ba;s/%/%25/g;s/\n/%0A/g')"
+            exit 1
+          fi
 
   phpunit:
     runs-on: ubuntu-latest
