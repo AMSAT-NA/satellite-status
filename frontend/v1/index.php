@@ -398,12 +398,25 @@ with (docTips)
 // (legacy data only) are never collapsed together. Same rule as the API
 // (LATEST_PER_CALLSIGN_SQL in api/v1/lib/repository.php).
 $sGridColumn = "FLOOR((23 - HOUR(observation_time)) / 2) + ((TO_DAYS(NOW()) - TO_DAYS(observation_time)) * 12)";
+
+// Issue #46: the 6-day window as a plain range on observation_time, so
+// MariaDB can use idx_satellite_observation_time instead of evaluating
+// $sGridColumn on every row. It selects exactly the rows that
+// "$sGridColumn BETWEEN 0 AND $nDays * 12 - 1" did: the first term of
+// $sGridColumn is 0..11, so that test is true exactly when the row's day
+// is 0..$nDays-1 days before today -- today's date (including any later
+// hours) back to midnight $nDays-1 days ago. CURDATE() matches the
+// TO_DAYS(NOW()) it replaces (session time zone, pinned to UTC above).
+// The bounds are whole days, so no 15-minute dedup period is split.
+// $sGridColumn is still used in SELECT for the cell layout, where it only
+// runs on matching rows. tests/StatusGridTest.php pins the equivalence.
+$sGridWindow = "observation_time >= CURDATE() - INTERVAL " . ($nDays - 1) . " DAY AND observation_time < CURDATE() + INTERVAL 1 DAY";
 $sLatestPerCallsign = "ROW_NUMBER() OVER (PARTITION BY name, DATE(observation_time), HOUR(observation_time), FLOOR(MINUTE(observation_time) / 15), COALESCE(NULLIF(callsign, ''), CONCAT('#', id)) ORDER BY id DESC)";
 
 $result = mysqli_query($db, "SELECT name, report, id, callsign, DATE(observation_time) AS day, HOUR(observation_time) AS hour, FLOOR(HOUR(observation_time) / 2) AS twohour, grid_square, observation_time, " .
                       $sLatestPerCallsign . " = 1 AS counted " .
                       "FROM satellite " .
-                      "WHERE name IS NOT NULL and " . $sGridColumn . " BETWEEN 0 and " . ($nDays * 12 - 1) . " " .
+                      "WHERE name IS NOT NULL and " . $sGridWindow . " " .
                       "ORDER BY name, DATE(observation_time) DESC, FLOOR(HOUR(observation_time) / 2) DESC, ID DESC");
 
 $sLastName = "";
@@ -536,7 +549,7 @@ echo("</tr>");
 $result = mysqli_query($db, "SELECT name, report, id, col FROM (" .
                       "SELECT name, report, id, " . $sGridColumn . " AS col, " . $sLatestPerCallsign . " AS rn " .
                       "FROM satellite " .
-                      "WHERE " . $sGridColumn . " BETWEEN 0 and " . ($nDays * 12 - 1) .
+                      "WHERE " . $sGridWindow .
                       ") latest " .
                       "WHERE rn = 1 " .
                       "ORDER BY name, col ASC, id DESC");
@@ -745,7 +758,7 @@ echo("</table>");
 <div class="reportsFromList">
 <?php
 $result = mysqli_query($db, "SELECT callsign, MAX(observation_time) AS last_report FROM satellite " .
-                      "WHERE FLOOR((23 - HOUR(observation_time)) / 2) + ((TO_DAYS(NOW()) - TO_DAYS(observation_time)) * 12) BETWEEN 0 and " . ($nDays * 12 - 1) . " " .
+                      "WHERE " . $sGridWindow . " " .
                       "AND callsign <> 'TEST' AND callsign <> '' GROUP BY callsign ORDER BY last_report DESC");
 while($value = mysqli_fetch_array($result))
 {
