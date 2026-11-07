@@ -314,3 +314,10 @@ CHANGE LOG:
       never appeared on the status grid or in GET /reports.php. Both
       now resolve the name to the API name first. No response shape
       change, so no version bump. (Issue #58, PR #60)
+    - catalog.php?include_stats=true: report_count now counts reports the
+      same way as reports.php and summary.php -- one per callsign per
+      satellite per 15-minute period, the latest -- so corrected reports
+      no longer inflate it. In 1.0 a correction deleted the earlier
+      report, so this restores 1.0's count. It is a bug fix with no
+      response-shape change, so no version bump. latest_reported_time is
+      unchanged. (Issue #59, PR #61)

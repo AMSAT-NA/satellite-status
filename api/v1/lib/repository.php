@@ -22,11 +22,21 @@ final class ApiRepository
      */
     private const LATEST_PER_CALLSIGN_SQL =
         'SELECT s.*, ROW_NUMBER() OVER ('
-        . 'PARTITION BY s.name, DATE(s.observation_time), HOUR(s.observation_time),'
-        . ' FLOOR(MINUTE(s.observation_time) / 15),'
-        . " COALESCE(NULLIF(s.callsign, ''), CONCAT('#', s.id))"
+        . 'PARTITION BY s.name, ' . self::PERIOD_CALLSIGN_KEY_SQL
         . ' ORDER BY s.id DESC) AS rn'
         . ' FROM satellite s';
+
+    /**
+     * The (period, callsign) part of the dedup key above, shared so the
+     * two can't drift apart. Within one satellite, the number of distinct
+     * values of this key is the number of rn = 1 reports, which lets
+     * satellites() count latest reports with COUNT(DISTINCT ...) instead
+     * of ranking the whole table (Issue #59).
+     */
+    private const PERIOD_CALLSIGN_KEY_SQL =
+        'DATE(s.observation_time), HOUR(s.observation_time),'
+        . ' FLOOR(MINUTE(s.observation_time) / 15),'
+        . " COALESCE(NULLIF(s.callsign, ''), CONCAT('#', s.id))";
 
     /** Seconds in one dedup period (see LATEST_PER_CALLSIGN_SQL). */
     private const PERIOD_SECONDS = 900;
@@ -66,7 +76,12 @@ final class ApiRepository
 
         $sql = 'SELECT sn.id, sn.name, sn.html_element_name, sn.website'
             . ($includeStats
-                ? ', DATE_FORMAT(MAX(s.observation_time), "%Y-%m-%dT%H:%i:%sZ") AS latest_reported_time, COUNT(s.id) AS report_count'
+                // report_count follows the same rule as reports() and
+                // summary(): corrected reports don't count (Issue #59).
+                // COUNT(DISTINCT) skips the NULL key of a satellite with
+                // no reports, so that still counts 0.
+                ? ', DATE_FORMAT(MAX(s.observation_time), "%Y-%m-%dT%H:%i:%sZ") AS latest_reported_time,'
+                    . ' COUNT(DISTINCT ' . self::PERIOD_CALLSIGN_KEY_SQL . ') AS report_count'
                 : '')
             . ' FROM satellite_name sn'
             . ($includeStats ? ' LEFT JOIN satellite s ON s.name = sn.html_element_name' : '')
