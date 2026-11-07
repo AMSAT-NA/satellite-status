@@ -277,3 +277,17 @@ CHANGE LOG:
       setcookie("amsatCallsign") call. Nothing has read that cookie since
       2017, and it raised a "headers already sent" warning on every
       submission. (Issue #53, PR #54)
+2026-11-06:
+    - OpenAPI document and API overview now describe everything the API
+      returns: response schemas for summary.php, statuses.php and the
+      legacy satellites.php / sat_info.php arrays; the meta and links
+      envelope; Satellite links and include_stats fields; and the error
+      envelope on every 4xx/5xx response, with each error code listed.
+      Also documents existing behavior that wasn't written down: hours
+      and limit are clamped to their range rather than rejected, and
+      POST /reports.php accepts form data, the satellite/status aliases,
+      report value aliases, and legacy year/month/day/hour/minute fields
+      (minute defaults to 30 if omitted). No behavior change. A new test
+      fails if a response returns a field the spec doesn't document, and
+      CI now fails if the committed openapi.json differs from what
+      composer openapi generates. (Issue #42, PR #57)

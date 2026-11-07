@@ -93,6 +93,24 @@ jobs:
       - name: Check platform requirements
         run: php composer.phar check-platform-reqs
 
+      - name: openapi.json is up to date with openapi_spec.php
+        # The served OpenAPI document is generated (composer openapi) and
+        # committed. Regenerate it and fail if the committed copy differs,
+        # so the spec can't drift from its source. Added after #57, whose
+        # openapi.json was produced without swagger-php and came out in a
+        # different key order.
+        # Compares file contents directly (not git diff): inside the CI
+        # container git can report a stat-only change as a difference.
+        run: |
+          cp api/v1/openapi.json /tmp/openapi.committed.json
+          php composer.phar run openapi
+          if ! cmp -s /tmp/openapi.committed.json api/v1/openapi.json; then
+            diff -u /tmp/openapi.committed.json api/v1/openapi.json | tee /tmp/openapi.diff
+            # Surface the diff in the run summary as an annotation too.
+            echo "::error title=openapi.json is stale::Run 'composer openapi' and commit api/v1/openapi.json. Diff: $(head -c 3000 /tmp/openapi.diff | sed ':a;N;$!ba;s/%/%25/g;s/\n/%0A/g')"
+            exit 1
+          fi
+
   phpunit:
     runs-on: ubuntu-latest
     container: php:cli

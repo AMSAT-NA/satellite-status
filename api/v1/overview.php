@@ -277,13 +277,17 @@ $baseUrl = api_base_url();
       <table>
         <tr><th>Parameter</th><th>Type</th><th>Description</th></tr>
         <tr><td><code>name</code></td><td>string</td><td>Optional satellite API name.</td></tr>
-        <tr><td><code>hours</code></td><td>integer</td><td>Rolling UTC window. Defaults to <?php echo API_DEFAULT_REPORT_HOURS; ?>. Maximum <?php echo API_MAX_REPORT_HOURS; ?>.</td></tr>
+        <tr><td><code>hours</code></td><td>integer</td><td>Rolling UTC window. Defaults to <?php echo API_DEFAULT_REPORT_HOURS; ?>. Range <?php echo API_MIN_REPORT_HOURS; ?>-<?php echo API_MAX_REPORT_HOURS; ?>. Out-of-range values are clamped to the nearest bound, not rejected.</td></tr>
         <tr><td><code>since</code></td><td>date-time</td><td>ISO 8601 lower bound. Overrides <code>hours</code>.</td></tr>
-        <tr><td><code>limit</code></td><td>integer</td><td>Maximum records. Defaults to <?php echo API_DEFAULT_LIMIT; ?>. Maximum <?php echo API_MAX_LIMIT; ?>.</td></tr>
+        <tr><td><code>limit</code></td><td>integer</td><td>Maximum records, newest first. Defaults to <?php echo API_DEFAULT_LIMIT; ?>. Range 1-<?php echo API_MAX_LIMIT; ?>. Out-of-range values are clamped to the nearest bound, not rejected.</td></tr>
         <tr><td><code>callsign</code></td><td>string</td><td>Exact callsign filter.</td></tr>
         <tr><td><code>grid_square</code></td><td>string</td><td>Maidenhead locator filter.</td></tr>
         <tr><td><code>status</code></td><td>string</td><td><code>Heard</code>, <code>Telemetry Only</code>, <code>Not Heard</code>, or <code>Crew Active</code>.</td></tr>
       </table>
+      <p class="note">
+        A non-integer <code>hours</code> or <code>limit</code> returns <code>400 invalid_parameter</code>.
+        <code>meta</code> shows the <code>hours</code> and <code>limit</code> actually applied, after clamping.
+      </p>
       <pre><code>curl "<?php echo htmlspecialchars($baseUrl); ?>/reports.php?name=AO-91&amp;hours=24&amp;limit=25"</code></pre>
     </div>
 
@@ -305,11 +309,20 @@ $baseUrl = api_base_url();
         API 1.0: <code>GET /reports.php</code> and <code>/summary.php</code> return and count only the latest one,
         and the response's <code>correction</code> field is <code>true</code>.
       </p>
+      <p class="note">
+        Older clients and the v1 submit form may also send <code>satellite</code> instead of <code>name</code>,
+        <code>status</code> instead of <code>report</code>, and the observation time as separate UTC fields
+        <code>year</code>, <code>month</code>, <code>day</code>, <code>hour</code> and <code>minute</code> instead of
+        <code>reported_at</code>. These are used only when the preferred field is absent. If <code>minute</code> is
+        omitted it defaults to <code>30</code>, so always send it. Report values are matched case-insensitively, and
+        aliases such as <code>active</code>, <code>telemetry</code> and <code>no signal</code> are accepted; the
+        OpenAPI document lists them all. New clients should use the fields in the example above.
+      </p>
     </div>
 
     <div class="endpoint">
       <h3><span class="method">GET</span><code>/summary.php</code></h3>
-      <p>Returns report counts grouped by satellite and report value for a rolling UTC window. As in API 1.0, a resubmission from the same callsign for the same satellite and 15-minute UTC period corrects the earlier report: only the latest one is counted. Corrected reports are still stored, but are not counted here or returned by <code>/reports.php</code>.</p>
+      <p>Returns report counts grouped by satellite and report value for a rolling UTC window (<code>hours</code>, default 24, range <?php echo API_MIN_REPORT_HOURS; ?>-<?php echo API_MAX_REPORT_HOURS; ?>, clamped like <code>/reports.php</code>). As in API 1.0, a resubmission from the same callsign for the same satellite and 15-minute UTC period corrects the earlier report: only the latest one is counted. Corrected reports are still stored, but are not counted here or returned by <code>/reports.php</code>.</p>
       <pre><code>curl "<?php echo htmlspecialchars($baseUrl); ?>/summary.php?hours=24"</code></pre>
     </div>
 
@@ -341,6 +354,14 @@ $baseUrl = api_base_url();
     "status": 400
   }
 }</code></pre>
+    <p>
+      <code>code</code> is stable and meant for programs; <code>message</code> is for people and may change. Some errors
+      add a <code>details</code> object. The OpenAPI document lists every code, and which endpoint and status return it.
+      The legacy <code>satellites.php</code> and <code>sat_info.php</code> endpoints return plain arrays when they succeed,
+      but use this same envelope for errors (for example <code>405</code> or <code>503</code>). Any endpoint can return
+      <code>405 method_not_allowed</code>, <code>500</code> and <code>503</code> errors in addition to the ones listed
+      for it.
+    </p>
   </section>
 
   <section>
