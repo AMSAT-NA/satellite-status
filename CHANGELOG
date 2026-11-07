@@ -313,4 +313,4 @@ CHANGE LOG:
       submitted with a display name was stored under that name, so it
       never appeared on the status grid or in GET /reports.php. Both
       now resolve the name to the API name first. No response shape
-      change, so no version bump. (Issue #58, PR #TBD)
+      change, so no version bump. (Issue #58, PR #60)
