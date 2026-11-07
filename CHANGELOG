@@ -320,4 +320,4 @@ CHANGE LOG:
       no longer inflate it. In 1.0 a correction deleted the earlier
       report, so this restores 1.0's count. It is a bug fix with no
       response-shape change, so no version bump. latest_reported_time is
-      unchanged. (Issue #59, PR #TBD)
+      unchanged. (Issue #59, PR #61)
