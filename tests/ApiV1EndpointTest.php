@@ -71,6 +71,53 @@ final class ApiV1EndpointTest extends TestCase
         $this->assertSame('satellite_not_found', $payload['error']['code']);
     }
 
+    /**
+     * Issue #58: the name check accepts a display name (the catalog lookup
+     * matches either), but reports are stored under the API name. A
+     * display name must be resolved to the API name before filtering,
+     * not return 200 with an empty list.
+     */
+    public function testReportsResolveDisplayNameToApiName(): void
+    {
+        $byApiName = json_decode((string) $this->newGuestClient()->get('/api/v1/reports.php', [
+            'query' => ['name' => 'AO-91', 'hours' => 72],
+        ])->getBody(), true);
+
+        $resp = $this->newGuestClient()->get('/api/v1/reports.php', [
+            'query' => ['name' => 'AO-91 Mode U/v FM', 'hours' => 72],
+        ]);
+
+        $this->assertSame(200, $resp->getStatusCode());
+        $payload = json_decode((string) $resp->getBody(), true);
+        $this->assertNotEmpty($payload['data']);
+        $this->assertSame($byApiName['data'], $payload['data']);
+        $this->assertSame('AO-91', $payload['data'][0]['name']);
+    }
+
+    /**
+     * Issue #58, write side: a POST with a display name used to pass
+     * validation and be stored under the display name, so the report
+     * never appeared on the status grid or in GET /reports.php. It must
+     * be stored, and returned, under the API name.
+     */
+    public function testPostReportWithDisplayNameStoresApiName(): void
+    {
+        $resp = $this->newGuestClient()->post('/api/v1/reports.php', [
+            'json' => [
+                'name' => 'AO-91 Mode U/v FM',
+                'report' => 'Heard',
+                'callsign' => 'W5DSP',
+                'reported_at' => gmdate('Y-m-d\TH:i:s\Z', time() - 3600),
+            ],
+        ]);
+
+        $this->assertSame(201, $resp->getStatusCode());
+        $payload = json_decode((string) $resp->getBody(), true);
+        $this->assertSame('AO-91', $payload['data']['name']);
+        $this->assertSame(1, $this->countRows('satellite', "callsign='W5DSP' AND name='AO-91'"));
+        $this->assertSame(0, $this->countRows('satellite', "name='AO-91 Mode U/v FM'"));
+    }
+
     public function testPostReportCreatesReportAndExtractsGridSquare(): void
     {
         $resp = $this->newGuestClient()->post('/api/v1/reports.php', [

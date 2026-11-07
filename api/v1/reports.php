@@ -39,8 +39,16 @@ $limit = api_int_param('limit', API_DEFAULT_LIMIT, 1, API_MAX_LIMIT);
 $name = api_string_param('name');
 $since = api_string_param('since');
 
-if ($name !== null && $repository->satelliteByApiName($name) === null) {
-    api_error_response(404, 'satellite_not_found', 'No satellite matched the requested name.');
+if ($name !== null) {
+    $satellite = $repository->satelliteByApiName($name);
+
+    if ($satellite === null) {
+        api_error_response(404, 'satellite_not_found', 'No satellite matched the requested name.');
+    }
+
+    // The lookup also matches a display name (as catalog.php does), but
+    // reports are stored under the API name, so filter on that (Issue #58).
+    $name = (string) $satellite['html_element_name'];
 }
 
 if ($since !== null) {

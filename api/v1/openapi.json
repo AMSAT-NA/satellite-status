@@ -100,7 +100,7 @@
                     {
                         "name": "name",
                         "in": "query",
-                        "description": "Exact satellite API name. An unknown name returns 404 satellite_not_found.",
+                        "description": "Exact satellite API name or display name, as listed by /catalog.php. A display name is resolved to its API name. An unknown name returns 404 satellite_not_found.",
                         "schema": {
                             "type": "string"
                         }
@@ -615,7 +615,7 @@
                 ],
                 "properties": {
                     "name": {
-                        "description": "Satellite API name, as listed by /catalog.php.",
+                        "description": "Satellite API name or display name, as listed by /catalog.php. A display name is resolved to its API name, which is what is stored and returned.",
                         "type": "string",
                         "example": "AO-91"
                     },

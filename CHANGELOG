@@ -306,3 +306,11 @@ CHANGE LOG:
       such a row. Added an as-run record of the cutover under
       docs/runbooks/. CHANGELOG convention: entries are dated by the date
       the PR merges. (PR #52)
+    - GET /reports.php?name= now accepts a satellite's display name as
+      well as its API name, as catalog.php already did. A display name
+      used to pass the name check and then return 200 with no reports.
+      POST /reports.php had the same gap on the write side: a report
+      submitted with a display name was stored under that name, so it
+      never appeared on the status grid or in GET /reports.php. Both
+      now resolve the name to the API name first. No response shape
+      change, so no version bump. (Issue #58, PR #TBD)
