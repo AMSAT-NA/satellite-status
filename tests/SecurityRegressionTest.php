@@ -111,6 +111,42 @@ final class SecurityRegressionTest extends TestCase
     }
 
     /**
+     * A single-digit hour (9:05) is accepted and padded to HH:MM before it's
+     * used, so the stored observation time is 09:05. Pins both the padding
+     * and that it reaches the database unchanged.
+     */
+    public function testSubmitPadsSingleDigitHour(): void
+    {
+        $query = $this->buildSubmitQuery(['SatCall' => 'W5PAD', 'SatTime' => '9:05']);
+        $resp = $this->newGuestClient()->get('/submit.php', ['query' => $query]);
+
+        $this->assertStringContainsString('Thank you for your submission', (string) $resp->getBody());
+        // Compare epoch seconds: UNIX_TIMESTAMP() of a TIMESTAMP column is the
+        // stored UTC instant whatever the test connection's time zone is.
+        $expected = gmmktime(9, 5, 0, (int) $query['SatMonth'], (int) $query['SatDay'], (int) $query['SatYear']);
+        $this->assertSame(
+            1,
+            $this->countRows('satellite', "callsign='W5PAD' AND UNIX_TIMESTAMP(observation_time) = {$expected}")
+        );
+    }
+
+    /**
+     * Times that are still invalid after padding (hour out of range, missing
+     * minutes, 12-hour format) are rejected and nothing is stored.
+     */
+    public function testSubmitRejectsInvalidTimes(): void
+    {
+        foreach (['24:00', '9:5', '9', '2:37 PM', '-1:00'] as $i => $bad) {
+            $call = 'W5BT' . chr(65 + $i);
+            $resp = $this->newGuestClient()->get('/submit.php', [
+                'query' => $this->buildSubmitQuery(['SatCall' => $call, 'SatTime' => $bad]),
+            ]);
+            $this->assertStringContainsString('does not appear to be valid', (string) $resp->getBody(), $bad);
+            $this->assertSame(0, $this->countRows('satellite', "callsign='{$call}'"), $bad);
+        }
+    }
+
+    /**
      * Issue #53: a normal submission must not raise PHP notices. Before the
      * fix it raised a CallSignParser dynamic-property deprecation and a
      * "headers already sent" warning from a dead setcookie() call. The CI

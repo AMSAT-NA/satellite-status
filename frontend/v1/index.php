@@ -885,9 +885,9 @@ $conn->close();
 <!-- Plain text, not type="time": browsers render type="time" in the
      device locale (AM/PM on en-US), which conflicts with a UTC field. -->
 <input type="text" name="SatTime" value="<?php echo date("H:i"); ?>"
-       pattern="([01][0-9]|2[0-3]):[0-5][0-9]" inputmode="numeric"
+       pattern="([01]?[0-9]|2[0-3]):[0-5][0-9]" inputmode="numeric"
        maxlength="5" size="5" placeholder="HH:MM" required
-       title="24-hour UTC time, HH:MM (e.g. 14:30)"> UTC, 24-hour (HH:MM)
+       title="24-hour UTC time, HH:MM (e.g. 14:30 or 9:05)"> UTC, 24-hour (HH:MM)
 </td></tr>
 
 <tr>

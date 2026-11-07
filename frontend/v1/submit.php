@@ -49,14 +49,17 @@ if ($submit)
      exit;
  }
  
- // Error if the time isn't 24-hour HH:MM. The form's text input has a
- // matching pattern attribute, but that's only a browser-side hint -- this
- // is the authoritative check.
- if (!preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', (string) $SatTime)) {
+ // Error if the time isn't 24-hour H:MM or HH:MM. The form's text input
+ // has a matching pattern attribute, but that's only a browser-side hint --
+ // this is the authoritative check. A single-digit hour (9:05) is accepted
+ // and padded to HH:MM (09:05) below, so everything downstream -- the
+ // confirmation page, the confirm URL and the API -- sees two digits.
+ if (!preg_match('/^([01]?\d|2[0-3]):([0-5]\d)$/', trim((string) $SatTime), $timeParts)) {
     echo "<br><br><div style=\" font-family: Helvetica,Arial,sans-serif;padding: 10px; font-size:20px; width: 50%; margin: 0 auto; color: #a94442;background-color: #f2dede;border-color: #ebccd1;\">The time heard you entered does not appear to be valid</div>";
     echo "<br><br><center><a href=\"index.php\">Go back</a></center>";
     exit;
  }
+ $SatTime = sprintf('%02d:%s', (int) $timeParts[1], $timeParts[2]);
  [$SatHour, $SatMinute] = explode(':', $SatTime);
 
  // Error if time/date submitted is in the future (Assumed to be UTC, as that is specified on the page)

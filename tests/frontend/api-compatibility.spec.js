@@ -274,6 +274,14 @@ test.describe('public frontend/API compatibility', () => {
     await expect(timeInput).toHaveValue('14:37');
     expect(await timeInput.evaluate((el) => el.checkValidity())).toBe(true);
 
+    // A single-digit hour is accepted (the server pads it to HH:MM).
+    await timeInput.fill('9:05');
+    expect(await timeInput.evaluate((el) => el.checkValidity())).toBe(true);
+
+    // Out-of-range hours are rejected.
+    await timeInput.fill('24:00');
+    expect(await timeInput.evaluate((el) => el.checkValidity())).toBe(false);
+
     // 12-hour input is rejected by the browser-side pattern.
     await timeInput.fill('2:37 PM');
     expect(await timeInput.evaluate((el) => el.checkValidity())).toBe(false);

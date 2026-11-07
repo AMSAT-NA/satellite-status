@@ -296,5 +296,6 @@ CHANGE LOG:
       field again. PR #30 had replaced the hour/period dropdowns with
       <input type="time">, which browsers render in the device locale,
       so users on en-US devices saw an AM/PM picker next to a UTC label.
-      Minute precision from #24 is unchanged, and so is the server-side
-      HH:MM check. (PR #55)
+      Minute precision from #24 is unchanged. A single-digit hour (9:05)
+      is accepted and padded to HH:MM (09:05) by the server-side check
+      before use. (PR #55)
