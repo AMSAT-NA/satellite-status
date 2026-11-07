@@ -77,7 +77,7 @@ require_once __DIR__ . '/lib/version.php';
         . 'The other fields are accepted for compatibility with older clients and the v1 submit form.',
     required: ['name', 'report', 'callsign', 'reported_at'],
     properties: [
-        new OA\Property(property: 'name', description: 'Satellite API name, as listed by /catalog.php.', type: 'string', example: 'AO-91'),
+        new OA\Property(property: 'name', description: 'Satellite API name or display name, as listed by /catalog.php. A display name is resolved to its API name, which is what is stored and returned.', type: 'string', example: 'AO-91'),
         new OA\Property(
             property: 'report',
             description: 'Report value. Matched case-insensitively, and these aliases are also accepted: '
@@ -264,7 +264,7 @@ final class ApiV1OpenApiSpec
             new OA\Parameter(
                 name: 'name',
                 in: 'query',
-                description: 'Exact satellite API name. An unknown name returns 404 satellite_not_found.',
+                description: 'Exact satellite API name or display name, as listed by /catalog.php. A display name is resolved to its API name. An unknown name returns 404 satellite_not_found.',
                 schema: new OA\Schema(type: 'string')
             ),
             new OA\Parameter(

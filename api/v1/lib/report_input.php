@@ -26,9 +26,16 @@ function api_validate_report_payload(array $data, ApiRepository $repository): ar
         api_error_response(422, 'missing_name', 'A satellite API name is required.');
     }
 
-    if ($repository->satelliteByApiName($name) === null) {
+    $satellite = $repository->satelliteByApiName($name);
+
+    if ($satellite === null) {
         api_error_response(422, 'unknown_satellite', 'The satellite name does not match a known API name.');
     }
+
+    // Store the canonical API name. The lookup also matches a display name,
+    // which would otherwise be stored as-is and never show up on the status
+    // grid or in GET /reports.php (Issue #58).
+    $name = (string) $satellite['html_element_name'];
 
     if (!in_array($report, api_status_values(), true)) {
         api_error_response(
