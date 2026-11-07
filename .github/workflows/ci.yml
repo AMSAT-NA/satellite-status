@@ -99,12 +99,13 @@ jobs:
         # so the spec can't drift from its source. Added after #57, whose
         # openapi.json was produced without swagger-php and came out in a
         # different key order.
+        # Compares file contents directly (not git diff): inside the CI
+        # container git can report a stat-only change as a difference.
         run: |
-          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          cp api/v1/openapi.json /tmp/openapi.committed.json
           php composer.phar run openapi
-          php --version | head -1
-          if ! git diff --quiet api/v1/openapi.json; then
-            git diff api/v1/openapi.json | tee /tmp/openapi.diff
+          if ! cmp -s /tmp/openapi.committed.json api/v1/openapi.json; then
+            diff -u /tmp/openapi.committed.json api/v1/openapi.json | tee /tmp/openapi.diff
             # Surface the diff in the run summary as an annotation too.
             echo "::error title=openapi.json is stale::Run 'composer openapi' and commit api/v1/openapi.json. Diff: $(head -c 3000 /tmp/openapi.diff | sed ':a;N;$!ba;s/%/%25/g;s/\n/%0A/g')"
             exit 1
