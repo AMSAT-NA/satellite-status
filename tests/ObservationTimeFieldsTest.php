@@ -49,6 +49,10 @@ final class ObservationTimeFieldsTest extends TestCase
         $payload = $this->postReport(['callsign' => 'W5OFS', 'observation_time' => "{$day}T10:30:00+02:00"], 201);
 
         $this->assertSame("{$day}T08:30:00Z", $payload['data']['observation_time']);
+
+        // Negative offsets too: 03:30 at -05:00 is 08:30Z.
+        $west = $this->postReport(['callsign' => 'W5WST', 'observation_time' => "{$day}T03:30:00-05:00"], 201);
+        $this->assertSame("{$day}T08:30:00Z", $west['data']['observation_time']);
     }
 
     /**
