@@ -692,7 +692,7 @@
                         "example": "EM48"
                     },
                     "observation_time": {
-                        "description": "When the satellite was heard (not when the report is submitted). ISO 8601 with an explicit offset, Z or +HH:MM/-HH:MM, for example 2026-05-23T08:30:00Z; a timestamp without an offset is rejected (invalid_observation_time). Seconds are optional; fractional seconds are dropped. Must not be in the future (future_observation_time). If reported_at is also sent, both must be the same instant, or the request fails with conflicting_observation_time.",
+                        "description": "When the satellite was heard (not when the report is submitted). ISO 8601 date and time with an explicit UTC offset: Z, +HH:MM, +HHMM or +HH (or -), for example 2026-05-23T08:30:00Z. A timestamp without an offset is rejected (invalid_observation_time). A space may replace T. Seconds are optional; fractional seconds are dropped. Must not be in the future (future_observation_time). If reported_at is also sent, both must be the same instant, or the request fails with conflicting_observation_time.",
                         "type": "string",
                         "format": "date-time",
                         "example": "2026-05-23T08:30:00Z"
