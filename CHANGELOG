@@ -357,4 +357,4 @@ CHANGE LOG:
         deprecated input fields are logged with their User-Agent, so we
         can see who still uses them.
       - The v1 submit form now sends observation_time.
-      (Issue #45, Issue #32, PR #TBD)
+      (Issue #45, Issue #32, PR #64)
