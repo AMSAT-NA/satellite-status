@@ -62,6 +62,37 @@ function api_send_version_headers(): void
 }
 
 /**
+ * The meta object for an envelope response, with api_version added: the
+ * same value as the X-AMSAT-API-Version header, in the body for clients
+ * that don't read headers (Issue #32, shipped with #45). The legacy
+ * array endpoints (satellites.php, sat_info.php) have no envelope and keep
+ * only the header.
+ *
+ * @param array<string, mixed> $meta
+ * @return array<string, mixed>
+ */
+function api_meta(array $meta = []): array
+{
+    return $meta + ['api_version' => API_VERSION];
+}
+
+/**
+ * Logs (to the server error log) that a request used a deprecated input
+ * field, with the client's User-Agent, so we can see who still sends the
+ * old names before anyone asks us to remove them (Issue #45). Behaviour is
+ * unchanged; deprecated fields keep working for the life of /api/v1.
+ */
+function api_note_deprecated_input(string $field): void
+{
+    $userAgent = (string) ($_SERVER['HTTP_USER_AGENT'] ?? '');
+    error_log(sprintf(
+        'amsat-api deprecated-input field=%s user_agent=%s',
+        $field,
+        json_encode(substr($userAgent, 0, 200), JSON_UNESCAPED_SLASHES)
+    ));
+}
+
+/**
  * @param array<string, string> $headers
  */
 function api_json_response($payload, int $status = 200, array $headers = []): void

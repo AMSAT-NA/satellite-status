@@ -80,7 +80,7 @@ final class ApiRepository
                 // summary(): corrected reports don't count (Issue #59).
                 // COUNT(DISTINCT) skips the NULL key of a satellite with
                 // no reports, so that still counts 0.
-                ? ', DATE_FORMAT(MAX(s.observation_time), "%Y-%m-%dT%H:%i:%sZ") AS latest_reported_time,'
+                ? ', DATE_FORMAT(MAX(s.observation_time), "%Y-%m-%dT%H:%i:%sZ") AS latest_observation_time,'
                     . ' COUNT(DISTINCT ' . self::PERIOD_CALLSIGN_KEY_SQL . ') AS report_count'
                 : '')
             . ' FROM satellite_name sn'
@@ -159,7 +159,8 @@ final class ApiRepository
         $limit = (int) ($filters['limit'] ?? API_DEFAULT_LIMIT);
 
         $sql = 'SELECT l.id, l.name, sn.name AS satellite_display_name,'
-            . ' DATE_FORMAT(l.observation_time, "%Y-%m-%dT%H:%i:%sZ") AS reported_time,'
+            . ' DATE_FORMAT(l.observation_time, "%Y-%m-%dT%H:%i:%sZ") AS observation_time,'
+            . ' DATE_FORMAT(l.submission_time, "%Y-%m-%dT%H:%i:%sZ") AS submission_time,'
             . ' l.callsign, l.report, l.grid_square'
             . ' FROM (' . self::LATEST_PER_CALLSIGN_SQL . $innerSql . ') l'
             . ' LEFT JOIN satellite_name sn ON sn.html_element_name = l.name'
@@ -219,9 +220,20 @@ final class ApiRepository
             ]
         );
 
+        $id = $this->db->insert_id;
+
+        // Read submission_time back rather than computing it here: the DB
+        // default sets it, so this is the value actually stored (Issue #45).
+        $stored = $this->fetchAll(
+            'SELECT DATE_FORMAT(submission_time, "%Y-%m-%dT%H:%i:%sZ") AS submission_time FROM satellite WHERE id = ?',
+            'i',
+            [$id]
+        );
+
         return [
-            'id' => $this->db->insert_id,
+            'id' => $id,
             'correction' => $existing !== [],
+            'submission_time' => $stored[0]['submission_time'] ?? null,
         ];
     }
 
@@ -239,7 +251,7 @@ final class ApiRepository
 
         return $this->fetchAll(
             'SELECT l.name, sn.name AS satellite_display_name, l.report, COUNT(*) AS report_count,'
-            . ' DATE_FORMAT(MAX(l.observation_time), "%Y-%m-%dT%H:%i:%sZ") AS latest_reported_time'
+            . ' DATE_FORMAT(MAX(l.observation_time), "%Y-%m-%dT%H:%i:%sZ") AS latest_observation_time'
             . ' FROM (' . self::LATEST_PER_CALLSIGN_SQL . ' WHERE s.observation_time >= ?) l'
             . ' LEFT JOIN satellite_name sn ON sn.html_element_name = l.name'
             . ' WHERE l.rn = 1 AND l.observation_time >= ?'

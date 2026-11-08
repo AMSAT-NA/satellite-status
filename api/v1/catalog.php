@@ -32,14 +32,16 @@ api_json_response([
 
             if (array_key_exists('report_count', $satellite)) {
                 $item['report_count'] = (int) $satellite['report_count'];
-                $item['latest_reported_time'] = $satellite['latest_reported_time'];
+                $item['latest_observation_time'] = $satellite['latest_observation_time'];
+                // Deprecated alias of latest_observation_time (Issue #45).
+                $item['latest_reported_time'] = $satellite['latest_observation_time'];
             }
 
             return $item;
         },
         $satellites
     ),
-    'meta' => [
+    'meta' => api_meta([
         'count' => count($satellites),
-    ],
+    ]),
 ]);

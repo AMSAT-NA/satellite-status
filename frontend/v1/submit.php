@@ -128,7 +128,7 @@ if ($submit)
              'report' => $SatReport,
              'callsign' => $SatCall,
              'grid_square' => $SatGridSquare,
-             'reported_at' => $observationTime,
+             'observation_time' => $observationTime,
          ]);
 
          if ($apiResult['status'] !== 201) {

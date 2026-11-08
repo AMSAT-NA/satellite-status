@@ -207,7 +207,7 @@ $baseUrl = api_base_url();
     <ul>
       <li>Each report must describe a real observation by the operator whose callsign it carries. If your app submits for its users, use the user's callsign, not the app's or the developer's.</li>
       <li>A report should be submitted because the operator chose to submit it, such as by tapping "submit" in your app. Don't have your app submit reports in the background without the operator's action.</li>
-      <li>Set <code>reported_at</code> to the time of the observation, in UTC, not the time it was submitted. This matters most for apps that queue reports offline.</li>
+      <li>Set <code>observation_time</code> to the time of the observation, not the time it was submitted, with an explicit offset (send UTC with <code>Z</code>). This matters most for apps that queue reports offline. The server records when it received the report separately, as <code>submission_time</code>.</li>
       <li>Identify your app with a <code>User-Agent</code>, as described <a href="#identify">above</a>, so we can tell which app a report came through if something looks wrong.</li>
       <li>Talk to us first before submitting reports that no operator entered: imports from another network or dataset, reports generated automatically from decoders or telemetry, or bulk backfills of past observations. These may be fine, but we need to agree on how they're labeled and deduplicated.</li>
     </ul>
@@ -248,6 +248,39 @@ $baseUrl = api_base_url();
       more than a day old. Treat that as "reachable, but the data may not be current".
     </p>
 
+    <h3 id="versioning">Versioning</h3>
+    <p>
+      The API version is <code>MAJOR.MINOR</code>, currently <code><?php echo htmlspecialchars(API_VERSION); ?></code>.
+      It is sent as the <code>X-AMSAT-API-Version</code> header on every response, and as <code>meta.api_version</code>
+      in every JSON envelope response (the legacy <code>satellites.php</code> and <code>sat_info.php</code> arrays have
+      only the header).
+    </p>
+    <ul>
+      <li><strong>MAJOR</strong> always matches the URL: <code>/api/v1</code> is 1.x. Removing or renaming a field means a new URL version.</li>
+      <li><strong>MINOR</strong> goes up for additive changes: new fields, endpoints or parameters, and deprecations.</li>
+      <li>Bug fixes that don't change the response shape don't change the version.</li>
+    </ul>
+    <p>Every version change is noted in the CHANGELOG.</p>
+
+    <h3 id="deprecated">Deprecated fields</h3>
+    <p>
+      Deprecated fields keep working for the life of <code>/api/v1</code>; they would be removed only in a future
+      <code>/api/v2</code>. They are marked <code>deprecated</code> in the OpenAPI document. Please move to the new names.
+    </p>
+    <table>
+      <tr><th>Deprecated</th><th>Use instead</th><th>Where</th><th>Since</th></tr>
+      <tr><td><code>reported_at</code></td><td><code>observation_time</code></td><td><code>POST /reports.php</code> request</td><td>1.3</td></tr>
+      <tr><td><code>year</code>, <code>month</code>, <code>day</code>, <code>hour</code>, <code>minute</code></td><td><code>observation_time</code></td><td><code>POST /reports.php</code> request</td><td>1.3</td></tr>
+      <tr><td><code>reported_time</code></td><td><code>observation_time</code></td><td><code>/reports.php</code> responses</td><td>1.3</td></tr>
+      <tr><td><code>latest_reported_time</code></td><td><code>latest_observation_time</code></td><td><code>/catalog.php</code>, <code>/summary.php</code></td><td>1.3</td></tr>
+    </table>
+    <p>
+      <code>observation_time</code> is when the satellite was heard. <code>submission_time</code> (new in 1.3, in
+      <code>/reports.php</code> responses) is when the server received the report; it is <code>null</code> for reports
+      stored before November 2026. The legacy <code>sat_info.php</code> array keeps <code>reported_time</code>
+      unchanged.
+    </p>
+
     <h3 id="support">Contact and support</h3>
     <ol>
       <li>Open an issue on <a href="https://github.com/AMSAT-NA/satellite-status/issues">GitHub</a>.</li>
@@ -278,7 +311,7 @@ $baseUrl = api_base_url();
         <tr><th>Parameter</th><th>Type</th><th>Description</th></tr>
         <tr><td><code>name</code></td><td>string</td><td>Optional satellite API name.</td></tr>
         <tr><td><code>hours</code></td><td>integer</td><td>Rolling UTC window. Defaults to <?php echo API_DEFAULT_REPORT_HOURS; ?>. Range <?php echo API_MIN_REPORT_HOURS; ?>-<?php echo API_MAX_REPORT_HOURS; ?>. Out-of-range values are clamped to the nearest bound, not rejected.</td></tr>
-        <tr><td><code>since</code></td><td>date-time</td><td>ISO 8601 lower bound. Overrides <code>hours</code>.</td></tr>
+        <tr><td><code>since</code></td><td>date-time</td><td>ISO 8601 lower bound on <code>observation_time</code> (when heard, not when submitted). Overrides <code>hours</code>.</td></tr>
         <tr><td><code>limit</code></td><td>integer</td><td>Maximum records, newest first. Defaults to <?php echo API_DEFAULT_LIMIT; ?>. Range 1-<?php echo API_MAX_LIMIT; ?>. Out-of-range values are clamped to the nearest bound, not rejected.</td></tr>
         <tr><td><code>callsign</code></td><td>string</td><td>Exact callsign filter.</td></tr>
         <tr><td><code>grid_square</code></td><td>string</td><td>Maidenhead locator filter.</td></tr>
@@ -301,7 +334,7 @@ $baseUrl = api_base_url();
     "report": "Heard",
     "callsign": "N0CALL",
     "grid_square": "EM48",
-    "reported_at": "2026-05-23T08:30:00Z"
+    "observation_time": "2026-05-23T08:30:00Z"
   }'</code></pre>
       <p class="note">
         Every submission is stored; nothing is deleted. A resubmission from the same callsign for the same
@@ -310,10 +343,15 @@ $baseUrl = api_base_url();
         and the response's <code>correction</code> field is <code>true</code>.
       </p>
       <p class="note">
-        Older clients and the v1 submit form may also send <code>satellite</code> instead of <code>name</code>,
-        <code>status</code> instead of <code>report</code>, and the observation time as separate UTC fields
-        <code>year</code>, <code>month</code>, <code>day</code>, <code>hour</code> and <code>minute</code> instead of
-        <code>reported_at</code>. These are used only when the preferred field is absent. If <code>minute</code> is
+        <code>observation_time</code> must be ISO 8601 with an explicit offset (<code>Z</code> or <code>+HH:MM</code>);
+        a timestamp without one is rejected with <code>422 invalid_observation_time</code>.
+        Older clients may also send <code>satellite</code> instead of <code>name</code>,
+        <code>status</code> instead of <code>report</code>, and the observation time as the
+        <a href="#deprecated">deprecated</a> <code>reported_at</code>, or as separate UTC fields
+        <code>year</code>, <code>month</code>, <code>day</code>, <code>hour</code> and <code>minute</code>.
+        These are used only when the preferred field is absent. If <code>observation_time</code> and
+        <code>reported_at</code> are both sent and differ, the request fails with
+        <code>422 conflicting_observation_time</code>. If <code>minute</code> is
         omitted it defaults to <code>30</code>, so always send it. Report values are matched case-insensitively, and
         aliases such as <code>active</code>, <code>telemetry</code> and <code>no signal</code> are accepted; the
         OpenAPI document lists them all. New clients should use the fields in the example above.

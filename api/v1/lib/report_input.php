@@ -21,6 +21,7 @@ function api_validate_report_payload(array $data, ApiRepository $repository): ar
     $callsign = trim((string) ($data['callsign'] ?? ''));
     $gridSquare = trim((string) ($data['grid_square'] ?? ''));
     $reportedAt = trim((string) ($data['reported_at'] ?? ''));
+    $observationTime = trim((string) ($data['observation_time'] ?? ''));
 
     if ($name === '') {
         api_error_response(422, 'missing_name', 'A satellite API name is required.');
@@ -58,10 +59,35 @@ function api_validate_report_payload(array $data, ApiRepository $repository): ar
         api_error_response(422, 'invalid_grid_square', 'Grid square must be a valid Maidenhead locator.');
     }
 
-    $time = api_parse_reported_time($reportedAt, $data);
+    // Issue #45: observation_time is the preferred field (strict ISO 8601
+    // with an explicit offset). reported_at and year/month/day/hour/minute
+    // are deprecated aliases with their old lenient parsing, kept for the
+    // life of /api/v1.
+    if ($observationTime !== '') {
+        $time = api_parse_observation_time($observationTime);
 
-    if ($time > time()) {
-        api_error_response(422, 'future_reported_at', 'The reported time cannot be in the future.');
+        if ($reportedAt !== '') {
+            api_note_deprecated_input('reported_at');
+
+            if (api_parse_reported_time($reportedAt, $data) !== $time) {
+                api_error_response(
+                    422,
+                    'conflicting_observation_time',
+                    'observation_time and reported_at were both sent and differ. Send only observation_time.'
+                );
+            }
+        }
+
+        if ($time > time()) {
+            api_error_response(422, 'future_observation_time', 'observation_time cannot be in the future.');
+        }
+    } else {
+        $time = api_parse_reported_time($reportedAt, $data);
+        api_note_deprecated_input($reportedAt !== '' ? 'reported_at' : 'year/month/day/hour');
+
+        if ($time > time()) {
+            api_error_response(422, 'future_reported_at', 'The reported time cannot be in the future.');
+        }
     }
 
     // submission_time is never read from $data, even if present -- it must
@@ -75,6 +101,38 @@ function api_validate_report_payload(array $data, ApiRepository $repository): ar
         'observation_time' => gmdate('Y-m-d H:i:s', $time),
         'reported_time' => gmdate('Y-m-d\TH:i:s\Z', $time),
     ];
+}
+
+/**
+ * Strict parser for observation_time (Issue #45): ISO 8601 date and time,
+ * seconds and fractional seconds optional, and an explicit offset -- Z or
+ * +HH:MM / -HH:MM. A timestamp with no offset is ambiguous (local time or
+ * UTC?), so it's rejected rather than guessed. Fractional seconds are
+ * accepted and dropped; times are stored to the second.
+ */
+function api_parse_observation_time(string $value): int
+{
+    $pattern = '/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2})(?:\.\d+)?)?(?:Z|[+-](\d{2}):(\d{2}))$/';
+
+    if (preg_match($pattern, $value, $m) !== 1
+        || !checkdate((int) $m[2], (int) $m[3], (int) $m[1])
+        || (int) $m[4] > 23 || (int) $m[5] > 59 || (int) ($m[6] ?? 0) > 59
+        || (int) ($m[7] ?? 0) > 23 || (int) ($m[8] ?? 0) > 59
+    ) {
+        api_error_response(
+            422,
+            'invalid_observation_time',
+            'observation_time must be an ISO 8601 timestamp with an explicit offset, for example 2026-05-23T08:30:00Z.'
+        );
+    }
+
+    $time = strtotime($value);
+
+    if ($time === false) {
+        api_error_response(422, 'invalid_observation_time', 'observation_time could not be parsed.');
+    }
+
+    return $time;
 }
 
 /**
@@ -97,7 +155,7 @@ function api_parse_reported_time(string $reportedAt, array $data): int
             api_error_response(
                 422,
                 'missing_reported_at',
-                'Use reported_at or provide year, month, day, and hour fields.'
+                'Send observation_time (or the deprecated reported_at, or year, month, day and hour).'
             );
         }
     }

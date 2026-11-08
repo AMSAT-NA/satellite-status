@@ -19,12 +19,15 @@ if ($method === 'POST') {
             'data' => [
                 'id' => (int) $writeResult['id'],
                 'name' => $report['name'],
+                'observation_time' => $report['reported_time'],
+                'submission_time' => $writeResult['submission_time'],
                 'reported_time' => $report['reported_time'],
                 'callsign' => $report['callsign'],
                 'report' => $report['report'],
                 'grid_square' => $report['grid_square'],
                 'correction' => (bool) $writeResult['correction'],
             ],
+            'meta' => api_meta(),
             'links' => [
                 'satellite_reports' => api_self_url('reports.php?name=' . rawurlencode($report['name'])),
             ],
@@ -95,7 +98,10 @@ api_json_response([
                 'id' => (int) $report['id'],
                 'name' => $report['name'],
                 'satellite_display_name' => $report['satellite_display_name'],
-                'reported_time' => $report['reported_time'],
+                'observation_time' => $report['observation_time'],
+                'submission_time' => $report['submission_time'],
+                // Deprecated alias of observation_time (Issue #45).
+                'reported_time' => $report['observation_time'],
                 'callsign' => $report['callsign'],
                 'report' => $report['report'],
                 'grid_square' => $report['grid_square'],
@@ -103,10 +109,10 @@ api_json_response([
         },
         $reports
     ),
-    'meta' => [
+    'meta' => api_meta([
         'count' => count($reports),
         'limit' => $limit,
         'since' => $since,
         'hours' => $hours,
-    ],
+    ]),
 ]);

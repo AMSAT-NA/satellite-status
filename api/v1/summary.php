@@ -19,13 +19,15 @@ api_json_response([
                 'satellite_display_name' => $row['satellite_display_name'],
                 'report' => $row['report'],
                 'report_count' => (int) $row['report_count'],
-                'latest_reported_time' => $row['latest_reported_time'],
+                'latest_observation_time' => $row['latest_observation_time'],
+                // Deprecated alias of latest_observation_time (Issue #45).
+                'latest_reported_time' => $row['latest_observation_time'],
             ];
         },
         $summary
     ),
-    'meta' => [
+    'meta' => api_meta([
         'hours' => $hours,
         'count' => count($summary),
-    ],
+    ]),
 ]);
