@@ -104,15 +104,21 @@ function api_validate_report_payload(array $data, ApiRepository $repository): ar
 }
 
 /**
- * Strict parser for observation_time (Issue #45): ISO 8601 date and time,
- * seconds and fractional seconds optional, and an explicit offset -- Z or
- * +HH:MM / -HH:MM. A timestamp with no offset is ambiguous (local time or
- * UTC?), so it's rejected rather than guessed. Fractional seconds are
- * accepted and dropped; times are stored to the second.
+ * Parser for observation_time (Issue #45). The one strict rule: the offset
+ * must be explicit. A timestamp with no offset is ambiguous (local time or
+ * UTC?), so it's rejected rather than guessed. Everything else accepts the
+ * forms common libraries actually emit, so app developers aren't tripped
+ * up on formatting:
+ *  - offset Z, +HH:MM, +HHMM or +HH (and the - forms); PHP DATE_ISO8601
+ *    and Python %z write +HHMM
+ *  - T or a space between date and time (RFC 3339 allows both); T/Z any case
+ *  - seconds optional; fractional seconds accepted and dropped (times are
+ *    stored to the second)
+ * Impossible dates and times (Feb 30, hour 24) are rejected.
  */
 function api_parse_observation_time(string $value): int
 {
-    $pattern = '/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2})(?:\.\d+)?)?(?:Z|[+-](\d{2}):(\d{2}))$/';
+    $pattern = '/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2})(?:\.\d+)?)?(?:Z|[+-](\d{2})(?::?(\d{2}))?)$/i';
 
     if (preg_match($pattern, $value, $m) !== 1
         || !checkdate((int) $m[2], (int) $m[3], (int) $m[1])
@@ -122,7 +128,7 @@ function api_parse_observation_time(string $value): int
         api_error_response(
             422,
             'invalid_observation_time',
-            'observation_time must be an ISO 8601 timestamp with an explicit offset, for example 2026-05-23T08:30:00Z.'
+            'observation_time must be an ISO 8601 date and time with an explicit UTC offset, for example 2026-05-23T08:30:00Z or 2026-05-23T10:30:00+02:00.'
         );
     }
 

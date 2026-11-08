@@ -343,8 +343,10 @@ $baseUrl = api_base_url();
         and the response's <code>correction</code> field is <code>true</code>.
       </p>
       <p class="note">
-        <code>observation_time</code> must be ISO 8601 with an explicit offset (<code>Z</code> or <code>+HH:MM</code>);
-        a timestamp without one is rejected with <code>422 invalid_observation_time</code>.
+        <code>observation_time</code> must be an ISO 8601 date and time with an explicit UTC offset
+        (<code>Z</code>, <code>+HH:MM</code>, <code>+HHMM</code> or <code>+HH</code>, or the <code>-</code> forms);
+        a timestamp without one is rejected with <code>422 invalid_observation_time</code>, since the time zone
+        can't be guessed.
         Older clients may also send <code>satellite</code> instead of <code>name</code>,
         <code>status</code> instead of <code>report</code>, and the observation time as the
         <a href="#deprecated">deprecated</a> <code>reported_at</code>, or as separate UTC fields

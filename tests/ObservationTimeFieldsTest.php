@@ -65,10 +65,9 @@ final class ObservationTimeFieldsTest extends TestCase
         return [
             'no offset (ambiguous)' => ["{$day}T08:30:00"],
             'date only' => [$day],
-            'space instead of T' => ["{$day} 08:30:00Z"],
+            'offset with one digit' => ["{$day}T08:30:00+2:00"],
             'impossible date' => ['2026-02-30T08:30:00Z'],
             'hour 24' => ["{$day}T24:00:00Z"],
-            'offset without colon' => ["{$day}T08:30:00+0200"],
             'not a timestamp' => ['yesterday'],
         ];
     }
@@ -80,6 +79,39 @@ final class ObservationTimeFieldsTest extends TestCase
 
         $this->assertSame('invalid_observation_time', $payload['error']['code']);
         $this->assertSame(0, $this->countRows('satellite', "callsign='W5BAD'"));
+    }
+
+    /**
+     * Not too strict: the forms common libraries emit are all accepted, as
+     * long as the offset is explicit. Each is the same instant, 08:30Z.
+     *
+     * @return array<string, array{string}>
+     */
+    public static function acceptedObservationTimeForms(): array
+    {
+        $day = gmdate('Y-m-d', time() - 86400);
+
+        return [
+            'Z' => ["{$day}T08:30:00Z"],
+            '+HH:MM' => ["{$day}T10:30:00+02:00"],
+            '-HH:MM' => ["{$day}T03:30:00-05:00"],
+            '+HHMM (PHP DATE_ISO8601, Python %z)' => ["{$day}T08:30:00+0000"],
+            '-HHMM' => ["{$day}T03:30:00-0500"],
+            '+HH' => ["{$day}T10:30:00+02"],
+            'space instead of T (RFC 3339)' => ["{$day} 08:30:00Z"],
+            'lowercase t and z' => ["{$day}t08:30:00z"],
+            '+05:45 (Nepal)' => ["{$day}T14:15:00+05:45"],
+        ];
+    }
+
+    #[DataProvider('acceptedObservationTimeForms')]
+    public function testObservationTimeAcceptsCommonForms(string $value): void
+    {
+        $day = gmdate('Y-m-d', time() - 86400);
+
+        $payload = $this->postReport(['callsign' => 'W5FRM', 'observation_time' => $value], 201);
+
+        $this->assertSame("{$day}T08:30:00Z", $payload['data']['observation_time']);
     }
 
     public function testObservationTimeAcceptsOmittedSecondsAndFractions(): void
