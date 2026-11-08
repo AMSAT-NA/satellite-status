@@ -328,3 +328,10 @@ CHANGE LOG:
       satellite table three times per page load. Selects exactly the
       same rows; a new test checks both filters against rows on every
       day boundary. No visible change. (Issue #46, PR #62)
+2026-11-08:
+    - API overview (polling guidelines): removed the note that
+      Cache-Control: no-store "will be relaxed in a future release".
+      Issue #56 was closed as not needed at current load, so the page now
+      just states the current header. Keeping your own copy of the data
+      and serving users from it is still recommended. Docs only.
+      (Issue #56, PR #63)

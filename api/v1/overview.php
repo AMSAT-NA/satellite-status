@@ -195,7 +195,7 @@ $baseUrl = api_base_url();
       <li>Reports arrive a few at a time and the status grid summarizes them in 2-hour windows, so polling more often than every <strong>5 minutes</strong> gains you nothing. Please don't.</li>
       <li>Fetch what you need in one request. Use <code>reports.php</code> without <code>name</code>, or <code>summary.php</code>, rather than one request per satellite.</li>
       <li>If you keep your own copy of the reports, use <code>since</code> to fetch only reports newer than your last poll. Clients that re-fetch a rolling window instead (for example, the last 24 hours on every poll, so old reports drop out) don't need <code>since</code>. That's the same number of requests.</li>
-      <li>Apps with many users should poll from one server and serve their users from that copy, rather than having every user's device call this API directly. Caching responses on your own infrastructure is expected and fine, even though responses currently carry <code>Cache-Control: no-store</code>. That header will be relaxed in a future release.</li>
+      <li>Apps with many users should poll from one server and serve their users from that copy, rather than having every user's device call this API directly. Responses carry <code>Cache-Control: no-store</code>, so browsers and HTTP caches won't store them. Keeping a copy of the data on your own server and serving your users from it is expected and fine.</li>
       <li>On errors (<code>5xx</code>, or <code>429</code> if rate limiting is introduced), back off rather than retrying immediately.</li>
     </ul>
 
