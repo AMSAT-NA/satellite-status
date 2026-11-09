@@ -335,3 +335,28 @@ CHANGE LOG:
       just states the current header. Keeping your own copy of the data
       and serving users from it is still recommended. Docs only.
       (Issue #56, PR #63)
+    - API version 1.3. Timestamp fields now match the database column
+      names (additive; nothing removed):
+      - POST /reports.php accepts observation_time: ISO 8601 with an
+        explicit UTC offset (Z, +HH:MM, +HHMM or +HH; a timestamp without an
+        offset is rejected, since the time zone can't be guessed).
+        reported_at and the
+        year/month/day/hour/minute fields still work as deprecated
+        aliases with their old lenient parsing. Sending observation_time
+        and reported_at with different values returns 422
+        conflicting_observation_time. New error codes:
+        invalid_observation_time, future_observation_time.
+      - /reports.php responses (GET and POST) add observation_time and
+        submission_time (when the server received the report; null for
+        reports stored before November 2026). catalog.php and summary.php
+        add latest_observation_time. reported_time and
+        latest_reported_time stay as deprecated aliases with the same
+        values. sat_info.php and satellites.php are unchanged.
+      - Every JSON envelope response has meta.api_version (same value as
+        the X-AMSAT-API-Version header), closing out Issue #32.
+      - Deprecated fields stay for the life of /api/v1; the overview page
+        has new Versioning and Deprecated fields sections. Requests using
+        deprecated input fields are logged with their User-Agent, so we
+        can see who still uses them.
+      - The v1 submit form now sends observation_time.
+      (Issue #45, Issue #32, PR #64)

@@ -24,7 +24,7 @@ api_json_response([
         },
         api_status_values()
     ),
-    'meta' => [
+    'meta' => api_meta([
         'count' => count(api_status_values()),
-    ],
+    ]),
 ]);

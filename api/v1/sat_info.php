@@ -30,7 +30,8 @@ api_legacy_json_response(array_map(
     static function (array $report): array {
         return [
             'name' => $report['name'],
-            'reported_time' => $report['reported_time'],
+            // Legacy shape unchanged: reported_time is observation_time (Issue #45).
+            'reported_time' => $report['observation_time'],
             'callsign' => $report['callsign'],
             'report' => $report['report'],
             'grid_square' => $report['grid_square'],

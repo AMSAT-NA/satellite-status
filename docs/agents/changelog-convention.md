@@ -32,6 +32,9 @@ An entry should include, at minimum:
 - **The PR number** — required, e.g. `(PR #40)` (see "Referencing the
   change" below for why this is the PR number and not a commit SHA)
 - The issue number, if the work traces to one, e.g. `(Issue #38, PR #40)`
+- **The new API version, if the PR changes it**, e.g. "API version 1.3."
+  (`API_VERSION` in `api/v1/lib/version.php`; see its comment for when to
+  bump). The overview page's Versioning section points readers here.
 
 Follow the existing file's format — a flat dated list, oldest to newest.
 Don't restructure it into something else (front matter, JSON, per-entry

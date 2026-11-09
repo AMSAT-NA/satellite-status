@@ -75,4 +75,4 @@ if ($reason !== null) {
     $data['reason'] = $reason;
 }
 
-api_json_response(['data' => $data]);
+api_json_response(['data' => $data, 'meta' => api_meta()]);

@@ -47,6 +47,7 @@ require_once __DIR__ . '/lib/version.php';
         . 'invalid_grid_square, invalid_status, invalid_json. 404: satellite_not_found. '
         . '405: method_not_allowed (any endpoint; the Allow header lists the supported methods). '
         . '422: missing_name, unknown_satellite, invalid_report, invalid_callsign, invalid_grid_square, '
+        . 'invalid_observation_time, conflicting_observation_time, future_observation_time, '
         . 'invalid_reported_at, missing_reported_at, future_reported_at. '
         . '500: query_failed, query_prepare_failed, write_failed. '
         . '503: database_unavailable (any endpoint that reads the database), database_unhealthy (health.php), '
@@ -73,9 +74,11 @@ require_once __DIR__ . '/lib/version.php';
 )]
 #[OA\Schema(
     schema: 'ReportCreate',
-    description: 'New clients should send name, report, callsign, grid_square and reported_at. '
-        . 'The other fields are accepted for compatibility with older clients and the v1 submit form.',
-    required: ['name', 'report', 'callsign', 'reported_at'],
+    description: 'New clients should send name, report, callsign, grid_square and observation_time. '
+        . 'The observation time is required: send observation_time, or one of the deprecated alternatives '
+        . '(reported_at, or year, month, day and hour). '
+        . 'The other fields are accepted for compatibility with older clients.',
+    required: ['name', 'report', 'callsign'],
     properties: [
         new OA\Property(property: 'name', description: 'Satellite API name or display name, as listed by /catalog.php. A display name is resolved to its API name, which is what is stored and returned.', type: 'string', example: 'AO-91'),
         new OA\Property(
@@ -96,26 +99,42 @@ require_once __DIR__ . '/lib/version.php';
         ),
         new OA\Property(property: 'grid_square', description: 'Optional Maidenhead locator (4 or 6 characters).', type: 'string', example: 'EM48'),
         new OA\Property(
-            property: 'reported_at',
-            description: 'Time of the observation (not of submission). Any ISO 8601 timestamp is parsed; send UTC. Must not be in the future.',
+            property: 'observation_time',
+            description: 'When the satellite was heard (not when the report is submitted). ISO 8601 date and time with an '
+                . 'explicit UTC offset: Z, +HH:MM, +HHMM or +HH (or -), for example 2026-05-23T08:30:00Z. A timestamp '
+                . 'without an offset is rejected (invalid_observation_time). A space may replace T. Seconds are optional; '
+                . 'fractional seconds are dropped. Must not be in the '
+                . 'future (future_observation_time). If reported_at is also sent, both must be the same instant, or the '
+                . 'request fails with conflicting_observation_time.',
             type: 'string',
-            format: 'date-time'
+            format: 'date-time',
+            example: '2026-05-23T08:30:00Z'
+        ),
+        new OA\Property(
+            property: 'reported_at',
+            description: 'Deprecated: use observation_time. Kept for the life of /api/v1. Any ISO 8601 timestamp is parsed '
+                . '(a timestamp without an offset is read as UTC). Used only when observation_time is absent.',
+            type: 'string',
+            format: 'date-time',
+            deprecated: true
         ),
         new OA\Property(property: 'satellite', description: 'Alias for name. Used only when name is absent.', type: 'string'),
         new OA\Property(property: 'status', description: 'Alias for report. Used only when report is absent.', type: 'string'),
         new OA\Property(
             property: 'year',
-            description: 'Legacy time fields, used only when reported_at is absent: year, month, day and hour (UTC) '
-                . 'are then all required.',
-            type: 'integer'
+            description: 'Deprecated: use observation_time. Legacy time fields, used only when observation_time and '
+                . 'reported_at are both absent: year, month, day and hour (UTC) are then all required.',
+            type: 'integer',
+            deprecated: true
         ),
-        new OA\Property(property: 'month', description: 'Legacy; see year.', type: 'integer'),
-        new OA\Property(property: 'day', description: 'Legacy; see year.', type: 'integer'),
-        new OA\Property(property: 'hour', description: 'Legacy; see year. 0-23, UTC.', type: 'integer'),
+        new OA\Property(property: 'month', description: 'Deprecated; see year.', type: 'integer', deprecated: true),
+        new OA\Property(property: 'day', description: 'Deprecated; see year.', type: 'integer', deprecated: true),
+        new OA\Property(property: 'hour', description: 'Deprecated; see year. 0-23, UTC.', type: 'integer', deprecated: true),
         new OA\Property(
             property: 'minute',
-            description: 'Legacy; see year. 0-59. Defaults to 30 if omitted, so legacy clients should always send it.',
-            type: 'integer'
+            description: 'Deprecated; see year. 0-59. Defaults to 30 if omitted, so legacy clients should always send it.',
+            type: 'integer',
+            deprecated: true
         ),
     ],
     type: 'object'
@@ -126,7 +145,9 @@ require_once __DIR__ . '/lib/version.php';
         new OA\Property(property: 'id', type: 'integer'),
         new OA\Property(property: 'name', type: 'string', example: 'AO-91'),
         new OA\Property(property: 'satellite_display_name', type: 'string', nullable: true),
-        new OA\Property(property: 'reported_time', type: 'string', format: 'date-time'),
+        new OA\Property(property: 'observation_time', description: 'When the satellite was heard (UTC).', type: 'string', format: 'date-time'),
+        new OA\Property(property: 'submission_time', description: 'When the server received the report (UTC). Null for reports stored before receive times were recorded (November 2026).', type: 'string', format: 'date-time', nullable: true),
+        new OA\Property(property: 'reported_time', description: 'Deprecated: use observation_time. Same value.', type: 'string', format: 'date-time', deprecated: true),
         new OA\Property(property: 'callsign', type: 'string'),
         new OA\Property(property: 'report', type: 'string'),
         new OA\Property(property: 'grid_square', type: 'string', nullable: true),
@@ -156,11 +177,19 @@ require_once __DIR__ . '/lib/version.php';
             type: 'integer'
         ),
         new OA\Property(
-            property: 'latest_reported_time',
+            property: 'latest_observation_time',
             description: 'Only with include_stats=true. Observation time of the newest report; null if there are none.',
             type: 'string',
             format: 'date-time',
             nullable: true
+        ),
+        new OA\Property(
+            property: 'latest_reported_time',
+            description: 'Only with include_stats=true. Deprecated: use latest_observation_time. Same value.',
+            type: 'string',
+            format: 'date-time',
+            nullable: true,
+            deprecated: true
         ),
     ],
     type: 'object'
@@ -172,7 +201,8 @@ require_once __DIR__ . '/lib/version.php';
         new OA\Property(property: 'satellite_display_name', type: 'string', nullable: true),
         new OA\Property(property: 'report', type: 'string', enum: ['Heard', 'Telemetry Only', 'Not Heard', 'Crew Active']),
         new OA\Property(property: 'report_count', type: 'integer'),
-        new OA\Property(property: 'latest_reported_time', type: 'string', format: 'date-time'),
+        new OA\Property(property: 'latest_observation_time', description: 'Observation time of the newest counted report in the window.', type: 'string', format: 'date-time'),
+        new OA\Property(property: 'latest_reported_time', description: 'Deprecated: use latest_observation_time. Same value.', type: 'string', format: 'date-time', deprecated: true),
     ],
     type: 'object'
 )]
@@ -242,7 +272,10 @@ final class ApiV1OpenApiSpec
                         ),
                         new OA\Property(
                             property: 'meta',
-                            properties: [new OA\Property(property: 'count', type: 'integer')],
+                            properties: [
+                                new OA\Property(property: 'count', type: 'integer'),
+                                new OA\Property(property: 'api_version', description: 'API version, MAJOR.MINOR. Same value as the X-AMSAT-API-Version header.', type: 'string', example: '1.3'),
+                            ],
                             type: 'object'
                         ),
                     ],
@@ -277,7 +310,8 @@ final class ApiV1OpenApiSpec
             new OA\Parameter(
                 name: 'since',
                 in: 'query',
-                description: 'Return reports observed at or after this time (ISO 8601). Overrides hours. '
+                description: 'Return reports observed at or after this time (ISO 8601): compared with observation_time, '
+                    . 'not submission_time. Overrides hours. '
                     . 'An unparseable value returns 400 invalid_since.',
                 schema: new OA\Schema(type: 'string', format: 'date-time')
             ),
@@ -330,6 +364,7 @@ final class ApiV1OpenApiSpec
                                     description: 'The hours value after clamping (default 72). Still present when since was given, but not applied.',
                                     type: 'integer'
                                 ),
+                                new OA\Property(property: 'api_version', description: 'API version, MAJOR.MINOR. Same value as the X-AMSAT-API-Version header.', type: 'string', example: '1.3'),
                             ],
                             type: 'object'
                         ),
@@ -369,7 +404,9 @@ final class ApiV1OpenApiSpec
                             properties: [
                                 new OA\Property(property: 'id', type: 'integer'),
                                 new OA\Property(property: 'name', type: 'string'),
-                                new OA\Property(property: 'reported_time', type: 'string', format: 'date-time'),
+                                new OA\Property(property: 'observation_time', description: 'When the satellite was heard (UTC).', type: 'string', format: 'date-time'),
+                                new OA\Property(property: 'submission_time', description: 'When the server received this report (UTC).', type: 'string', format: 'date-time'),
+                                new OA\Property(property: 'reported_time', description: 'Deprecated: use observation_time. Same value.', type: 'string', format: 'date-time', deprecated: true),
                                 new OA\Property(property: 'callsign', type: 'string'),
                                 new OA\Property(property: 'report', type: 'string'),
                                 new OA\Property(property: 'grid_square', type: 'string'),
@@ -387,12 +424,17 @@ final class ApiV1OpenApiSpec
                             ],
                             type: 'object'
                         ),
+                        new OA\Property(
+                            property: 'meta',
+                            properties: [new OA\Property(property: 'api_version', description: 'API version, MAJOR.MINOR. Same value as the X-AMSAT-API-Version header.', type: 'string', example: '1.3')],
+                            type: 'object'
+                        ),
                     ],
                     type: 'object'
                 )
             ),
             new OA\Response(response: 400, description: 'Request body is not valid JSON (invalid_json).', content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
-            new OA\Response(response: 422, description: 'Validation failed (missing_name, unknown_satellite, invalid_report, invalid_callsign, invalid_grid_square, invalid_reported_at, missing_reported_at or future_reported_at).', content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
+            new OA\Response(response: 422, description: 'Validation failed (missing_name, unknown_satellite, invalid_report, invalid_callsign, invalid_grid_square, invalid_observation_time, conflicting_observation_time, future_observation_time, invalid_reported_at, missing_reported_at or future_reported_at).', content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
         ]
     )]
     public function reports(): void
@@ -429,6 +471,7 @@ final class ApiV1OpenApiSpec
                             properties: [
                                 new OA\Property(property: 'hours', description: 'The window applied, after clamping.', type: 'integer'),
                                 new OA\Property(property: 'count', type: 'integer'),
+                                new OA\Property(property: 'api_version', description: 'API version, MAJOR.MINOR. Same value as the X-AMSAT-API-Version header.', type: 'string', example: '1.3'),
                             ],
                             type: 'object'
                         ),
@@ -461,7 +504,10 @@ final class ApiV1OpenApiSpec
                         ),
                         new OA\Property(
                             property: 'meta',
-                            properties: [new OA\Property(property: 'count', type: 'integer')],
+                            properties: [
+                                new OA\Property(property: 'count', type: 'integer'),
+                                new OA\Property(property: 'api_version', description: 'API version, MAJOR.MINOR. Same value as the X-AMSAT-API-Version header.', type: 'string', example: '1.3'),
+                            ],
                             type: 'object'
                         ),
                     ],
@@ -494,7 +540,7 @@ final class ApiV1OpenApiSpec
                             properties: [
                                 new OA\Property(property: 'status', type: 'string', enum: ['ok', 'degraded']),
                                 new OA\Property(property: 'reason', type: 'string', enum: ['no_reports', 'stale_data'], description: 'Present only when status is "degraded".'),
-                                new OA\Property(property: 'version', type: 'string', example: '1.2'),
+                                new OA\Property(property: 'version', type: 'string', example: '1.3'),
                                 new OA\Property(property: 'time', type: 'string', format: 'date-time'),
                                 new OA\Property(
                                     property: 'data_freshness',
@@ -506,6 +552,11 @@ final class ApiV1OpenApiSpec
                                     type: 'object'
                                 ),
                             ],
+                            type: 'object'
+                        ),
+                        new OA\Property(
+                            property: 'meta',
+                            properties: [new OA\Property(property: 'api_version', description: 'API version, MAJOR.MINOR. Same value as the X-AMSAT-API-Version header.', type: 'string', example: '1.3')],
                             type: 'object'
                         ),
                     ],
