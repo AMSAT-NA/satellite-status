@@ -28,3 +28,28 @@ RUN printf '%s\n' 'AliasMatch "^/api$" "/var/www/html/api/index.php"' \
 # publicly fetchable.
 COPY index.php /var/www/html/api/index.php
 COPY v1/ /var/www/html/api/v1/
+
+# ── Scheduler for the daily gpdata-sync (Issue #25) ─────────────────────
+# supercronic: a cron built for containers. It runs as a child of this
+# container's entrypoint alongside Apache, passes the container's env
+# (DB credentials, GPDATA_FEED_URL) through to jobs, and logs every run
+# to stdout, so results show up in `docker logs`. Pinned by version and
+# checksum (SHA-1 is what upstream publishes); bump via a deliberate PR.
+ENV SUPERCRONIC_URL=https://github.com/aptible/supercronic/releases/download/v0.2.44/supercronic-linux-amd64 \
+    SUPERCRONIC_SHA1SUM=6eb0a8e1e6673675dc67668c1a9b6409f79c37bc \
+    SUPERCRONIC=supercronic-linux-amd64
+RUN curl -fsSLO "$SUPERCRONIC_URL" \
+    && echo "${SUPERCRONIC_SHA1SUM}  ${SUPERCRONIC}" | sha1sum -c - \
+    && chmod +x "$SUPERCRONIC" \
+    && mv "$SUPERCRONIC" "/usr/local/bin/${SUPERCRONIC}" \
+    && ln -s "/usr/local/bin/${SUPERCRONIC}" /usr/local/bin/supercronic
+
+# Command-line jobs live OUTSIDE the web root, so they can't be requested
+# over HTTP.
+COPY bin/ /opt/satellite-status/bin/
+COPY crontab /etc/satellite-status/crontab
+COPY docker-entrypoint.sh /usr/local/bin/satellite-status-entrypoint
+RUN chmod +x /usr/local/bin/satellite-status-entrypoint
+
+ENTRYPOINT ["satellite-status-entrypoint"]
+CMD ["apache2-foreground"]

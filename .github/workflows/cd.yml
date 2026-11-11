@@ -184,6 +184,8 @@ jobs:
           MARIADB_USER=${{ vars.MYSQL_USER }}
           MARIADB_PASSWORD=${{ secrets.MYSQL_PASSWORD }}
           APP_COMMIT_SHA=${{ github.sha }}
+          GPDATA_SYNC_TOKEN=${{ secrets.GPDATA_SYNC_TOKEN }}
+          GPDATA_FEED_URL=${{ vars.GPDATA_FEED_URL }}
           ENVEOF
           # Deploy timestamp isn't a GitHub Actions expression value, so it's
           # appended separately (outside the quoted heredoc) rather than

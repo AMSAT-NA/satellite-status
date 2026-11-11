@@ -31,6 +31,7 @@ if (empty($_SESSION["auth_status"])) {
         <td>Satellite Name</td>
         <td>HTML Name</td>
         <td>Website</td>
+        <td title="From the AMSAT GP feed via gpdata-sync; not editable here">NORAD ID</td>
         <td></td>
       </tr>
     <?php
@@ -53,6 +54,7 @@ if (empty($_SESSION["auth_status"])) {
           <td><?php echo htmlspecialchars($row["name"], ENT_QUOTES, 'UTF-8'); ?></td>
           <td><?php echo htmlspecialchars($row["html_element_name"], ENT_QUOTES, 'UTF-8'); ?></td>
           <td><a href="<?php echo htmlspecialchars($row["website"] ?? '', ENT_QUOTES, 'UTF-8'); ?>" target="_blank"><?php echo htmlspecialchars($row["website"] ?? '', ENT_QUOTES, 'UTF-8'); ?></a></td>
+          <td><?php echo $row["norad_cat_id"] === null ? '&mdash;' : (int) $row["norad_cat_id"]; ?></td>
           <td>
             <a href="<?php echo htmlspecialchars($siteUrl, ENT_QUOTES, 'UTF-8'); ?>/admin/edit_satellite.php?id=<?php echo (int)$row["id"]; ?>">Edit</a>
             <a href="<?php echo htmlspecialchars($siteUrl, ENT_QUOTES, 'UTF-8'); ?>/admin/delete_satellite.php?id=<?php echo (int)$row["id"]; ?>" onclick="return confirm_alert(this);">Delete</a>

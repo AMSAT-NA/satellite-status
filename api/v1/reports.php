@@ -98,6 +98,7 @@ api_json_response([
                 'id' => (int) $report['id'],
                 'name' => $report['name'],
                 'satellite_display_name' => $report['satellite_display_name'],
+                'norad_cat_id' => $report['norad_cat_id'] === null ? null : (int) $report['norad_cat_id'],
                 'observation_time' => $report['observation_time'],
                 'submission_time' => $report['submission_time'],
                 // Deprecated alias of observation_time (Issue #45).

@@ -360,3 +360,28 @@ CHANGE LOG:
         can see who still uses them.
       - The v1 submit form now sends observation_time.
       (Issue #45, Issue #32, PR #64)
+2026-11-11:
+    - API version 1.4. NORAD catalog numbers (Issue #25):
+      - catalog.php and reports.php return norad_cat_id: the satellite's
+        NORAD catalog number (the GP/OMM NORAD_CAT_ID field), shared by all
+        modes of a spacecraft. null until the spacecraft appears in the
+        AMSAT GP feed with an ID.
+      - IDs come only from the AMSAT GP feed (GPDATA_FEED_URL; defaults to
+        the newark192 feed), via gpdata-sync. Names are matched ignoring
+        mode suffixes, dashes, leading zeros and case, and either side of a
+        bracketed alternate name. A spacecraft not in the feed keeps its
+        ID; an unusable feed aborts the run with no writes; ambiguous
+        names are skipped.
+      - New POST /api/v1/gpdata-sync.php runs a sync on demand. Admin only:
+        requires GPDATA_SYNC_TOKEN as a Bearer token. Documented in
+        OpenAPI (Admin tag) and on the overview page.
+      - A daily sync (06:17 UTC) runs inside the API container via a
+        pinned supercronic scheduler, as www-data. Every run is recorded in
+        the new gpdata_sync_run table.
+      - Admin dashboard: last run, and a "Sync now" button showing what
+        changed and what isn't in the feed. Admin pages show NORAD IDs
+        read-only.
+      - Schema: satellite_name.norad_cat_id and gpdata_sync_run
+        (db/migrations/2026_11_11_*; run before deploying). CI's
+        migration dry run now applies every migration in order.
+      (Issue #25, PR #TBD)

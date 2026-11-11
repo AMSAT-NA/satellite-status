@@ -1,0 +1,7 @@
+# Scheduled jobs for the API container, run by supercronic (see Dockerfile
+# and docker-entrypoint.sh). Times are UTC.
+#
+# Daily GP data sync (Issue #25): NORAD catalog numbers from the AMSAT GP
+# feed. Runs after the feed's own daily update; the admin "Sync now" button
+# (POST /api/v1/gpdata-sync.php) covers anything more urgent, e.g. launches.
+17 6 * * * php /opt/satellite-status/bin/gpdata-sync.php

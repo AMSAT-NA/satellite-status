@@ -281,6 +281,20 @@ $baseUrl = api_base_url();
       unchanged.
     </p>
 
+    <h3 id="norad">NORAD catalog numbers</h3>
+    <p>
+      <code>norad_cat_id</code> is the satellite's NORAD catalog number, also called the satellite catalog number: the
+      <code>NORAD_CAT_ID</code> field of CCSDS Orbit Mean-Elements Message (OMM) / GP data, an integer of up to nine
+      digits. Use it to look up orbital elements, for example on CelesTrak or Space-Track.
+    </p>
+    <p>
+      It comes only from the AMSAT GP feed, synced daily (see <code>/gpdata-sync.php</code> below), and is the same on
+      every mode of one spacecraft. It is <code>null</code> until the satellite appears in the feed with an ID; newly
+      launched satellites can take a few days. If an ID looks wrong, please
+      <a href="https://github.com/AMSAT-NA/satellite-status/issues">open an issue</a>; it is fixed at the source, not in
+      this API.
+    </p>
+
     <h3 id="support">Contact and support</h3>
     <ol>
       <li>Open an issue on <a href="https://github.com/AMSAT-NA/satellite-status/issues">GitHub</a>.</li>
@@ -295,7 +309,11 @@ $baseUrl = api_base_url();
 
     <div class="endpoint">
       <h3><span class="method">GET</span><code>/catalog.php</code></h3>
-      <p>Lists satellites with links and optional report statistics. Use <code>name</code> for exact lookup.</p>
+      <p>
+        Lists satellites with links and optional report statistics. Use <code>name</code> for exact lookup.
+        Each entry has <code>norad_cat_id</code>, the satellite's <a href="#norad">NORAD catalog number</a>
+        (<code>null</code> if not known yet). <code>/reports.php</code> includes it on every report too.
+      </p>
       <table>
         <tr><th>Parameter</th><th>Type</th><th>Description</th></tr>
         <tr><td><code>name</code></td><td>string</td><td>Optional API name, for example <code>AO-91</code>.</td></tr>
@@ -381,6 +399,38 @@ $baseUrl = api_base_url();
         returns HTTP <code>503</code> instead.
       </p>
       <pre><code>curl "<?php echo htmlspecialchars($baseUrl); ?>/health.php"</code></pre>
+    </div>
+
+    <div class="endpoint">
+      <h3><span class="method post">POST</span><code>/gpdata-sync.php</code> <small>(admin only)</small></h3>
+      <p>
+        <strong>Not for API consumers:</strong> it requires an operator token (<code>Authorization: Bearer &lt;token&gt;</code>,
+        configured on the server as <code>GPDATA_SYNC_TOKEN</code>). It's documented here so the behaviour behind
+        <code>norad_cat_id</code> is public.
+      </p>
+      <p>
+        Updates every catalog satellite's <code>norad_cat_id</code> from the AMSAT GP (general perturbations) feed,
+        the only source of these IDs. The same sync runs automatically once a day; this endpoint runs it on demand, for
+        example during a launch, and is what the admin dashboard's "Sync now" button calls. No request body.
+      </p>
+      <ul>
+        <li>The feed is validated first. If it can't be read, isn't valid JSON, has malformed records or has too few
+          records, the run is <code>aborted</code> and nothing is written.</li>
+        <li>Catalog satellites are matched to the feed by name, ignoring the mode suffix (<code>AO-123_[FM]</code> is
+          <code>AO-123</code>), dashes, leading zeros (<code>AO-07</code> = <code>AO-7</code>) and case. Either side of a
+          bracketed alternate name matches (<code>UmKA 1 (RS40S)</code> matches <code>RS40S</code>).</li>
+        <li>A matched spacecraft gets its ID on all of its modes (both QO-100 rows, all ISS rows).</li>
+        <li>A spacecraft not in the feed, or in the feed without an ID yet, keeps its current ID. A spacecraft whose
+          name matches several feed records with different IDs is skipped, never guessed. These are listed in the
+          response.</li>
+        <li>Only one run happens at a time; a second request gets <code>409 sync_in_progress</code>.</li>
+      </ul>
+      <p>
+        Responses: <code>200</code> with the run (<code>data.status</code> <code>ok</code> or <code>aborted</code>, plus
+        what changed and what didn't match); <code>401 unauthorized</code>; <code>409 sync_in_progress</code>;
+        <code>500 sync_failed</code>; <code>503 sync_not_configured</code> when no token is set on the server.
+      </p>
+      <pre><code>curl -X POST -H "Authorization: Bearer $GPDATA_SYNC_TOKEN" "<?php echo htmlspecialchars($baseUrl); ?>/gpdata-sync.php"</code></pre>
     </div>
   </section>
 

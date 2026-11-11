@@ -8,6 +8,7 @@ services:
     environment:
       SITE_URL: ${SITE_URL:-http://localhost:8080}
       API_INTERNAL_URL: http://api/api/v1
+      GPDATA_SYNC_TOKEN: ${GPDATA_SYNC_TOKEN:-}
       MYSQL_HOST: db
       MYSQL_USER: satellite
       MYSQL_PASSWORD: satellite
@@ -50,6 +51,12 @@ services:
       MYSQL_USER: satellite
       MYSQL_PASSWORD: satellite
       MYSQL_DATABASE: satellite_status
+      # Issue #25: no daily scheduler locally; run the sync on demand with
+      #   docker compose exec api php /opt/satellite-status/bin/gpdata-sync.php
+      # or set a token here to try the admin "Sync now" button.
+      GPDATA_SCHEDULER: "off"
+      GPDATA_SYNC_TOKEN: ${GPDATA_SYNC_TOKEN:-}
+      GPDATA_FEED_URL: ${GPDATA_FEED_URL:-}
     volumes:
       - ./api/index.php:/var/www/html/api/index.php
       - ./api/v1:/var/www/html/api/v1
