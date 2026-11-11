@@ -46,11 +46,7 @@ function runGpdataSync($apiInternalUrl, $token) {
     $status = 0;
     // http_get_last_response_headers() (PHP 8.4+): $http_response_header is
     // deprecated in PHP 8.5, and its notice would break the redirect below.
-    // The fallback is only for PHP < 8.4 (CI's Playwright job runs PHP 8.3).
-    $responseHeaders = function_exists('http_get_last_response_headers')
-        ? (http_get_last_response_headers() ?? [])
-        : ($http_response_header ?? []);
-    $statusLine = $responseHeaders[0] ?? '';
+    $statusLine = (http_get_last_response_headers() ?? [])[0] ?? '';
     if (preg_match('#^HTTP/\S+\s+(\d{3})#', $statusLine, $m)) {
         $status = (int) $m[1];
     }
