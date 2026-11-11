@@ -24,6 +24,9 @@ api_json_response([
                 'name' => $satellite['html_element_name'],
                 'display_name' => $satellite['name'],
                 'website' => $satellite['website'],
+                // NORAD catalog number from the AMSAT GP feed (Issue #25);
+                // null until the spacecraft is in the feed with an ID.
+                'norad_cat_id' => $satellite['norad_cat_id'] === null ? null : (int) $satellite['norad_cat_id'],
                 'links' => [
                     'self' => api_self_url('catalog.php?name=' . rawurlencode($satellite['html_element_name'])),
                     'reports' => api_self_url('reports.php?name=' . rawurlencode($satellite['html_element_name'])),

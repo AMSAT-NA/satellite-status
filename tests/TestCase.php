@@ -114,7 +114,7 @@ abstract class TestCase extends PHPUnitTestCase
         // Order doesn't matter -- no foreign keys -- but TRUNCATE rather
         // than DELETE so AUTO_INCREMENT counters reset and ids are stable
         // across runs.
-        foreach (['satellite', 'satellite_name', 'users'] as $table) {
+        foreach (['satellite', 'satellite_name', 'users', 'gpdata_sync_run'] as $table) {
             if (!$this->db->query("TRUNCATE TABLE `{$table}`")) {
                 throw new \RuntimeException("TRUNCATE {$table} failed: {$this->db->error}");
             }

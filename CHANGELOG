@@ -367,3 +367,36 @@ CHANGE LOG:
       PHP image and Playwright used Ubuntu's PHP 8.3. A PHP upgrade is now
       just the two FROM lines, and CI tests the new version with it. CI
       only; no app change. (PR #66)
+    - API version 1.4. NORAD catalog numbers (Issue #25):
+      - catalog.php and reports.php return norad_cat_id: the satellite's
+        NORAD catalog number (the GP/OMM NORAD_CAT_ID field), shared by all
+        modes of a spacecraft. null until the spacecraft appears in the
+        AMSAT GP feed with an ID.
+      - IDs come only from the AMSAT GP feed, via gpdata-sync. The feed
+        address is required config with no default in the code: the
+        GPDATA_FEED_URL repository variable, written to the server's .env
+        by CD. A new CI job fails if it's empty, not https, or doesn't
+        serve a valid feed; a run without it aborts and records why. The
+        same job fails if the GPDATA_SYNC_TOKEN secret is missing or
+        shorter than 32 characters (the only secret passed to CI). Names are matched ignoring
+        mode suffixes, dashes, leading zeros and case, and either side of a
+        bracketed alternate name. A spacecraft not in the feed keeps its
+        ID; an unusable feed aborts the run with no writes; ambiguous
+        names are skipped.
+      - New POST /api/v1/gpdata-sync.php runs a sync on demand. Admin only:
+        requires GPDATA_SYNC_TOKEN as a Bearer token. Documented in
+        OpenAPI (Admin tag) and on the overview page.
+      - A daily sync (06:17 UTC) runs inside the API container via a
+        pinned supercronic scheduler, as www-data. Every run is recorded in
+        the new gpdata_sync_run table.
+      - Admin dashboard: last run, and a "Sync now" button showing what
+        changed and what isn't in the feed. Admin pages show NORAD IDs
+        read-only.
+      - Schema: satellite_name.norad_cat_id and gpdata_sync_run
+        (db/migrations/2026_11_11_*; run before deploying). CI's
+        migration dry run now applies every migration in order.
+      - submit.php reads the API response status with
+        http_get_last_response_headers() instead of $http_response_header,
+        which is deprecated in PHP 8.5 and removed in PHP 9. The new
+        gpdata-sync code uses the same call.
+      (Issue #25, PR #65)

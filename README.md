@@ -35,6 +35,8 @@ The app is configured entirely via environment variables — there is no config 
 | `MYSQL_USER` | Database username |
 | `MYSQL_PASSWORD` | Database password |
 | `MYSQL_DATABASE` | Database name |
+| `GPDATA_FEED_URL` | **Required.** Address of the AMSAT GP feed that gpdata-sync reads NORAD catalog numbers from (must be `https://`). It has no default in the code; this is the only place it's defined. In this repo it's the **repository variable** `GPDATA_FEED_URL` (Settings → Secrets and variables → Actions → Variables): CD writes it to the server's `.env`, and CI's `check-gpdata-feed` job fails if it's empty or doesn't serve a valid feed. Without it, sync runs abort and record why. Read by the `api` container. |
+| `GPDATA_SYNC_TOKEN` | **Required for on-demand sync.** Shared secret for `POST /api/v1/gpdata-sync.php` and the admin dashboard's "Sync now" button; send as `Authorization: Bearer <token>`. In this repo it's the **repository secret** `GPDATA_SYNC_TOKEN` (Settings → Secrets and variables → Actions → Secrets), written to `.env` by CD and read by both the `api` and `frontend` containers. Generate with `openssl rand -hex 32`. CI's `check-gpdata-feed` job fails if it's missing or shorter than 32 characters; it's the only secret passed to CI (explicitly, not `secrets: inherit`). Without it, the endpoint returns `503 sync_not_configured`; the daily scheduled sync doesn't need it. |
 
 Pass these to the container at runtime (e.g. via `docker run -e`, `docker compose`, or your orchestrator's secret/env injection).
 

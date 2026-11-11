@@ -34,7 +34,51 @@ require_once __DIR__ . '/lib/version.php';
         new OA\Tag(name: 'Reports', description: 'Satellite status report endpoints'),
         new OA\Tag(name: 'Metadata', description: 'API metadata and health endpoints'),
         new OA\Tag(name: 'Legacy', description: 'Compatibility endpoints for existing clients'),
+        new OA\Tag(name: 'Admin', description: 'Operator endpoints. Require a token; not for API consumers.'),
     ]
+)]
+#[OA\SecurityScheme(
+    securityScheme: 'gpdataSyncToken',
+    type: 'http',
+    scheme: 'bearer',
+    description: 'Shared secret configured on the server as GPDATA_SYNC_TOKEN. Held by AMSAT operators and the admin '
+        . 'dashboard only; not issued to API consumers.'
+)]
+#[OA\Schema(
+    schema: 'GpdataSyncRun',
+    description: 'One gpdata-sync run.',
+    properties: [
+        new OA\Property(property: 'run_id', type: 'integer'),
+        new OA\Property(property: 'trigger', description: '"scheduled" (the daily run) or "manual" (this endpoint).', type: 'string', enum: ['scheduled', 'manual']),
+        new OA\Property(property: 'status', description: '"ok": synced. "aborted": the feed could not be used (unreachable, invalid JSON, malformed or too few records); nothing was written; see reason.', type: 'string', enum: ['ok', 'aborted']),
+        new OA\Property(property: 'started_at', type: 'string', format: 'date-time'),
+        new OA\Property(property: 'finished_at', type: 'string', format: 'date-time'),
+        new OA\Property(property: 'feed_records', description: 'Records in the feed. Null if the feed could not be read.', type: 'integer', nullable: true),
+        new OA\Property(property: 'matched', description: 'Catalog spacecraft matched to a feed record with an ID. Null when aborted.', type: 'integer', nullable: true),
+        new OA\Property(
+            property: 'changed',
+            description: 'Spacecraft whose norad_cat_id was set or corrected by this run (on all of their mode rows).',
+            type: 'array',
+            items: new OA\Items(properties: [
+                new OA\Property(property: 'spacecraft', type: 'string', example: 'QO-100'),
+                new OA\Property(property: 'from', description: 'Previous ID; null if none was set.', type: 'integer', nullable: true),
+                new OA\Property(property: 'to', type: 'integer', example: 43700),
+            ], type: 'object')
+        ),
+        new OA\Property(property: 'not_in_feed', description: 'Catalog spacecraft with no record in the feed. Their IDs are left unchanged.', type: 'array', items: new OA\Items(type: 'string')),
+        new OA\Property(property: 'in_feed_without_id', description: 'Catalog spacecraft in the feed whose NORAD_CAT_ID is null (not assigned yet). Left unchanged.', type: 'array', items: new OA\Items(type: 'string')),
+        new OA\Property(
+            property: 'ambiguous',
+            description: 'Catalog spacecraft whose name matched several feed records with different IDs. Skipped, never guessed.',
+            type: 'array',
+            items: new OA\Items(properties: [
+                new OA\Property(property: 'spacecraft', type: 'string'),
+                new OA\Property(property: 'feed', type: 'array', items: new OA\Items(type: 'string')),
+            ], type: 'object')
+        ),
+        new OA\Property(property: 'reason', description: 'Why the run aborted. Null when status is "ok".', type: 'string', nullable: true),
+    ],
+    type: 'object'
 )]
 #[OA\Schema(
     schema: 'ErrorResponse',
@@ -145,6 +189,15 @@ require_once __DIR__ . '/lib/version.php';
         new OA\Property(property: 'id', type: 'integer'),
         new OA\Property(property: 'name', type: 'string', example: 'AO-91'),
         new OA\Property(property: 'satellite_display_name', type: 'string', nullable: true),
+        new OA\Property(
+            property: 'norad_cat_id',
+            description: 'NORAD catalog number (satellite catalog number): the NORAD_CAT_ID of the CCSDS OMM / GP data, '
+                . 'an integer of up to nine digits. Taken from the AMSAT GP feed and kept current by gpdata-sync; '
+                . 'shared by every mode of the same spacecraft. Null until the spacecraft appears in the feed with an ID.',
+            type: 'integer',
+            nullable: true,
+            example: 43700
+        ),
         new OA\Property(property: 'observation_time', description: 'When the satellite was heard (UTC).', type: 'string', format: 'date-time'),
         new OA\Property(property: 'submission_time', description: 'When the server received the report (UTC). Null for reports stored before receive times were recorded (November 2026).', type: 'string', format: 'date-time', nullable: true),
         new OA\Property(property: 'reported_time', description: 'Deprecated: use observation_time. Same value.', type: 'string', format: 'date-time', deprecated: true),
@@ -161,6 +214,15 @@ require_once __DIR__ . '/lib/version.php';
         new OA\Property(property: 'name', type: 'string', example: 'AO-91'),
         new OA\Property(property: 'display_name', type: 'string', example: 'AO-91 Mode U/v FM'),
         new OA\Property(property: 'website', type: 'string'),
+        new OA\Property(
+            property: 'norad_cat_id',
+            description: 'NORAD catalog number (satellite catalog number): the NORAD_CAT_ID of the CCSDS OMM / GP data, '
+                . 'an integer of up to nine digits. Taken from the AMSAT GP feed and kept current by gpdata-sync; '
+                . 'shared by every mode of the same spacecraft. Null until the spacecraft appears in the feed with an ID.',
+            type: 'integer',
+            nullable: true,
+            example: 43700
+        ),
         new OA\Property(
             property: 'links',
             properties: [
@@ -274,7 +336,7 @@ final class ApiV1OpenApiSpec
                             property: 'meta',
                             properties: [
                                 new OA\Property(property: 'count', type: 'integer'),
-                                new OA\Property(property: 'api_version', description: 'API version, MAJOR.MINOR. Same value as the X-AMSAT-API-Version header.', type: 'string', example: '1.3'),
+                                new OA\Property(property: 'api_version', description: 'API version, MAJOR.MINOR. Same value as the X-AMSAT-API-Version header.', type: 'string', example: '1.4'),
                             ],
                             type: 'object'
                         ),
@@ -364,7 +426,7 @@ final class ApiV1OpenApiSpec
                                     description: 'The hours value after clamping (default 72). Still present when since was given, but not applied.',
                                     type: 'integer'
                                 ),
-                                new OA\Property(property: 'api_version', description: 'API version, MAJOR.MINOR. Same value as the X-AMSAT-API-Version header.', type: 'string', example: '1.3'),
+                                new OA\Property(property: 'api_version', description: 'API version, MAJOR.MINOR. Same value as the X-AMSAT-API-Version header.', type: 'string', example: '1.4'),
                             ],
                             type: 'object'
                         ),
@@ -426,7 +488,7 @@ final class ApiV1OpenApiSpec
                         ),
                         new OA\Property(
                             property: 'meta',
-                            properties: [new OA\Property(property: 'api_version', description: 'API version, MAJOR.MINOR. Same value as the X-AMSAT-API-Version header.', type: 'string', example: '1.3')],
+                            properties: [new OA\Property(property: 'api_version', description: 'API version, MAJOR.MINOR. Same value as the X-AMSAT-API-Version header.', type: 'string', example: '1.4')],
                             type: 'object'
                         ),
                     ],
@@ -471,7 +533,7 @@ final class ApiV1OpenApiSpec
                             properties: [
                                 new OA\Property(property: 'hours', description: 'The window applied, after clamping.', type: 'integer'),
                                 new OA\Property(property: 'count', type: 'integer'),
-                                new OA\Property(property: 'api_version', description: 'API version, MAJOR.MINOR. Same value as the X-AMSAT-API-Version header.', type: 'string', example: '1.3'),
+                                new OA\Property(property: 'api_version', description: 'API version, MAJOR.MINOR. Same value as the X-AMSAT-API-Version header.', type: 'string', example: '1.4'),
                             ],
                             type: 'object'
                         ),
@@ -506,7 +568,7 @@ final class ApiV1OpenApiSpec
                             property: 'meta',
                             properties: [
                                 new OA\Property(property: 'count', type: 'integer'),
-                                new OA\Property(property: 'api_version', description: 'API version, MAJOR.MINOR. Same value as the X-AMSAT-API-Version header.', type: 'string', example: '1.3'),
+                                new OA\Property(property: 'api_version', description: 'API version, MAJOR.MINOR. Same value as the X-AMSAT-API-Version header.', type: 'string', example: '1.4'),
                             ],
                             type: 'object'
                         ),
@@ -540,7 +602,7 @@ final class ApiV1OpenApiSpec
                             properties: [
                                 new OA\Property(property: 'status', type: 'string', enum: ['ok', 'degraded']),
                                 new OA\Property(property: 'reason', type: 'string', enum: ['no_reports', 'stale_data'], description: 'Present only when status is "degraded".'),
-                                new OA\Property(property: 'version', type: 'string', example: '1.3'),
+                                new OA\Property(property: 'version', type: 'string', example: '1.4'),
                                 new OA\Property(property: 'time', type: 'string', format: 'date-time'),
                                 new OA\Property(
                                     property: 'data_freshness',
@@ -556,7 +618,7 @@ final class ApiV1OpenApiSpec
                         ),
                         new OA\Property(
                             property: 'meta',
-                            properties: [new OA\Property(property: 'api_version', description: 'API version, MAJOR.MINOR. Same value as the X-AMSAT-API-Version header.', type: 'string', example: '1.3')],
+                            properties: [new OA\Property(property: 'api_version', description: 'API version, MAJOR.MINOR. Same value as the X-AMSAT-API-Version header.', type: 'string', example: '1.4')],
                             type: 'object'
                         ),
                     ],
@@ -612,6 +674,46 @@ new OA\Response(response: 503, description: 'Database is unavailable (database_u
         ]
     )]
     public function legacy(): void
+    {
+    }
+
+    #[OA\Post(
+        path: '/gpdata-sync.php',
+        operationId: 'runGpdataSync',
+        summary: 'Run a GP data sync now (admin only).',
+        description: 'Updates each catalog satellite\'s norad_cat_id from the AMSAT GP feed, the only source of these IDs. '
+            . 'The same sync runs automatically once a day; this runs it on demand, e.g. to pick up new IDs during a launch. '
+            . 'Requires the operator token (Authorization: Bearer ...); API consumers can\'t call it. No request body. '
+            . 'Rules: the feed is validated first, and the run aborts with no writes if it can\'t be used. '
+            . 'Catalog satellites are matched to the feed by name, ignoring the mode suffix, dashes, leading zeros and case, '
+            . 'and matching either side of a parenthesised alternate name such as "UmKA 1 (RS40S)". '
+            . 'A matched spacecraft gets its ID on every mode row. A spacecraft not in the feed, or in it without an ID, keeps its current ID. '
+            . 'A name matching several feed records with different IDs is skipped. Only one run happens at a time.',
+        security: [['gpdataSyncToken' => []]],
+        tags: ['Admin'],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: 'A run was recorded: data.status is "ok" or "aborted".',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: 'data', ref: '#/components/schemas/GpdataSyncRun'),
+                        new OA\Property(
+                            property: 'meta',
+                            properties: [new OA\Property(property: 'api_version', description: 'API version, MAJOR.MINOR. Same value as the X-AMSAT-API-Version header.', type: 'string', example: '1.4')],
+                            type: 'object'
+                        ),
+                    ],
+                    type: 'object'
+                )
+            ),
+            new OA\Response(response: 401, description: 'Missing or invalid token (unauthorized).', content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
+            new OA\Response(response: 409, description: 'Another run, scheduled or manual, is in progress (sync_in_progress).', content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
+            new OA\Response(response: 500, description: 'Database error; nothing was written (sync_failed). details.run_id identifies the recorded run.', content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
+            new OA\Response(response: 503, description: 'Sync is not enabled on this server: no token configured (sync_not_configured).', content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
+        ]
+    )]
+    public function gpdataSync(): void
     {
     }
 }

@@ -25,7 +25,7 @@ if ($conn->connect_error) {
     die("Connection failed: " . $conn->connect_error);
 }
 
-$stmt = $conn->prepare("SELECT id, name, html_element_name, website FROM satellite_name WHERE id = ?");
+$stmt = $conn->prepare("SELECT id, name, html_element_name, website, norad_cat_id FROM satellite_name WHERE id = ?");
 $stmt->bind_param("i", $satelliteID);
 $stmt->execute();
 $result = $stmt->get_result();
@@ -72,6 +72,14 @@ if ($row === null) {
             <td>
               <input type="text" name="website" value="<?php echo htmlspecialchars($row["website"] ?? '', ENT_QUOTES, 'UTF-8'); ?>">
               <p>Including http://</p>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="vertical-align:top">NORAD ID</td>
+            <td>
+              <?php echo $row["norad_cat_id"] === null ? 'Not known yet' : (int) $row["norad_cat_id"]; ?>
+              <p>Read-only: set from the AMSAT GP feed by gpdata-sync (dashboard &rarr; Sync now).</p>
             </td>
           </tr>
 

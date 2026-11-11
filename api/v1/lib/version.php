@@ -21,4 +21,4 @@ declare(strict_types=1);
  *
  * Note every bump in the CHANGELOG entry for the PR that makes it.
  */
-const API_VERSION = '1.3';
+const API_VERSION = '1.4';

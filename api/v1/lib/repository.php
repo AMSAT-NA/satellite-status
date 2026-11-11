@@ -74,7 +74,7 @@ final class ApiRepository
             $types = 'ss';
         }
 
-        $sql = 'SELECT sn.id, sn.name, sn.html_element_name, sn.website'
+        $sql = 'SELECT sn.id, sn.name, sn.html_element_name, sn.website, sn.norad_cat_id'
             . ($includeStats
                 // report_count follows the same rule as reports() and
                 // summary(): corrected reports don't count (Issue #59).
@@ -86,7 +86,7 @@ final class ApiRepository
             . ' FROM satellite_name sn'
             . ($includeStats ? ' LEFT JOIN satellite s ON s.name = sn.html_element_name' : '')
             . $where
-            . ' GROUP BY sn.id, sn.name, sn.html_element_name, sn.website'
+            . ' GROUP BY sn.id, sn.name, sn.html_element_name, sn.website, sn.norad_cat_id'
             . ' ORDER BY sn.name ASC';
 
         return $this->fetchAll($sql, $types, $params);
@@ -158,7 +158,7 @@ final class ApiRepository
         $innerSql = $inner === [] ? '' : ' WHERE ' . implode(' AND ', $inner);
         $limit = (int) ($filters['limit'] ?? API_DEFAULT_LIMIT);
 
-        $sql = 'SELECT l.id, l.name, sn.name AS satellite_display_name,'
+        $sql = 'SELECT l.id, l.name, sn.name AS satellite_display_name, sn.norad_cat_id,'
             . ' DATE_FORMAT(l.observation_time, "%Y-%m-%dT%H:%i:%sZ") AS observation_time,'
             . ' DATE_FORMAT(l.submission_time, "%Y-%m-%dT%H:%i:%sZ") AS submission_time,'
             . ' l.callsign, l.report, l.grid_square'

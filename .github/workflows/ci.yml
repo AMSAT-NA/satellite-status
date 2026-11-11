@@ -2,6 +2,12 @@ name: CI
 
 on:
   workflow_call:
+    # Only the secrets a CI check needs, passed explicitly by cd.yml (not
+    # `secrets: inherit`): CI jobs run the PR's own code, so they don't get
+    # the database password or deploy key.
+    secrets:
+      GPDATA_SYNC_TOKEN:
+        required: false
 
 jobs:
 
@@ -104,6 +110,44 @@ jobs:
       - name: Check for unpinned raw DB connections added in this change
         run: php tools/check-timezone-pins.php
 
+  # Issue #25: the GP feed address has no default in the code; it lives only
+  # in the GPDATA_FEED_URL repository variable (Settings > Secrets and
+  # variables > Actions > Variables), which CD writes to the server's .env.
+  # This fails CI if the variable is empty, isn't https, or doesn't serve a
+  # feed the sync would accept -- checked with the sync's own validation
+  # (tools/check-gpdata-feed.php). Note: it depends on the live feed being
+  # reachable, so a feed outage fails CI too; that's intended, since
+  # deploying against a dead feed would sync nothing.
+  check-gpdata-feed:
+    needs: check-php-version
+    runs-on: ubuntu-latest
+    container: php:${{ needs.check-php-version.outputs.php }}-cli
+    env:
+      GPDATA_FEED_URL: ${{ vars.GPDATA_FEED_URL }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: GPDATA_FEED_URL is set and serves a valid GP feed
+        run: php tools/check-gpdata-feed.php
+
+      # The token for POST /api/v1/gpdata-sync.php and the admin "Sync now"
+      # button (repository secret, written to .env by CD). Without it the
+      # daily sync still runs, but on-demand sync returns 503 -- most likely
+      # discovered mid-launch, so check it here. Only its presence and
+      # length are checked; the value is never printed (and GitHub masks it).
+      - name: GPDATA_SYNC_TOKEN is set
+        env:
+          GPDATA_SYNC_TOKEN: ${{ secrets.GPDATA_SYNC_TOKEN }}
+        run: |
+          if [ -z "$GPDATA_SYNC_TOKEN" ]; then
+            echo "::error title=check-gpdata-feed::GPDATA_SYNC_TOKEN is not set. Add the repository secret (Settings > Secrets and variables > Actions > Secrets); generate with: openssl rand -hex 32"
+            exit 1
+          fi
+          if [ "${#GPDATA_SYNC_TOKEN}" -lt 32 ]; then
+            echo "::error title=check-gpdata-feed::GPDATA_SYNC_TOKEN is shorter than 32 characters. Regenerate with: openssl rand -hex 32"
+            exit 1
+          fi
+          echo "OK: GPDATA_SYNC_TOKEN is set (${#GPDATA_SYNC_TOKEN} characters)."
+
   composer-platform:
     needs: check-php-version
     runs-on: ubuntu-latest
@@ -161,6 +205,10 @@ jobs:
       TEST_DB_USER: satstatus
       TEST_DB_PASS: satstatus
       TEST_DB_NAME: satstatus
+      # Issue #25: the gpdata-sync endpoint and admin "Sync now" button are
+      # enabled with this token in tests. GPDATA_FEED_URL is set when the
+      # dev server starts (it needs the container's absolute workspace path).
+      GPDATA_SYNC_TOKEN: test-sync-token
     steps:
       - uses: actions/checkout@v6
 
@@ -190,7 +238,8 @@ jobs:
           # to reach /api/v1/reports.php. The built-in dev server handles
           # only one request at a time by default, which would deadlock
           # that request against the one that triggered it.
-          PHP_CLI_SERVER_WORKERS=4 php -S 127.0.0.1:8000 -t . tests/fixtures/router.php >/tmp/php-server.log 2>&1 &
+          GPDATA_FEED_URL="$PWD/tests/fixtures/gpdata/daily-bulletin.json" \
+            PHP_CLI_SERVER_WORKERS=4 php -S 127.0.0.1:8000 -t . tests/fixtures/router.php >/tmp/php-server.log 2>&1 &
           until curl -sS -o /dev/null http://127.0.0.1:8000/; do sleep 1; done
 
       - name: Run PHPUnit
@@ -287,16 +336,15 @@ jobs:
           retention-days: 7
 
   migration-dry-run:
-    # Runs the WHOLE production migration (db/migrations/2026_08_08_*)
-    # against the pre-#24 schema on the production MariaDB version, then
-    # proves the result matches db/schema.sql. MigrationBackfillTest only
+    # Runs EVERY forward production migration in db/migrations/ (in file-
+    # name order: #24's 2026_08_08_*, then #25's 2026_11_11_*, ...) against
+    # the pre-#24 schema on the production MariaDB version, then proves the
+    # result matches db/schema.sql. MigrationBackfillTest only
     # exercises the backfill UPDATE; this covers the ALTERs, the NOT NULL
     # step, the indexes, and what happens to existing rows. The fixture
     # snapshot in tests/fixtures/pre-issue-24/ is the schema dallas190's
     # dump will have when it's loaded onto azure193 at cutover.
     runs-on: ubuntu-latest
-    env:
-      MIG: db/migrations/2026_08_08_add_observation_time_submission_time.sql
     steps:
       - uses: actions/checkout@v6
 
@@ -321,13 +369,21 @@ jobs:
           # step 0 removes pre-1970-01-02 rows, so they don't count toward "preserved"
           docker exec mig mariadb -uroot -ppw -N pre -e "SELECT COUNT(*) FROM satellite WHERE day >= '1970-01-02'" > /tmp/pre_count
 
-      - name: Run the full migration
-        run: docker exec -i mig mariadb -uroot -ppw pre < "$MIG"
+      - name: Run all forward migrations, in order
+        run: |
+          for mig in $(ls db/migrations/*.sql | grep -v '_rollback\.sql$' | sort); do
+            echo "== $mig"
+            docker exec -i mig mariadb -uroot -ppw pre < "$mig"
+          done
 
       - name: Migrated table structure matches db/schema.sql
         run: |
           docker exec -i mig mariadb -uroot -ppw fresh < db/schema.sql
-          for t in satellite satellite_name users; do
+          # Every table in db/schema.sql, so a new table can't be missed. The
+          # migrated DB may also hold archive tables db/schema.sql doesn't
+          # define (e.g. #24's pre_1970_rows_removed); those are ignored.
+          docker exec mig mariadb -uroot -ppw -N fresh -e "SHOW TABLES" > /tmp/tables
+          for t in $(cat /tmp/tables); do
             for db in pre fresh; do
               docker exec mig mariadb -uroot -ppw -N -e "SHOW CREATE TABLE $db.$t" \
                 | cut -f2- | sed -E 's/ AUTO_INCREMENT=[0-9]+//' > /tmp/$db.$t.sql
@@ -366,6 +422,12 @@ jobs:
       # SITE_URL correctness checks below prove the app builds correct
       # URLs for a real deploy, not just for local-dev's per-port defaults.
       SITE_URL: https://status.amsat.org
+      # Issue #25: a token so the gpdata-sync checks below can call the
+      # endpoint through real Apache, and a feed location inside the
+      # container that isn't JSON, so the run deterministically aborts
+      # without CI depending on the external feed.
+      GPDATA_SYNC_TOKEN: smoke-test-token
+      GPDATA_FEED_URL: /etc/hostname
     steps:
       - uses: actions/checkout@v6
 
@@ -417,6 +479,37 @@ jobs:
           SELF=$(echo "$BODY" | jq -r '.data[0].links.self')
           echo "Self link: $SELF"
           [ "$SELF" = "${SITE_URL}/api/v1/catalog.php?name=AO-91" ]
+
+      - name: Smoke-test gpdata-sync wiring in the API image (Issue #25)
+        # Only the built image can prove these: the pinned scheduler binary
+        # and crontab, setpriv for dropping to www-data, the CLI job living
+        # outside the web root, and Apache passing the Authorization header
+        # through to PHP.
+        run: |
+          docker compose exec -T api supercronic -test /etc/satellite-status/crontab
+          docker compose exec -T api setpriv --version
+          docker compose exec -T api test -f /opt/satellite-status/bin/gpdata-sync.php
+
+          code() { curl -s -o /tmp/sync.json -w "%{http_code}" "$@"; }
+          URL=http://localhost:8081/api/v1/gpdata-sync.php
+
+          S=$(code http://localhost:8081/api/bin/gpdata-sync.php)
+          echo "CLI job over HTTP: $S"; [ "$S" = "404" ]
+
+          S=$(code -X POST "$URL")
+          echo "no token: $S"; cat /tmp/sync.json; [ "$S" = "401" ]
+
+          S=$(code -X POST -H "Authorization: Bearer wrong" "$URL")
+          echo "wrong token: $S"; [ "$S" = "401" ]
+
+          S=$(code -X POST -H "Authorization: Bearer $GPDATA_SYNC_TOKEN" "$URL")
+          echo "right token: $S"; cat /tmp/sync.json
+          [ "$S" = "200" ]
+          jq -e '.data.status == "aborted" and .data.trigger == "manual" and (.data.reason | test("JSON"))' /tmp/sync.json
+
+          # The scheduled entry point, run by hand the way supercronic runs it
+          # (exit 2 = aborted, as expected with this feed).
+          docker compose exec -T -u www-data api php /opt/satellite-status/bin/gpdata-sync.php || [ $? -eq 2 ]
 
       - name: Smoke-test /api front door (real Apache, not the PHP dev server)
         # The PHPUnit harness can't exercise Apache config, so this is the
