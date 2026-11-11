@@ -130,7 +130,9 @@ function gpdata_fetch_feed(string $location): array
     $body = @file_get_contents($location, false, $context);
 
     if ($isHttps) {
-        $statusLine = $http_response_header[0] ?? '';
+        // http_get_last_response_headers() (PHP 8.4+): $http_response_header
+        // is deprecated in PHP 8.5.
+        $statusLine = (http_get_last_response_headers() ?? [])[0] ?? '';
         if (preg_match('#^HTTP/\S+\s+(\d{3})#', $statusLine, $m) !== 1 || $m[1] !== '200') {
             throw new GpdataFeedException('Feed request failed: ' . ($statusLine !== '' ? $statusLine : 'no response'));
         }

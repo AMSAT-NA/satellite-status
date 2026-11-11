@@ -44,7 +44,10 @@ function runGpdataSync($apiInternalUrl, $token) {
 
     $body = @file_get_contents(rtrim($apiInternalUrl, '/') . '/gpdata-sync.php', false, $context);
     $status = 0;
-    if (isset($http_response_header[0]) && preg_match('#^HTTP/\S+\s+(\d{3})#', $http_response_header[0], $m)) {
+    // http_get_last_response_headers() (PHP 8.4+): $http_response_header is
+    // deprecated in PHP 8.5, and its notice would break the redirect below.
+    $statusLine = (http_get_last_response_headers() ?? [])[0] ?? '';
+    if (preg_match('#^HTTP/\S+\s+(\d{3})#', $statusLine, $m)) {
         $status = (int) $m[1];
     }
     $payload = $body === false ? null : json_decode($body, true);

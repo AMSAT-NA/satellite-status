@@ -299,10 +299,10 @@ jobs:
       - name: Migrated table structure matches db/schema.sql
         run: |
           docker exec -i mig mariadb -uroot -ppw fresh < db/schema.sql
-          # Every table in db/schema.sql, so a new table can't be missed.
+          # Every table in db/schema.sql, so a new table can't be missed. The
+          # migrated DB may also hold archive tables db/schema.sql doesn't
+          # define (e.g. #24's pre_1970_rows_removed); those are ignored.
           docker exec mig mariadb -uroot -ppw -N fresh -e "SHOW TABLES" > /tmp/tables
-          [ "$(docker exec mig mariadb -uroot -ppw -N pre -e 'SHOW TABLES' | sort)" = "$(sort /tmp/tables)" ] \
-            || { echo "::error title=migration-dry-run::table list differs from db/schema.sql"; exit 1; }
           for t in $(cat /tmp/tables); do
             for db in pre fresh; do
               docker exec mig mariadb -uroot -ppw -N -e "SHOW CREATE TABLE $db.$t" \
