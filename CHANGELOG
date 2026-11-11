@@ -384,4 +384,4 @@ CHANGE LOG:
       - Schema: satellite_name.norad_cat_id and gpdata_sync_run
         (db/migrations/2026_11_11_*; run before deploying). CI's
         migration dry run now applies every migration in order.
-      (Issue #25, PR #TBD)
+      (Issue #25, PR #65)
