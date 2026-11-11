@@ -15,6 +15,7 @@ declare(strict_types=1);
  * This file has no dependency on config, HTTP or the response helpers: it
  * takes a mysqli connection and a feed location, and returns a result
  * array. Rules (decided on #25):
+ *   - The feed location comes only from GPDATA_FEED_URL (no default).
  *   - The feed is read and validated in full first. If it can't be read, isn't
  *     a JSON list, has malformed records or has suspiciously few records,
  *     the run aborts with no writes.
@@ -29,8 +30,6 @@ declare(strict_types=1);
  *     gpdata_sync_run.
  */
 
-const GPDATA_DEFAULT_FEED_URL = 'https://newark192.amsat.org/gpdata/current/daily-bulletin.json';
-
 // The feed had 94 records in Nov 2026. Far fewer means a truncated or
 // placeholder response, not a real bulletin -- abort rather than sync it.
 const GPDATA_MIN_FEED_RECORDS = 20;
@@ -43,14 +42,15 @@ final class GpdataFeedException extends RuntimeException
 }
 
 /**
- * Feed location from GPDATA_FEED_URL, else the default. Repointing to the
- * production gpdata service is a config change, not a code change.
+ * Feed location from GPDATA_FEED_URL. Required, with no built-in default:
+ * the address lives in exactly one place, the repository variable
+ * GPDATA_FEED_URL, which CD writes to the server's .env and CI checks is
+ * set and serves a valid feed (tools/check-gpdata-feed.php). Returns ''
+ * when unset; a run then aborts and records why.
  */
 function gpdata_feed_url(): string
 {
-    $url = trim((string) getenv('GPDATA_FEED_URL'));
-
-    return $url !== '' ? $url : GPDATA_DEFAULT_FEED_URL;
+    return trim((string) getenv('GPDATA_FEED_URL'));
 }
 
 /**
@@ -208,6 +208,9 @@ function gpdata_sync(mysqli $db, string $triggerSource, ?string $feedLocation = 
         $stmt->close();
 
         try {
+            if ($feedLocation === '') {
+                throw new GpdataFeedException('GPDATA_FEED_URL is not set on this server.');
+            }
             $records = gpdata_fetch_feed($feedLocation);
         } catch (GpdataFeedException $e) {
             return gpdata_finish_run($db, $runId, 'aborted', null, null, [], ['reason' => $e->getMessage()]);

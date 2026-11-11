@@ -26,6 +26,7 @@ The following jobs were translated directly:
 | `build` | ubuntu-latest | Creates a deployable tarball artifact |
 | `check-php-syntax` | php:X-alpine | Lints all PHP files with `php -l` |
 | `check-php-version` | ubuntu-latest | Reads X, the deploy PHP version, from the Dockerfiles (see below) |
+| `check-gpdata-feed` | php:X-cli | `GPDATA_FEED_URL` repo variable is set, https, and serves a valid GP feed (#25) |
 | `composer-platform` | php:X-cli | Validates Composer platform requirements |
 | `phpunit` | php:X-cli + mariadb:11 | Runs PHPUnit integration tests |
 | `playwright` | php:X-cli + mariadb:11 (Node and Chromium installed in the job) | Runs browser/E2E tests |

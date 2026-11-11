@@ -218,6 +218,46 @@ final class GpdataSyncTest extends TestCase
         $this->assertSame(1, $this->countRows('gpdata_sync_run', "status = 'aborted'"));
     }
 
+    /**
+     * No built-in default: without GPDATA_FEED_URL a run aborts, and the
+     * reason is recorded so it shows on the dashboard and in the logs.
+     */
+    public function testMissingFeedUrlAbortsAndIsRecorded(): void
+    {
+        $previous = getenv('GPDATA_FEED_URL');
+        putenv('GPDATA_FEED_URL');
+
+        try {
+            $this->assertSame('', gpdata_feed_url());
+            $result = gpdata_sync($this->db, 'scheduled');
+        } finally {
+            if ($previous !== false) {
+                putenv('GPDATA_FEED_URL=' . $previous);
+            }
+        }
+
+        $this->assertSame('aborted', $result['status']);
+        $this->assertSame('GPDATA_FEED_URL is not set on this server.', $result['reason']);
+        $this->assertNull($this->noradOf('ISS'));
+        $this->assertSame(1, $this->countRows('gpdata_sync_run', "status = 'aborted'"));
+    }
+
+    public function testFeedUrlComesFromEnvironment(): void
+    {
+        $previous = getenv('GPDATA_FEED_URL');
+        putenv('GPDATA_FEED_URL=  ' . self::FEED . '  ');
+
+        try {
+            $this->assertSame(self::FEED, gpdata_feed_url());
+            $result = gpdata_sync($this->db, 'scheduled');
+        } finally {
+            $previous === false ? putenv('GPDATA_FEED_URL') : putenv('GPDATA_FEED_URL=' . $previous);
+        }
+
+        $this->assertSame('ok', $result['status']);
+        $this->assertSame(25544, $this->noradOf('ISS'));
+    }
+
     public function testOnlyOneRunAtATime(): void
     {
         $other = new \mysqli(

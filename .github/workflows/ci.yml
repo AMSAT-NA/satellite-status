@@ -104,6 +104,25 @@ jobs:
       - name: Check for unpinned raw DB connections added in this change
         run: php tools/check-timezone-pins.php
 
+  # Issue #25: the GP feed address has no default in the code; it lives only
+  # in the GPDATA_FEED_URL repository variable (Settings > Secrets and
+  # variables > Actions > Variables), which CD writes to the server's .env.
+  # This fails CI if the variable is empty, isn't https, or doesn't serve a
+  # feed the sync would accept -- checked with the sync's own validation
+  # (tools/check-gpdata-feed.php). Note: it depends on the live feed being
+  # reachable, so a feed outage fails CI too; that's intended, since
+  # deploying against a dead feed would sync nothing.
+  check-gpdata-feed:
+    needs: check-php-version
+    runs-on: ubuntu-latest
+    container: php:${{ needs.check-php-version.outputs.php }}-cli
+    env:
+      GPDATA_FEED_URL: ${{ vars.GPDATA_FEED_URL }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: GPDATA_FEED_URL is set and serves a valid GP feed
+        run: php tools/check-gpdata-feed.php
+
   composer-platform:
     needs: check-php-version
     runs-on: ubuntu-latest

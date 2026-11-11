@@ -1,7 +1,7 @@
 # GP feed fixture (Issue #25)
 
-`daily-bulletin.json` is a 30-record subset of the AMSAT GP feed
-(`https://newark192.amsat.org/gpdata/current/daily-bulletin.json`, Nov 2026),
+`daily-bulletin.json` is a 30-record subset of the AMSAT GP feed (the
+address in the `GPDATA_FEED_URL` repository variable; captured Nov 2026),
 trimmed to the fields gpdata-sync reads plus a few for realism. It includes
 the name patterns the matcher must handle: leading zeros (`AO-07`), dashes
 (`RS-38S`), alternate names on either side of a parenthesis

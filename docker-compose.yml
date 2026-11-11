@@ -53,7 +53,9 @@ services:
       MYSQL_DATABASE: satellite_status
       # Issue #25: no daily scheduler locally; run the sync on demand with
       #   docker compose exec api php /opt/satellite-status/bin/gpdata-sync.php
-      # or set a token here to try the admin "Sync now" button.
+      # or set a token here to try the admin "Sync now" button. The sync
+      # needs GPDATA_FEED_URL (no default; same value as the repository
+      # variable); without it a run aborts with that reason.
       GPDATA_SCHEDULER: "off"
       GPDATA_SYNC_TOKEN: ${GPDATA_SYNC_TOKEN:-}
       GPDATA_FEED_URL: ${GPDATA_FEED_URL:-}

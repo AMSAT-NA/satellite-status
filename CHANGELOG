@@ -372,8 +372,11 @@ CHANGE LOG:
         NORAD catalog number (the GP/OMM NORAD_CAT_ID field), shared by all
         modes of a spacecraft. null until the spacecraft appears in the
         AMSAT GP feed with an ID.
-      - IDs come only from the AMSAT GP feed (GPDATA_FEED_URL; defaults to
-        the newark192 feed), via gpdata-sync. Names are matched ignoring
+      - IDs come only from the AMSAT GP feed, via gpdata-sync. The feed
+        address is required config with no default in the code: the
+        GPDATA_FEED_URL repository variable, written to the server's .env
+        by CD. A new CI job fails if it's empty, not https, or doesn't
+        serve a valid feed; a run without it aborts and records why. Names are matched ignoring
         mode suffixes, dashes, leading zeros and case, and either side of a
         bracketed alternate name. A spacecraft not in the feed keeps its
         ID; an unusable feed aborts the run with no writes; ambiguous
