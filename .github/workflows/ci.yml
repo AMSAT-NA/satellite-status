@@ -30,20 +30,44 @@ jobs:
           path: /tmp/*_package.tgz
 
   check-php-syntax:
+    needs: check-php-version
     runs-on: ubuntu-latest
-    container: php:alpine
+    container: php:${{ needs.check-php-version.outputs.php }}-alpine
     steps:
       - uses: actions/checkout@v6
       - name: Check PHP syntax
         run: find . -path './vendor' -prune -o -path './node_modules' -prune -o -name '*.php' -print -exec php -l {} \;
 
+  # The PHP version every PHP job below runs on, read from the deploy
+  # images, so CI tests exactly what production runs. Bumping PHP is then
+  # only the two FROM lines (api/Dockerfile, frontend/v1/Dockerfile); CI
+  # follows automatically. Fails if the two images disagree.
   check-php-version:
     runs-on: ubuntu-latest
-    container: php:alpine
+    outputs:
+      php: ${{ steps.read.outputs.php }}
     steps:
       - uses: actions/checkout@v6
-      - name: Check PHP version
-        run: php --version
+      - name: Read the PHP version from the deploy Dockerfiles
+        id: read
+        run: |
+          read_version() {
+            sed -nE 's/^FROM php:([0-9]+\.[0-9]+)-apache.*$/\1/p' "$1" | head -n1
+          }
+          API=$(read_version api/Dockerfile)
+          FRONTEND=$(read_version frontend/v1/Dockerfile)
+          echo "api/Dockerfile: php:${API:-?}-apache"
+          echo "frontend/v1/Dockerfile: php:${FRONTEND:-?}-apache"
+          if [ -z "$API" ] || [ "$API" != "$FRONTEND" ]; then
+            echo "::error title=check-php-version::api and frontend images must both use FROM php:MAJOR.MINOR-apache with the same version"
+            exit 1
+          fi
+          echo "php=$API" >> "$GITHUB_OUTPUT"
+
+      - name: Confirm the CI image matches
+        run: |
+          docker run --rm "php:${{ steps.read.outputs.php }}-cli" php --version \
+            | tee /dev/stderr | head -n1 | grep -q "^PHP ${{ steps.read.outputs.php }}\."
 
   # Issue #24 follow-up: guards against a *new* raw DB connection being
   # added without the UTC time_zone pin every connection needs (see
@@ -52,8 +76,9 @@ jobs:
   # Diff-only by design -- fetch-depth: 0 so there's real history to
   # diff a merge-base against, matching the `changes` job in cd.yml.
   check-timezone-pins:
+    needs: check-php-version
     runs-on: ubuntu-latest
-    container: php:alpine
+    container: php:${{ needs.check-php-version.outputs.php }}-alpine
     steps:
       # php:alpine has no git by default. actions/checkout falls back to
       # the GitHub REST API without it, which can only hand back a single
@@ -80,8 +105,9 @@ jobs:
         run: php tools/check-timezone-pins.php
 
   composer-platform:
+    needs: check-php-version
     runs-on: ubuntu-latest
-    container: php:cli
+    container: php:${{ needs.check-php-version.outputs.php }}-cli
     steps:
       - uses: actions/checkout@v6
       - name: Install dependencies
@@ -112,8 +138,9 @@ jobs:
           fi
 
   phpunit:
+    needs: check-php-version
     runs-on: ubuntu-latest
-    container: php:cli
+    container: php:${{ needs.check-php-version.outputs.php }}-cli
     services:
       mariadb:
         image: mariadb:11
@@ -177,9 +204,13 @@ jobs:
           path: /tmp/php-server.log
           retention-days: 7
 
+  # Runs in the deploy PHP version's official image (it used to run in the
+  # Playwright image with Ubuntu's PHP 8.3 while production ran 8.5). Node
+  # and Chromium are installed here instead.
   playwright:
+    needs: check-php-version
     runs-on: ubuntu-latest
-    container: mcr.microsoft.com/playwright:v1.60.0-noble
+    container: php:${{ needs.check-php-version.outputs.php }}-cli
     services:
       mariadb:
         image: mariadb:11
@@ -207,7 +238,10 @@ jobs:
       - name: Install system dependencies
         run: |
           apt-get update -yqq
-          apt-get install -yqq --no-install-recommends curl default-mysql-client git php-cli php-mbstring php-mysql php-xml unzip
+          apt-get install -yqq --no-install-recommends curl default-mysql-client git unzip nodejs npm
+          docker-php-ext-install mysqli
+          php --version | head -n1
+          node --version
 
       - name: Wait for MariaDB
         run: until mysql -h mariadb -usatstatus -psatstatus -e "SELECT 1" >/dev/null 2>&1; do sleep 1; done
@@ -233,8 +267,10 @@ jobs:
           PHP_CLI_SERVER_WORKERS=4 php -S 127.0.0.1:8000 -t . tests/fixtures/router.php >php-server.log 2>&1 &
           until curl -sS -o /dev/null http://127.0.0.1:8000/; do sleep 1; done
 
-      - name: Install Node dependencies
-        run: npm ci
+      - name: Install Node dependencies and Chromium
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
 
       - name: Run Playwright tests
         run: npx playwright test --config tests/playwright.config.js

@@ -360,3 +360,10 @@ CHANGE LOG:
         can see who still uses them.
       - The v1 submit form now sends observation_time.
       (Issue #45, Issue #32, PR #64)
+2026-11-11:
+    - CI runs every PHP job on the PHP version the deploy images use, read
+      from the FROM lines in api/Dockerfile and frontend/v1/Dockerfile
+      (currently 8.5). Before, PHPUnit and the lint jobs used the latest
+      PHP image and Playwright used Ubuntu's PHP 8.3. A PHP upgrade is now
+      just the two FROM lines, and CI tests the new version with it. CI
+      only; no app change. (PR #TBD)
