@@ -24,36 +24,37 @@ The following jobs were translated directly:
 | Job | Image | Purpose |
 |---|---|---|
 | `build` | ubuntu-latest | Creates a deployable tarball artifact |
-| `check-php-syntax` | php:alpine | Lints all PHP files with `php -l` |
-| `check-php-version` | php:alpine | Confirms the PHP version in CI |
-| `composer-platform` | php:cli | Validates Composer platform requirements |
-| `phpunit` | php:cli + mariadb:11 | Runs PHPUnit integration tests |
-| `playwright` | mcr.microsoft.com/playwright + mariadb:11 | Runs browser/E2E tests |
+| `check-php-syntax` | php:X-alpine | Lints all PHP files with `php -l` |
+| `check-php-version` | ubuntu-latest | Reads X, the deploy PHP version, from the Dockerfiles (see below) |
+| `composer-platform` | php:X-cli | Validates Composer platform requirements |
+| `phpunit` | php:X-cli + mariadb:11 | Runs PHPUnit integration tests |
+| `playwright` | php:X-cli + mariadb:11 (Node and Chromium installed in the job) | Runs browser/E2E tests |
 
 The Auto-DevOps stages (DAST, container scanning, canary, production rollout) were **not** ported —
 they were never configured and relied on GitLab-specific infrastructure.
 
 The placeholder `test` job (a bare `echo`) and the `container_scanning` manual job were dropped.
 
-### PHP version is not pinned in CI
+### CI runs the deploy PHP version (Nov 2026)
 
-The PHP images in CI use untagged (latest-stable) variants: `php:alpine` and `php:cli`.
+Every PHP job runs on the PHP `MAJOR.MINOR` the deploy images use. `check-php-version` reads it
+from `FROM php:X-apache` in `api/Dockerfile` and `frontend/v1/Dockerfile`, fails if the two differ,
+and passes `X` on as a job output. The other jobs use `php:X-cli` / `php:X-alpine` via
+`needs.check-php-version.outputs.php`; `needs` is one of the contexts GitHub allows in
+`container.image`.
 
-**Rationale:** The app is being moved from manual static file deployment (where the host PHP version
-mattered) to Docker-based deployment. In a containerized world, the runtime PHP version is
-controlled by the `Dockerfile`, not the host. CI should verify that the code is valid and tests
-pass against current PHP, not mirror a soon-to-be-retired host version.
+**Why:** the Dockerfiles have pinned the minor version since Oct 2026 (`php:8.5-apache`), but CI
+still used floating images (`php:cli`, `php:alpine`) and the Playwright job used Ubuntu's PHP 8.3.
+So CI tested neither what production ran nor one consistent version. PR #65 hit this directly:
+`http_get_last_response_headers()` (PHP 8.4+) passed PHPUnit on 8.5 and failed Playwright on 8.3.
 
-The `Dockerfile` (which uses `php:apache`) remains the authoritative source of the
-production runtime environment.
+**Upgrading PHP** is now only the two `FROM` lines; CI follows automatically, so a PHP bump PR is
+tested on the new version before it merges.
 
-### No PHP_VERSION workflow variable
-
-A workflow-level `env.PHP_VERSION` variable was considered and rejected. GitHub Actions does not
-make the `env` context available in `container.image` fields — only `vars` (repository UI variables),
-`matrix`, and a small set of other contexts are permitted there. Introducing a `vars.PHP_VERSION`
-repository variable would have moved a version pin out of the code and into the GitHub UI, adding
-friction without benefit given the decision above to track latest PHP anyway.
+This replaces the earlier decision (when the Dockerfile used a floating `php:apache`) to track
+latest PHP in CI. That decision's rationale, that the Dockerfile is the authority on the runtime
+version, still holds; CI now follows it exactly. No `PHP_VERSION` variable or repository setting is
+involved: the version lives only in the Dockerfiles.
 
 ### MariaDB service health checks
 
