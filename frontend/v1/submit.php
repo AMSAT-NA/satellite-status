@@ -222,7 +222,9 @@ function submitReportToApi($apiInternalUrl, $payload) {
     $body = @file_get_contents(rtrim($apiInternalUrl, '/') . '/reports.php', false, $context);
 
     $status = 0;
-    foreach ($http_response_header ?? [] as $header) {
+    // http_get_last_response_headers() (PHP 8.4+): $http_response_header is
+    // deprecated in PHP 8.5 and removed in PHP 9.
+    foreach (http_get_last_response_headers() ?? [] as $header) {
         if (preg_match('#^HTTP/\S+\s+(\d{3})#', $header, $matches)) {
             $status = (int) $matches[1];
         }

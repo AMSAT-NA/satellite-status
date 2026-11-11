@@ -384,4 +384,8 @@ CHANGE LOG:
       - Schema: satellite_name.norad_cat_id and gpdata_sync_run
         (db/migrations/2026_11_11_*; run before deploying). CI's
         migration dry run now applies every migration in order.
+      - submit.php reads the API response status with
+        http_get_last_response_headers() instead of $http_response_header,
+        which is deprecated in PHP 8.5 and removed in PHP 9. The new
+        gpdata-sync code uses the same call.
       (Issue #25, PR #65)
