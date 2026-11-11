@@ -223,8 +223,12 @@ function submitReportToApi($apiInternalUrl, $payload) {
 
     $status = 0;
     // http_get_last_response_headers() (PHP 8.4+): $http_response_header is
-    // deprecated in PHP 8.5 and removed in PHP 9.
-    foreach (http_get_last_response_headers() ?? [] as $header) {
+    // deprecated in PHP 8.5 and removed in PHP 9. The fallback is only for
+    // PHP < 8.4 (CI's Playwright job runs Ubuntu's PHP 8.3).
+    $responseHeaders = function_exists('http_get_last_response_headers')
+        ? (http_get_last_response_headers() ?? [])
+        : ($http_response_header ?? []);
+    foreach ($responseHeaders as $header) {
         if (preg_match('#^HTTP/\S+\s+(\d{3})#', $header, $matches)) {
             $status = (int) $matches[1];
         }
