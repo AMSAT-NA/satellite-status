@@ -366,4 +366,4 @@ CHANGE LOG:
       (currently 8.5). Before, PHPUnit and the lint jobs used the latest
       PHP image and Playwright used Ubuntu's PHP 8.3. A PHP upgrade is now
       just the two FROM lines, and CI tests the new version with it. CI
-      only; no app change. (PR #TBD)
+      only; no app change. (PR #66)
