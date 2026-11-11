@@ -16,6 +16,9 @@ jobs:
   ci:
     name: CI Gate
     uses: ./.github/workflows/ci.yml
+    # Explicit, not `secrets: inherit`: only what check-gpdata-feed verifies.
+    secrets:
+      GPDATA_SYNC_TOKEN: ${{ secrets.GPDATA_SYNC_TOKEN }}
 
   # ── Path filter, shared by jobs 2 and 3 ──────────────────────────────────────
   changes:

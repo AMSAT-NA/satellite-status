@@ -2,6 +2,12 @@ name: CI
 
 on:
   workflow_call:
+    # Only the secrets a CI check needs, passed explicitly by cd.yml (not
+    # `secrets: inherit`): CI jobs run the PR's own code, so they don't get
+    # the database password or deploy key.
+    secrets:
+      GPDATA_SYNC_TOKEN:
+        required: false
 
 jobs:
 
@@ -122,6 +128,25 @@ jobs:
       - uses: actions/checkout@v6
       - name: GPDATA_FEED_URL is set and serves a valid GP feed
         run: php tools/check-gpdata-feed.php
+
+      # The token for POST /api/v1/gpdata-sync.php and the admin "Sync now"
+      # button (repository secret, written to .env by CD). Without it the
+      # daily sync still runs, but on-demand sync returns 503 -- most likely
+      # discovered mid-launch, so check it here. Only its presence and
+      # length are checked; the value is never printed (and GitHub masks it).
+      - name: GPDATA_SYNC_TOKEN is set
+        env:
+          GPDATA_SYNC_TOKEN: ${{ secrets.GPDATA_SYNC_TOKEN }}
+        run: |
+          if [ -z "$GPDATA_SYNC_TOKEN" ]; then
+            echo "::error title=check-gpdata-feed::GPDATA_SYNC_TOKEN is not set. Add the repository secret (Settings > Secrets and variables > Actions > Secrets); generate with: openssl rand -hex 32"
+            exit 1
+          fi
+          if [ "${#GPDATA_SYNC_TOKEN}" -lt 32 ]; then
+            echo "::error title=check-gpdata-feed::GPDATA_SYNC_TOKEN is shorter than 32 characters. Regenerate with: openssl rand -hex 32"
+            exit 1
+          fi
+          echo "OK: GPDATA_SYNC_TOKEN is set (${#GPDATA_SYNC_TOKEN} characters)."
 
   composer-platform:
     needs: check-php-version
