@@ -9,3 +9,4 @@ from reading the code or git history alone.
 * [ci-pipeline.md](ci-pipeline.md) - GitHub Actions CI pipeline design decisions
 * [deploy-versioning.md](deploy-versioning.md) - Deploy-time commit SHA / timestamp surfaced on the frontend and API
 * [changelog-convention.md](changelog-convention.md) - How agents should update the root CHANGELOG, and why it isn't CI-enforced
+* [api-v1-v2-dividing-line.md](api-v1-v2-dividing-line.md) - api-v2 in TypeScript; what still goes into v1; paging for the grid's full window
