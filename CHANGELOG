@@ -400,3 +400,11 @@ CHANGE LOG:
         which is deprecated in PHP 8.5 and removed in PHP 9. The new
         gpdata-sync code uses the same call.
       (Issue #25, PR #65)
+2026-11-12:
+    - Decision record docs/agents/api-v1-v2-dividing-line.md: api-v2 will
+      be TypeScript; v1 gets only what frontend-v1's public pages need to
+      stop querying the database, plus bug and security fixes. Everything
+      new goes to api-v2, including the admin pages, which will be
+      retired from frontend-v1 once frontend-v2's admin pages ship. #67
+      uses cursor paging in reports.php for the grid's full window.
+      (PR #70)
