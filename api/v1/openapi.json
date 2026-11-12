@@ -13,7 +13,7 @@
             "name": "Apache-2.0",
             "url": "https://www.apache.org/licenses/LICENSE-2.0"
         },
-        "version": "1.4"
+        "version": "1.5"
     },
     "servers": [
         {
@@ -70,7 +70,7 @@
                                                 "api_version": {
                                                     "description": "API version, MAJOR.MINOR. Same value as the X-AMSAT-API-Version header.",
                                                     "type": "string",
-                                                    "example": "1.4"
+                                                    "example": "1.5"
                                                 }
                                             },
                                             "type": "object"
@@ -133,12 +133,20 @@
                     {
                         "name": "limit",
                         "in": "query",
-                        "description": "Maximum number of reports, newest first. Out-of-range values are clamped to the nearest bound, not rejected; a non-integer returns 400 invalid_parameter.",
+                        "description": "Maximum number of reports per page, newest first. When more match, links.next fetches the next page. Out-of-range values are clamped to the nearest bound, not rejected; a non-integer returns 400 invalid_parameter.",
                         "schema": {
                             "type": "integer",
                             "default": 100,
                             "maximum": 500,
                             "minimum": 1
+                        }
+                    },
+                    {
+                        "name": "cursor",
+                        "in": "query",
+                        "description": "Opaque paging cursor, from meta.next_cursor of the previous page. Simplest is to request links.next unchanged: it repeats every filter, with since fixed to the first page's value. Pages are a consistent snapshot: reports submitted after the first page are not included, so no report is skipped or repeated across pages. A malformed cursor returns 400 invalid_cursor. Added in 1.5.",
+                        "schema": {
+                            "type": "string"
                         }
                     },
                     {
@@ -203,10 +211,26 @@
                                                     "description": "The hours value after clamping (default 72). Still present when since was given, but not applied.",
                                                     "type": "integer"
                                                 },
+                                                "next_cursor": {
+                                                    "description": "Cursor for the next page, or null on the last page. Added in 1.5.",
+                                                    "type": "string",
+                                                    "nullable": true
+                                                },
                                                 "api_version": {
                                                     "description": "API version, MAJOR.MINOR. Same value as the X-AMSAT-API-Version header.",
                                                     "type": "string",
-                                                    "example": "1.4"
+                                                    "example": "1.5"
+                                                }
+                                            },
+                                            "type": "object"
+                                        },
+                                        "links": {
+                                            "properties": {
+                                                "next": {
+                                                    "description": "URL of the next page, or null on the last page. Added in 1.5.",
+                                                    "type": "string",
+                                                    "format": "uri",
+                                                    "nullable": true
                                                 }
                                             },
                                             "type": "object"
@@ -218,7 +242,7 @@
                         }
                     },
                     "400": {
-                        "description": "Invalid filter (invalid_parameter, invalid_since, invalid_grid_square or invalid_status).",
+                        "description": "Invalid filter (invalid_parameter, invalid_since, invalid_grid_square, invalid_status or invalid_cursor).",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -322,7 +346,7 @@
                                                 "api_version": {
                                                     "description": "API version, MAJOR.MINOR. Same value as the X-AMSAT-API-Version header.",
                                                     "type": "string",
-                                                    "example": "1.4"
+                                                    "example": "1.5"
                                                 }
                                             },
                                             "type": "object"
@@ -402,7 +426,7 @@
                                                 "api_version": {
                                                     "description": "API version, MAJOR.MINOR. Same value as the X-AMSAT-API-Version header.",
                                                     "type": "string",
-                                                    "example": "1.4"
+                                                    "example": "1.5"
                                                 }
                                             },
                                             "type": "object"
@@ -454,7 +478,7 @@
                                                 "api_version": {
                                                     "description": "API version, MAJOR.MINOR. Same value as the X-AMSAT-API-Version header.",
                                                     "type": "string",
-                                                    "example": "1.4"
+                                                    "example": "1.5"
                                                 }
                                             },
                                             "type": "object"
@@ -502,7 +526,7 @@
                                                 },
                                                 "version": {
                                                     "type": "string",
-                                                    "example": "1.4"
+                                                    "example": "1.5"
                                                 },
                                                 "time": {
                                                     "type": "string",
@@ -534,7 +558,7 @@
                                                 "api_version": {
                                                     "description": "API version, MAJOR.MINOR. Same value as the X-AMSAT-API-Version header.",
                                                     "type": "string",
-                                                    "example": "1.4"
+                                                    "example": "1.5"
                                                 }
                                             },
                                             "type": "object"
@@ -650,7 +674,7 @@
                                                 "api_version": {
                                                     "description": "API version, MAJOR.MINOR. Same value as the X-AMSAT-API-Version header.",
                                                     "type": "string",
-                                                    "example": "1.4"
+                                                    "example": "1.5"
                                                 }
                                             },
                                             "type": "object"
