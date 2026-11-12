@@ -137,6 +137,27 @@ final class ApiRepository
             $types .= 's';
         }
 
+        // Paging (Issue #67). snapshot_id pins the result set to the rows
+        // that existed when page 1 was served: writes are append-only, so
+        // ranking only ids <= snapshot_id gives every page the same
+        // corrected view, however many reports arrive in between.
+        if (isset($filters['snapshot_id'])) {
+            $inner[] = 's.id <= ?';
+            $params[] = (int) $filters['snapshot_id'];
+            $types .= 'i';
+        }
+
+        // after = the last row of the previous page. Rows in later
+        // 15-minute periods can't change the ranking of earlier ones (the
+        // period is part of the partition key), so the ranking can stop at
+        // the end of that row's period instead of covering the whole window.
+        $after = $filters['after'] ?? null;
+        if (is_array($after)) {
+            $inner[] = 's.observation_time < ?';
+            $params[] = gmdate('Y-m-d\TH:i:s\Z', strtotime(self::periodStart((string) $after['observation_time'])) + self::PERIOD_SECONDS);
+            $types .= 's';
+        }
+
         if (($filters['grid_square'] ?? '') !== '') {
             $outer[] = 'l.grid_square = ?';
             $params[] = $filters['grid_square'];
@@ -153,6 +174,16 @@ final class ApiRepository
             $outer[] = 'l.observation_time >= ?';
             $params[] = $filters['since'];
             $types .= 's';
+        }
+
+        if (is_array($after)) {
+            // Keyset on the sort order below: strictly after the previous
+            // page's last (observation_time, id).
+            $outer[] = '(l.observation_time < ? OR (l.observation_time = ? AND l.id < ?))';
+            $params[] = $after['observation_time'];
+            $params[] = $after['observation_time'];
+            $params[] = (int) $after['id'];
+            $types .= 'ssi';
         }
 
         $innerSql = $inner === [] ? '' : ' WHERE ' . implode(' AND ', $inner);
@@ -172,6 +203,17 @@ final class ApiRepository
         $types .= 'i';
 
         return $this->fetchAll($sql, $types, $params);
+    }
+
+    /**
+     * Highest report id stored now: page 1's snapshot for paging (see
+     * reports()). 0 when there are no reports.
+     */
+    public function maxReportId(): int
+    {
+        $rows = $this->fetchAll('SELECT COALESCE(MAX(id), 0) AS max_id FROM satellite');
+
+        return (int) ($rows[0]['max_id'] ?? 0);
     }
 
     /**

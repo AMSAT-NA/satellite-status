@@ -336,7 +336,7 @@ final class ApiV1OpenApiSpec
                             property: 'meta',
                             properties: [
                                 new OA\Property(property: 'count', type: 'integer'),
-                                new OA\Property(property: 'api_version', description: 'API version, MAJOR.MINOR. Same value as the X-AMSAT-API-Version header.', type: 'string', example: '1.4'),
+                                new OA\Property(property: 'api_version', description: 'API version, MAJOR.MINOR. Same value as the X-AMSAT-API-Version header.', type: 'string', example: '1.5'),
                             ],
                             type: 'object'
                         ),
@@ -380,8 +380,17 @@ final class ApiV1OpenApiSpec
             new OA\Parameter(
                 name: 'limit',
                 in: 'query',
-                description: 'Maximum number of reports, newest first. Out-of-range values are clamped to the nearest bound, not rejected; a non-integer returns 400 invalid_parameter.',
+                description: 'Maximum number of reports per page, newest first. When more match, links.next fetches the next page. Out-of-range values are clamped to the nearest bound, not rejected; a non-integer returns 400 invalid_parameter.',
                 schema: new OA\Schema(type: 'integer', default: 100, maximum: 500, minimum: 1)
+            ),
+            new OA\Parameter(
+                name: 'cursor',
+                in: 'query',
+                description: 'Opaque paging cursor, from meta.next_cursor of the previous page. '
+                    . 'Simplest is to request links.next unchanged: it repeats every filter, with since fixed to the first page\'s value. '
+                    . 'Pages are a consistent snapshot: reports submitted after the first page are not included, so no report is skipped or repeated across pages. '
+                    . 'A malformed cursor returns 400 invalid_cursor. Added in 1.5.',
+                schema: new OA\Schema(type: 'string')
             ),
             new OA\Parameter(
                 name: 'callsign',
@@ -426,7 +435,15 @@ final class ApiV1OpenApiSpec
                                     description: 'The hours value after clamping (default 72). Still present when since was given, but not applied.',
                                     type: 'integer'
                                 ),
-                                new OA\Property(property: 'api_version', description: 'API version, MAJOR.MINOR. Same value as the X-AMSAT-API-Version header.', type: 'string', example: '1.4'),
+                                new OA\Property(property: 'next_cursor', description: 'Cursor for the next page, or null on the last page. Added in 1.5.', type: 'string', nullable: true),
+                                new OA\Property(property: 'api_version', description: 'API version, MAJOR.MINOR. Same value as the X-AMSAT-API-Version header.', type: 'string', example: '1.5'),
+                            ],
+                            type: 'object'
+                        ),
+                        new OA\Property(
+                            property: 'links',
+                            properties: [
+                                new OA\Property(property: 'next', description: 'URL of the next page, or null on the last page. Added in 1.5.', type: 'string', format: 'uri', nullable: true),
                             ],
                             type: 'object'
                         ),
@@ -434,7 +451,7 @@ final class ApiV1OpenApiSpec
                     type: 'object'
                 )
             ),
-            new OA\Response(response: 400, description: 'Invalid filter (invalid_parameter, invalid_since, invalid_grid_square or invalid_status).', content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
+            new OA\Response(response: 400, description: 'Invalid filter (invalid_parameter, invalid_since, invalid_grid_square, invalid_status or invalid_cursor).', content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
             new OA\Response(response: 404, description: 'Satellite not found (satellite_not_found).', content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
         ]
     )]
@@ -488,7 +505,7 @@ final class ApiV1OpenApiSpec
                         ),
                         new OA\Property(
                             property: 'meta',
-                            properties: [new OA\Property(property: 'api_version', description: 'API version, MAJOR.MINOR. Same value as the X-AMSAT-API-Version header.', type: 'string', example: '1.4')],
+                            properties: [new OA\Property(property: 'api_version', description: 'API version, MAJOR.MINOR. Same value as the X-AMSAT-API-Version header.', type: 'string', example: '1.5')],
                             type: 'object'
                         ),
                     ],
@@ -533,7 +550,7 @@ final class ApiV1OpenApiSpec
                             properties: [
                                 new OA\Property(property: 'hours', description: 'The window applied, after clamping.', type: 'integer'),
                                 new OA\Property(property: 'count', type: 'integer'),
-                                new OA\Property(property: 'api_version', description: 'API version, MAJOR.MINOR. Same value as the X-AMSAT-API-Version header.', type: 'string', example: '1.4'),
+                                new OA\Property(property: 'api_version', description: 'API version, MAJOR.MINOR. Same value as the X-AMSAT-API-Version header.', type: 'string', example: '1.5'),
                             ],
                             type: 'object'
                         ),
@@ -568,7 +585,7 @@ final class ApiV1OpenApiSpec
                             property: 'meta',
                             properties: [
                                 new OA\Property(property: 'count', type: 'integer'),
-                                new OA\Property(property: 'api_version', description: 'API version, MAJOR.MINOR. Same value as the X-AMSAT-API-Version header.', type: 'string', example: '1.4'),
+                                new OA\Property(property: 'api_version', description: 'API version, MAJOR.MINOR. Same value as the X-AMSAT-API-Version header.', type: 'string', example: '1.5'),
                             ],
                             type: 'object'
                         ),
@@ -602,7 +619,7 @@ final class ApiV1OpenApiSpec
                             properties: [
                                 new OA\Property(property: 'status', type: 'string', enum: ['ok', 'degraded']),
                                 new OA\Property(property: 'reason', type: 'string', enum: ['no_reports', 'stale_data'], description: 'Present only when status is "degraded".'),
-                                new OA\Property(property: 'version', type: 'string', example: '1.4'),
+                                new OA\Property(property: 'version', type: 'string', example: '1.5'),
                                 new OA\Property(property: 'time', type: 'string', format: 'date-time'),
                                 new OA\Property(
                                     property: 'data_freshness',
@@ -618,7 +635,7 @@ final class ApiV1OpenApiSpec
                         ),
                         new OA\Property(
                             property: 'meta',
-                            properties: [new OA\Property(property: 'api_version', description: 'API version, MAJOR.MINOR. Same value as the X-AMSAT-API-Version header.', type: 'string', example: '1.4')],
+                            properties: [new OA\Property(property: 'api_version', description: 'API version, MAJOR.MINOR. Same value as the X-AMSAT-API-Version header.', type: 'string', example: '1.5')],
                             type: 'object'
                         ),
                     ],
@@ -700,7 +717,7 @@ new OA\Response(response: 503, description: 'Database is unavailable (database_u
                         new OA\Property(property: 'data', ref: '#/components/schemas/GpdataSyncRun'),
                         new OA\Property(
                             property: 'meta',
-                            properties: [new OA\Property(property: 'api_version', description: 'API version, MAJOR.MINOR. Same value as the X-AMSAT-API-Version header.', type: 'string', example: '1.4')],
+                            properties: [new OA\Property(property: 'api_version', description: 'API version, MAJOR.MINOR. Same value as the X-AMSAT-API-Version header.', type: 'string', example: '1.5')],
                             type: 'object'
                         ),
                     ],
