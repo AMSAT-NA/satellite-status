@@ -408,3 +408,11 @@ CHANGE LOG:
       retired from frontend-v1 once frontend-v2's admin pages ship. #67
       uses cursor paging in reports.php for the grid's full window.
       (PR #70)
+    - GET /api/v1/reports.php pages large results: responses carry
+      meta.next_cursor and links.next (null on the last page), and a new
+      cursor parameter fetches the next page. Paging is keyset-based and
+      pinned to a snapshot taken on page 1, so reports arriving mid-paging
+      can't cause skipped or repeated rows. A malformed cursor returns
+      400 invalid_cursor. This lets the v1 status grid read its full 6-day
+      window through the API. API version 1.5.
+      (Issue #67, PR #71)
