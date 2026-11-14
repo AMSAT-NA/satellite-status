@@ -202,8 +202,7 @@ if ($submit)
 /**
  * POSTs a report to the API's reports.php (Issue #24 -- submit.php no
  * longer writes to MySQL directly). Uses a stream context rather than
- * curl since the frontend Docker image only installs the mysqli
- * extension, not ext-curl.
+ * curl since the frontend Docker image doesn't install ext-curl.
  *
  * @param array $payload
  * @return array{status: int, body: mixed}
