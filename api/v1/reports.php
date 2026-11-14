@@ -97,6 +97,7 @@ if ($cursorParam !== null) {
 
 $snapshotId = $cursor['snapshot_id'] ?? $repository->maxReportId();
 $callsign = api_string_param('callsign');
+$includeSuperseded = api_bool_param('include_superseded');
 
 $reports = $repository->reports([
     'name' => $name,
@@ -105,6 +106,7 @@ $reports = $repository->reports([
     'status' => $status,
     'since' => $since,
     'limit' => $limit + 1,
+    'include_superseded' => $includeSuperseded,
     'snapshot_id' => $snapshotId,
     'after' => $cursor === null ? null : [
         'observation_time' => $cursor['observation_time'],
@@ -127,6 +129,7 @@ if (count($reports) > $limit) {
         'grid_square' => $gridSquare,
         'status' => $status,
         'since' => $since,
+        'include_superseded' => $includeSuperseded ? 'true' : null,
         'limit' => (string) $limit,
         'cursor' => $nextCursor,
     ], static fn ($v) => $v !== null), '', '&', PHP_QUERY_RFC3986));
@@ -147,6 +150,10 @@ api_json_response([
                 'callsign' => $report['callsign'],
                 'report' => $report['report'],
                 'grid_square' => $report['grid_square'],
+                // Issue #50: null for the report that counts; otherwise the
+                // id of the later report that replaced this one. Only
+                // non-null with include_superseded=true.
+                'superseded_by' => $report['superseded_by'] === null ? null : (int) $report['superseded_by'],
             ];
         },
         $reports
@@ -156,6 +163,7 @@ api_json_response([
         'limit' => $limit,
         'since' => $since,
         'hours' => $hours,
+        'include_superseded' => $includeSuperseded,
         'next_cursor' => $nextCursor,
     ]),
     'links' => [

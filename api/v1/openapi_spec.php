@@ -204,6 +204,16 @@ require_once __DIR__ . '/lib/version.php';
         new OA\Property(property: 'callsign', type: 'string'),
         new OA\Property(property: 'report', type: 'string'),
         new OA\Property(property: 'grid_square', type: 'string', nullable: true),
+        new OA\Property(
+            property: 'superseded_by',
+            description: 'Null for a report that counts. Otherwise the id of the later report that replaced this one: '
+                . 'the same callsign reported this satellite again in the same 15-minute UTC period, and only the latest counts. '
+                . 'Only non-null with include_superseded=true; superseded reports are omitted otherwise. '
+                . 'The replacing report is the one whose POST response had correction: true. Added in 1.5.',
+            type: 'integer',
+            nullable: true,
+            example: null
+        ),
     ],
     type: 'object'
 )]
@@ -384,6 +394,14 @@ final class ApiV1OpenApiSpec
                 schema: new OA\Schema(type: 'integer', default: 100, maximum: 500, minimum: 1)
             ),
             new OA\Parameter(
+                name: 'include_superseded',
+                in: 'query',
+                description: 'Also return superseded reports: earlier reports from the same callsign for the same satellite and 15-minute UTC period, '
+                    . 'replaced by a later one. Each has superseded_by set to the replacing report\'s id. '
+                    . 'status and grid_square match each report\'s own values. Default false, which returns only reports that count. Added in 1.5.',
+                schema: new OA\Schema(type: 'boolean', default: false)
+            ),
+            new OA\Parameter(
                 name: 'cursor',
                 in: 'query',
                 description: 'Opaque paging cursor, from meta.next_cursor of the previous page. '
@@ -435,6 +453,7 @@ final class ApiV1OpenApiSpec
                                     description: 'The hours value after clamping (default 72). Still present when since was given, but not applied.',
                                     type: 'integer'
                                 ),
+                                new OA\Property(property: 'include_superseded', description: 'Whether superseded reports were included. Added in 1.5.', type: 'boolean'),
                                 new OA\Property(property: 'next_cursor', description: 'Cursor for the next page, or null on the last page. Added in 1.5.', type: 'string', nullable: true),
                                 new OA\Property(property: 'api_version', description: 'API version, MAJOR.MINOR. Same value as the X-AMSAT-API-Version header.', type: 'string', example: '1.5'),
                             ],
@@ -492,7 +511,7 @@ final class ApiV1OpenApiSpec
                                 new OA\Property(
                                     property: 'correction',
                                     type: 'boolean',
-                                    description: 'True if this report corrects an earlier one: the same callsign already reported this satellite in the same 15-minute UTC period (:00-:14, :15-:29, :30-:44, :45-:59). The earlier report is kept but no longer counted or returned. False if this is the first report from this callsign for that period.'
+                                    description: 'True if this report corrects an earlier one: the same callsign already reported this satellite in the same 15-minute UTC period (:00-:14, :15-:29, :30-:44, :45-:59). The earlier report is kept but no longer counted; GET /reports.php returns it only with include_superseded=true, with superseded_by set to this report\'s id. False if this is the first report from this callsign for that period.'
                                 ),
                             ]
                         ),

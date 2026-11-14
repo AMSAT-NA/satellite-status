@@ -331,6 +331,7 @@ $baseUrl = api_base_url();
         <tr><td><code>hours</code></td><td>integer</td><td>Rolling UTC window. Defaults to <?php echo API_DEFAULT_REPORT_HOURS; ?>. Range <?php echo API_MIN_REPORT_HOURS; ?>-<?php echo API_MAX_REPORT_HOURS; ?>. Out-of-range values are clamped to the nearest bound, not rejected.</td></tr>
         <tr><td><code>since</code></td><td>date-time</td><td>ISO 8601 lower bound on <code>observation_time</code> (when heard, not when submitted). Overrides <code>hours</code>.</td></tr>
         <tr><td><code>limit</code></td><td>integer</td><td>Maximum records per page, newest first. Defaults to <?php echo API_DEFAULT_LIMIT; ?>. Range 1-<?php echo API_MAX_LIMIT; ?>. Out-of-range values are clamped to the nearest bound, not rejected.</td></tr>
+        <tr><td><code>include_superseded</code></td><td>boolean</td><td>Also return superseded reports (see below). Default <code>false</code>.</td></tr>
         <tr><td><code>cursor</code></td><td>string</td><td>Opaque cursor for the next page, from the previous response. See <a href="#paging">Paging</a>.</td></tr>
         <tr><td><code>callsign</code></td><td>string</td><td>Exact callsign filter.</td></tr>
         <tr><td><code>grid_square</code></td><td>string</td><td>Maidenhead locator filter.</td></tr>
@@ -341,6 +342,15 @@ $baseUrl = api_base_url();
         <code>meta</code> shows the <code>hours</code> and <code>limit</code> actually applied, after clamping.
       </p>
       <pre><code>curl "<?php echo htmlspecialchars($baseUrl); ?>/reports.php?name=AO-91&amp;hours=24&amp;limit=25"</code></pre>
+      <h4 id="superseded">Superseded reports</h4>
+      <p>
+        Only one report per callsign per satellite per 15-minute UTC period counts: the latest. When the same callsign
+        reports again in that period, the new report's POST response has <code>correction: true</code>, and the earlier
+        report is <em>superseded</em>. Superseded reports are kept but left out of <code>reports.php</code> and
+        <code>summary.php</code>. With <code>include_superseded=true</code>, <code>reports.php</code> returns them too.
+        Every report has <code>superseded_by</code>: <code>null</code> for a report that counts, or the
+        <code>id</code> of the report that replaced it.
+      </p>
       <h4 id="paging">Paging</h4>
       <p>
         When more reports match than <code>limit</code>, the response has <code>links.next</code> (and
