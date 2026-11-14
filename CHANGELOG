@@ -425,3 +425,17 @@ CHANGE LOG:
       tooltip entries, read its full 6-day window through the API.
       API version 1.5.
       (Issues #67 and #50, PR #71)
+2026-11-14:
+    - The status page and submit form read through the API instead of
+      querying MariaDB directly: the 6-day grid, tooltips (superseded
+      reports still struck through), "Reports From" and the satellite
+      list come from reports.php (paged, include_superseded) and
+      catalog.php. The grid's rules and look are unchanged. If the API is
+      unreachable, the page says so instead of failing. Only the admin
+      pages still use the database (they move to frontend-v2).
+    - Footer: links to the CHANGELOG, the API docs and the new
+      ACKNOWLEDGEMENTS.md, and no trailing period after the copyright.
+      ACKNOWLEDGEMENTS.md now holds every credit: the status page's
+      original idea (David Carr, KD5QGR, and Bob Bruninga, WB4APR) and
+      the API contributors. /api/v1/acknowledgements.php is removed.
+      (Issue #67, PR #72)
