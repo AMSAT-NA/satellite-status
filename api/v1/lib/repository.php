@@ -27,6 +27,18 @@ final class ApiRepository
         . ' FROM satellite s';
 
     /**
+     * LATEST_PER_CALLSIGN_SQL plus latest_id: the id of the rn = 1 report in
+     * the same partition, i.e. the report that superseded this one (equal to
+     * id when rn = 1). Used by reports() for superseded_by (Issue #50).
+     */
+    private const LATEST_PER_CALLSIGN_WITH_LATEST_ID_SQL =
+        'SELECT s.*, ROW_NUMBER() OVER ('
+        . 'PARTITION BY s.name, ' . self::PERIOD_CALLSIGN_KEY_SQL
+        . ' ORDER BY s.id DESC) AS rn,'
+        . ' MAX(s.id) OVER (PARTITION BY s.name, ' . self::PERIOD_CALLSIGN_KEY_SQL . ') AS latest_id'
+        . ' FROM satellite s';
+
+    /**
      * The (period, callsign) part of the dedup key above, shared so the
      * two can't drift apart. Within one satellite, the number of distinct
      * values of this key is the number of rn = 1 reports, which lets
@@ -108,14 +120,16 @@ final class ApiRepository
      */
     public function reports(array $filters): array
     {
-        // Corrected reports (rn > 1) are excluded, matching 1.0, where a
-        // resubmission deleted them (see LATEST_PER_CALLSIGN_SQL). Filters
-        // on the partition keys (name, callsign) and the time lower bound
-        // go inside the ranking; status and grid_square go outside it, so
-        // e.g. status=Heard can't return a Heard report that was later
-        // corrected to something else.
+        // Superseded reports (rn > 1) are excluded by default, matching 1.0,
+        // where a resubmission deleted them (see LATEST_PER_CALLSIGN_SQL).
+        // include_superseded returns them too, each with superseded_by set
+        // to the report that replaced it (Issue #50). Filters on the
+        // partition keys (name, callsign) and the time lower bound go inside
+        // the ranking; status and grid_square go outside it and match each
+        // report's own values, so by default status=Heard can't return a
+        // Heard report that was later superseded by something else.
         $inner = [];
-        $outer = ['l.rn = 1'];
+        $outer = empty($filters['include_superseded']) ? ['l.rn = 1'] : ['1 = 1'];
         $params = [];
         $types = '';
 
@@ -137,6 +151,27 @@ final class ApiRepository
             $types .= 's';
         }
 
+        // Paging (Issue #67). snapshot_id pins the result set to the rows
+        // that existed when page 1 was served: writes are append-only, so
+        // ranking only ids <= snapshot_id gives every page the same view
+        // (including superseded_by), however many reports arrive in between.
+        if (isset($filters['snapshot_id'])) {
+            $inner[] = 's.id <= ?';
+            $params[] = (int) $filters['snapshot_id'];
+            $types .= 'i';
+        }
+
+        // after = the last row of the previous page. Rows in later
+        // 15-minute periods can't change the ranking of earlier ones (the
+        // period is part of the partition key), so the ranking can stop at
+        // the end of that row's period instead of covering the whole window.
+        $after = $filters['after'] ?? null;
+        if (is_array($after)) {
+            $inner[] = 's.observation_time < ?';
+            $params[] = gmdate('Y-m-d\TH:i:s\Z', strtotime(self::periodStart((string) $after['observation_time'])) + self::PERIOD_SECONDS);
+            $types .= 's';
+        }
+
         if (($filters['grid_square'] ?? '') !== '') {
             $outer[] = 'l.grid_square = ?';
             $params[] = $filters['grid_square'];
@@ -155,14 +190,25 @@ final class ApiRepository
             $types .= 's';
         }
 
+        if (is_array($after)) {
+            // Keyset on the sort order below: strictly after the previous
+            // page's last (observation_time, id).
+            $outer[] = '(l.observation_time < ? OR (l.observation_time = ? AND l.id < ?))';
+            $params[] = $after['observation_time'];
+            $params[] = $after['observation_time'];
+            $params[] = (int) $after['id'];
+            $types .= 'ssi';
+        }
+
         $innerSql = $inner === [] ? '' : ' WHERE ' . implode(' AND ', $inner);
         $limit = (int) ($filters['limit'] ?? API_DEFAULT_LIMIT);
 
         $sql = 'SELECT l.id, l.name, sn.name AS satellite_display_name, sn.norad_cat_id,'
             . ' DATE_FORMAT(l.observation_time, "%Y-%m-%dT%H:%i:%sZ") AS observation_time,'
             . ' DATE_FORMAT(l.submission_time, "%Y-%m-%dT%H:%i:%sZ") AS submission_time,'
-            . ' l.callsign, l.report, l.grid_square'
-            . ' FROM (' . self::LATEST_PER_CALLSIGN_SQL . $innerSql . ') l'
+            . ' l.callsign, l.report, l.grid_square,'
+            . ' CASE WHEN l.rn = 1 THEN NULL ELSE l.latest_id END AS superseded_by'
+            . ' FROM (' . self::LATEST_PER_CALLSIGN_WITH_LATEST_ID_SQL . $innerSql . ') l'
             . ' LEFT JOIN satellite_name sn ON sn.html_element_name = l.name'
             . ' WHERE ' . implode(' AND ', $outer)
             . ' ORDER BY l.observation_time DESC, l.id DESC'
@@ -172,6 +218,17 @@ final class ApiRepository
         $types .= 'i';
 
         return $this->fetchAll($sql, $types, $params);
+    }
+
+    /**
+     * Highest report id stored now: page 1's snapshot for paging (see
+     * reports()). 0 when there are no reports.
+     */
+    public function maxReportId(): int
+    {
+        $rows = $this->fetchAll('SELECT COALESCE(MAX(id), 0) AS max_id FROM satellite');
+
+        return (int) ($rows[0]['max_id'] ?? 0);
     }
 
     /**

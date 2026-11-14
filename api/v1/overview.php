@@ -330,7 +330,9 @@ $baseUrl = api_base_url();
         <tr><td><code>name</code></td><td>string</td><td>Optional satellite API name.</td></tr>
         <tr><td><code>hours</code></td><td>integer</td><td>Rolling UTC window. Defaults to <?php echo API_DEFAULT_REPORT_HOURS; ?>. Range <?php echo API_MIN_REPORT_HOURS; ?>-<?php echo API_MAX_REPORT_HOURS; ?>. Out-of-range values are clamped to the nearest bound, not rejected.</td></tr>
         <tr><td><code>since</code></td><td>date-time</td><td>ISO 8601 lower bound on <code>observation_time</code> (when heard, not when submitted). Overrides <code>hours</code>.</td></tr>
-        <tr><td><code>limit</code></td><td>integer</td><td>Maximum records, newest first. Defaults to <?php echo API_DEFAULT_LIMIT; ?>. Range 1-<?php echo API_MAX_LIMIT; ?>. Out-of-range values are clamped to the nearest bound, not rejected.</td></tr>
+        <tr><td><code>limit</code></td><td>integer</td><td>Maximum records per page, newest first. Defaults to <?php echo API_DEFAULT_LIMIT; ?>. Range 1-<?php echo API_MAX_LIMIT; ?>. Out-of-range values are clamped to the nearest bound, not rejected.</td></tr>
+        <tr><td><code>include_superseded</code></td><td>boolean</td><td>Also return superseded reports (see below). Default <code>false</code>.</td></tr>
+        <tr><td><code>cursor</code></td><td>string</td><td>Opaque cursor for the next page, from the previous response. See <a href="#paging">Paging</a>.</td></tr>
         <tr><td><code>callsign</code></td><td>string</td><td>Exact callsign filter.</td></tr>
         <tr><td><code>grid_square</code></td><td>string</td><td>Maidenhead locator filter.</td></tr>
         <tr><td><code>status</code></td><td>string</td><td><code>Heard</code>, <code>Telemetry Only</code>, <code>Not Heard</code>, or <code>Crew Active</code>.</td></tr>
@@ -340,6 +342,29 @@ $baseUrl = api_base_url();
         <code>meta</code> shows the <code>hours</code> and <code>limit</code> actually applied, after clamping.
       </p>
       <pre><code>curl "<?php echo htmlspecialchars($baseUrl); ?>/reports.php?name=AO-91&amp;hours=24&amp;limit=25"</code></pre>
+      <h4 id="superseded">Superseded reports</h4>
+      <p>
+        Only one report per callsign per satellite per 15-minute UTC period counts: the latest. When the same callsign
+        reports again in that period, the new report's POST response has <code>correction: true</code>, and the earlier
+        report is <em>superseded</em>. Superseded reports are kept but left out of <code>reports.php</code> and
+        <code>summary.php</code>. With <code>include_superseded=true</code>, <code>reports.php</code> returns them too.
+        Every report has <code>superseded_by</code>: <code>null</code> for a report that counts, or the
+        <code>id</code> of the report that replaced it.
+      </p>
+      <h4 id="paging">Paging</h4>
+      <p>
+        When more reports match than <code>limit</code>, the response has <code>links.next</code> (and
+        <code>meta.next_cursor</code>). Request <code>links.next</code> unchanged until it is <code>null</code>:
+        each page is a complete JSON response. <code>links.next</code> repeats your filters, with <code>since</code>
+        fixed to the first page's window. The pages are a consistent snapshot as of the first page: reports
+        submitted while you page are left out, so nothing is skipped or repeated. Fetch them on your next poll.
+        A malformed cursor returns <code>400 invalid_cursor</code>.
+      </p>
+      <pre><code>{
+  "data": [ ... 500 reports ... ],
+  "meta": { "count": 500, "limit": 500, "next_cursor": "MToxMjM6..." },
+  "links": { "next": "<?php echo htmlspecialchars($baseUrl); ?>/reports.php?since=...&amp;limit=500&amp;cursor=MToxMjM6..." }
+}</code></pre>
     </div>
 
     <div class="endpoint">

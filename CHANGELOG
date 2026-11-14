@@ -408,3 +408,20 @@ CHANGE LOG:
       retired from frontend-v1 once frontend-v2's admin pages ship. #67
       uses cursor paging in reports.php for the grid's full window.
       (PR #70)
+    - GET /api/v1/reports.php pages large results: responses carry
+      meta.next_cursor and links.next (null on the last page), and a new
+      cursor parameter fetches the next page. Paging is keyset-based and
+      pinned to a snapshot taken on page 1, so reports arriving mid-paging
+      can't cause skipped or repeated rows. A malformed cursor returns
+      400 invalid_cursor.
+    - GET /api/v1/reports.php?include_superseded=true also returns
+      superseded reports: earlier reports from the same callsign for the
+      same satellite and 15-minute period, replaced by a later one. Every
+      report now has superseded_by: null for a report that counts, or the
+      id of the report that replaced it. (Issue #50 proposed this as
+      include_corrected / corrected, renamed because "corrected" read
+      both ways next to POST's correction field.)
+      Together these let the v1 status grid, including its struck-through
+      tooltip entries, read its full 6-day window through the API.
+      API version 1.5.
+      (Issues #67 and #50, PR #71)

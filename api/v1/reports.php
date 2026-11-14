@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/lib/bootstrap.php';
 require_once __DIR__ . '/lib/repository.php';
+require_once __DIR__ . '/lib/report_cursor.php';
 require_once __DIR__ . '/lib/report_input.php';
 require_once __DIR__ . '/lib/validation.php';
 
@@ -82,14 +83,57 @@ if ($status !== null) {
     }
 }
 
+// Paging (Issue #67): page 1 pins a snapshot; later pages carry it, plus
+// the previous page's last row, in an opaque cursor. Fetch one extra row
+// to learn whether there is a next page.
+$cursorParam = api_string_param('cursor');
+$cursor = null;
+if ($cursorParam !== null) {
+    $cursor = api_decode_report_cursor($cursorParam);
+    if ($cursor === null) {
+        api_error_response(400, 'invalid_cursor', 'The cursor parameter is not valid. Use the links.next URL from the previous page unchanged.');
+    }
+}
+
+$snapshotId = $cursor['snapshot_id'] ?? $repository->maxReportId();
+$callsign = api_string_param('callsign');
+$includeSuperseded = api_bool_param('include_superseded');
+
 $reports = $repository->reports([
     'name' => $name,
-    'callsign' => api_string_param('callsign'),
+    'callsign' => $callsign,
     'grid_square' => $gridSquare,
     'status' => $status,
     'since' => $since,
-    'limit' => $limit,
+    'limit' => $limit + 1,
+    'include_superseded' => $includeSuperseded,
+    'snapshot_id' => $snapshotId,
+    'after' => $cursor === null ? null : [
+        'observation_time' => $cursor['observation_time'],
+        'id' => $cursor['id'],
+    ],
 ]);
+
+$nextCursor = null;
+$nextUrl = null;
+if (count($reports) > $limit) {
+    $reports = array_slice($reports, 0, $limit);
+    $last = $reports[$limit - 1];
+    $nextCursor = api_encode_report_cursor($snapshotId, (string) $last['observation_time'], (int) $last['id']);
+
+    // The next link repeats every filter with since resolved to a fixed
+    // time, so a default hours window doesn't slide between pages.
+    $nextUrl = api_self_url('reports.php?' . http_build_query(array_filter([
+        'name' => $name,
+        'callsign' => $callsign,
+        'grid_square' => $gridSquare,
+        'status' => $status,
+        'since' => $since,
+        'include_superseded' => $includeSuperseded ? 'true' : null,
+        'limit' => (string) $limit,
+        'cursor' => $nextCursor,
+    ], static fn ($v) => $v !== null), '', '&', PHP_QUERY_RFC3986));
+}
 
 api_json_response([
     'data' => array_map(
@@ -106,6 +150,10 @@ api_json_response([
                 'callsign' => $report['callsign'],
                 'report' => $report['report'],
                 'grid_square' => $report['grid_square'],
+                // Issue #50: null for the report that counts; otherwise the
+                // id of the later report that replaced this one. Only
+                // non-null with include_superseded=true.
+                'superseded_by' => $report['superseded_by'] === null ? null : (int) $report['superseded_by'],
             ];
         },
         $reports
@@ -115,5 +163,10 @@ api_json_response([
         'limit' => $limit,
         'since' => $since,
         'hours' => $hours,
+        'include_superseded' => $includeSuperseded,
+        'next_cursor' => $nextCursor,
     ]),
+    'links' => [
+        'next' => $nextUrl,
+    ],
 ]);
