@@ -861,7 +861,6 @@ if ($aCatalog === null) {
 <option value="11">Nov
 <option value="12">Dec
 </select>
-,
 <select name=SatDay>
 <?php printf("<option value=%s>%s", date("d"), date("d")); ?>
 <option value="01">01

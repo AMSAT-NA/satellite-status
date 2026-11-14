@@ -433,6 +433,7 @@ CHANGE LOG:
       catalog.php. The grid's rules and look are unchanged. If the API is
       unreachable, the page says so instead of failing. Only the admin
       pages still use the database (they move to frontend-v2).
+    - Submit form: removed the stray comma after the month dropdown.
     - Footer: links to the CHANGELOG, the API docs and the new
       ACKNOWLEDGEMENTS.md, and no trailing period after the copyright.
       ACKNOWLEDGEMENTS.md now holds every credit: the status page's
