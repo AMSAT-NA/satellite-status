@@ -45,10 +45,19 @@ final class StatusPageViaApiTest extends TestCase
     {
         $body = (string) $this->newGuestClient()->get('/')->getBody();
 
-        $this->assertStringContainsString('blob/main/CHANGELOG"', $body);
-        $this->assertStringContainsString('href="/api/v1/overview.php"', $body);
-        $this->assertStringContainsString('blob/main/ACKNOWLEDGEMENTS.md"', $body);
+        // Alphabetical: Acknowledgments, API, Changelog.
+        $this->assertMatchesRegularExpression(
+            '#ACKNOWLEDGEMENTS\.md"[^>]*>Acknowledgments</a> &middot; <a href="/api/v1/overview\.php"[^>]*>API</a> &middot; <a href="[^"]*blob/main/CHANGELOG"[^>]*>Changelog</a>#',
+            $body
+        );
         $this->assertStringContainsString("Satellite Corporation (AMSAT)\n", $body);
+
+        // The Support AMSAT button sits in the footer, under the copyright.
+        $copyright = strpos($body, 'Satellite Corporation (AMSAT)');
+        $button = strpos($body, '>Support AMSAT</a>');
+        $this->assertNotFalse($button);
+        $this->assertGreaterThan($copyright, $button);
+        $this->assertSame(1, substr_count($body, '>Support AMSAT</a>'));
         $this->assertStringNotContainsString('original idea', $body);
     }
 

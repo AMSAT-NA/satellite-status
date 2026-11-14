@@ -940,10 +940,6 @@ if ($aCatalog === null) {
 </td></tr>
 </table>
 
-<div class="paypal_button">
-<a href="https://www.amsat.org/donations/amsat-general-fund-donations/" style="display:inline-block;padding:10px 18px;background-color:#648fff;color:#ffffff;text-decoration:none;border-radius:4px;font-size:24px;">Support AMSAT</a>
-</div>
-
 <div class="contact_support">
 <span style="font-size:18px;">Questions? E-mail support at: webmaster@amsat.org</span>
 </div>
@@ -956,7 +952,10 @@ if ($aCatalog === null) {
 <br>
 <center>
 &copy; Radio Amateur Satellite Corporation (AMSAT)
-<p style="font-size:12px;color:#888;"><?php if ($appCommitSha !== null && $appDeployedAt !== null): ?>Last updated <?php echo htmlspecialchars(date('m/d/Y H:i', strtotime($appDeployedAt))); ?> UTC (commit <?php echo htmlspecialchars(substr($appCommitSha, 0, 7)); ?>) &middot; <?php endif; ?><a href="https://github.com/AMSAT-NA/satellite-status/blob/main/CHANGELOG" target="_blank" rel="noopener" style="color:#888;">CHANGELOG</a> &middot; <a href="/api/v1/overview.php" style="color:#888;">API</a> &middot; <a href="https://github.com/AMSAT-NA/satellite-status/blob/main/ACKNOWLEDGEMENTS.md" target="_blank" rel="noopener" style="color:#888;">Acknowledgements</a></p>
+<div class="paypal_button" style="margin-top:10px;">
+<a href="https://www.amsat.org/donations/amsat-general-fund-donations/" style="display:inline-block;padding:6px 12px;background-color:#648fff;color:#ffffff;text-decoration:none;border-radius:4px;font-size:16px;">Support AMSAT</a>
+</div>
+<p style="font-size:12px;color:#888;"><?php if ($appCommitSha !== null && $appDeployedAt !== null): ?>Last updated <?php echo htmlspecialchars(date('m/d/Y H:i', strtotime($appDeployedAt))); ?> UTC (commit <?php echo htmlspecialchars(substr($appCommitSha, 0, 7)); ?>) &middot; <?php endif; ?><a href="https://github.com/AMSAT-NA/satellite-status/blob/main/ACKNOWLEDGEMENTS.md" target="_blank" rel="noopener" style="color:#888;">Acknowledgments</a> &middot; <a href="/api/v1/overview.php" style="color:#888;">API</a> &middot; <a href="https://github.com/AMSAT-NA/satellite-status/blob/main/CHANGELOG" target="_blank" rel="noopener" style="color:#888;">Changelog</a></p>
 <br>
 </body>
 </html>
