@@ -425,3 +425,22 @@ CHANGE LOG:
       tooltip entries, read its full 6-day window through the API.
       API version 1.5.
       (Issues #67 and #50, PR #71)
+2026-11-14:
+    - The status page and submit form read through the API instead of
+      querying MariaDB directly: the 6-day grid, tooltips (superseded
+      reports still struck through), "Reports From" and the satellite
+      list come from reports.php (paged, include_superseded) and
+      catalog.php. The grid's rules and look are unchanged. If the API is
+      unreachable, the page says so instead of failing. Only the admin
+      pages still use the database (they move to frontend-v2).
+    - Submit form: removed the stray comma after the month dropdown.
+    - Footer: links to Acknowledgments (the new ACKNOWLEDGMENTS.md), the
+      API docs and the Changelog, in that order; no trailing period after
+      the copyright; the Support AMSAT button moved here from below the
+      submit form, smaller, under the copyright line. The submit review
+      and thank-you pages now share this footer, replacing their old
+      PayPal Donate form.
+      ACKNOWLEDGMENTS.md now holds every credit: the status page's
+      original idea (David Carr, KD5QGR, and Bob Bruninga, WB4APR) and
+      the API contributors. /api/v1/acknowledgements.php is removed.
+      (Issue #67, PR #72)
