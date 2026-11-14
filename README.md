@@ -20,7 +20,7 @@ satellite-status/
 ├── tests/                # PHPUnit + Playwright test suites
 ├── docker-compose.yml    # local dev stack
 ├── CHANGELOG
-└── ACKNOWLEDGEMENTS.md   # credits for the status page and API
+└── ACKNOWLEDGMENTS.md    # credits for the status page and API
 ```
 
 ## Installation

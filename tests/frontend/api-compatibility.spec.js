@@ -420,7 +420,7 @@ test.describe('public frontend/API compatibility', () => {
     await page.goto('/api/v1/docs.php');
 
     await expect(page).toHaveTitle(/AMSAT Satellite Status API Docs/);
-    await expect(page.getByRole('link', { name: 'Acknowledgements' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Acknowledgments' })).toBeVisible();
     await expect(page.locator('#swagger-ui')).toBeVisible();
     await expect(page.getByText('AMSAT Satellite Status API')).toBeVisible();
     await expect(page.getByRole('button', { name: 'GET /reports.php Search' })).toBeVisible();

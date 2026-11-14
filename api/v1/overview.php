@@ -220,7 +220,7 @@ $baseUrl = api_base_url();
     <pre><code>Satellite status data: AMSAT, https://status.amsat.org</code></pre>
     <p>
       Show it wherever your users would expect to find credits. On a website, near the data or in the page footer is fine.
-      In a mobile or desktop app, a credits, about, or acknowledgements screen is fine.
+      In a mobile or desktop app, a credits, about, or acknowledgments screen is fine.
     </p>
     <p>
       Reports include callsigns and grid squares submitted by individual operators. Use the data to show and analyze
@@ -487,9 +487,9 @@ $baseUrl = api_base_url();
   </section>
 
   <section>
-    <h2>Acknowledgements</h2>
+    <h2>Acknowledgments</h2>
     <p>
-      See <a href="https://github.com/AMSAT-NA/satellite-status/blob/main/ACKNOWLEDGEMENTS.md">ACKNOWLEDGEMENTS.md</a> for the contributors who helped
+      See <a href="https://github.com/AMSAT-NA/satellite-status/blob/main/ACKNOWLEDGMENTS.md">ACKNOWLEDGMENTS.md</a> for the contributors who helped
       design, implement, document, and test this public API.
     </p>
   </section>

@@ -147,13 +147,6 @@ if ($submit)
 	 echo "<br><br><center>Thank you for your submission</center>" ;
    ?>
 
-   <br>
-   <center>
-   <div class="paypal_button">
-   <form action="https://www.paypal.com/cgi-bin/webscr" method="post" target="_top"><input name="cmd" type="hidden" value="_s-xclick"> <input name="hosted_button_id" type="hidden" value="8KAAKMU2TXUQ4"> <span style="font-size:24px;">Support AMSAT</span> <br><br><input alt="PayPal - The safer, easier way to pay online!" border="0" name="submit" src="https://www.paypalobjects.com/en_US/i/btn/btn_donate_LG.gif" type="image">&nbsp;</form>
-   </div>
-   </center>
-
    <?php
 	 echo "<br><center><a href=index.php>Back to main page</a></center>";
        }
@@ -192,6 +185,8 @@ if ($submit)
 }
 ?>
 
+<br>
+<?php include __DIR__ . '/lib/footer.php'; ?>
 </body>
 </html>
 

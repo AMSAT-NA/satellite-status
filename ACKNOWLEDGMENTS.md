@@ -1,4 +1,4 @@
-# Acknowledgements
+# Acknowledgments
 
 AMSAT thanks everyone who has contributed to the AMSAT Satellite Status page and API.
 

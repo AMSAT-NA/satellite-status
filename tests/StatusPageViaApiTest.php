@@ -47,7 +47,7 @@ final class StatusPageViaApiTest extends TestCase
 
         // Alphabetical: Acknowledgments, API, Changelog.
         $this->assertMatchesRegularExpression(
-            '#ACKNOWLEDGEMENTS\.md"[^>]*>Acknowledgments</a> &middot; <a href="/api/v1/overview\.php"[^>]*>API</a> &middot; <a href="[^"]*blob/main/CHANGELOG"[^>]*>Changelog</a>#',
+            '#ACKNOWLEDGMENTS\.md"[^>]*>Acknowledgments</a> &middot; <a href="/api/v1/overview\.php"[^>]*>API</a> &middot; <a href="[^"]*blob/main/CHANGELOG"[^>]*>Changelog</a>#',
             $body
         );
         $this->assertStringContainsString("Satellite Corporation (AMSAT)\n", $body);
@@ -61,12 +61,36 @@ final class StatusPageViaApiTest extends TestCase
         $this->assertStringNotContainsString('original idea', $body);
     }
 
-    public function testAcknowledgementsFileHasEveryCredit(): void
+    public function testAcknowledgmentsFileHasEveryCredit(): void
     {
-        $text = (string) file_get_contents(__DIR__ . '/../ACKNOWLEDGEMENTS.md');
+        $text = (string) file_get_contents(__DIR__ . '/../ACKNOWLEDGMENTS.md');
 
         foreach (['David Carr, KD5QGR', 'Bob Bruninga, WB4APR', 'Ben Welsh, KFØIA', 'Dominic Hord, AD8AK'] as $name) {
             $this->assertStringContainsString($name, $text);
+        }
+    }
+
+    /**
+     * The submit pages (the "You Entered" review and the thank-you page)
+     * share the status page's footer, and the old PayPal Donate form is
+     * gone.
+     */
+    public function testSubmitPagesShareTheFooter(): void
+    {
+        [$year, $month, $day] = explode('-', gmdate('Y-m-d', strtotime('yesterday UTC')));
+        $query = [
+            'SatSubmit' => 'yes', 'SatName' => 'AO-91', 'SatYear' => $year, 'SatMonth' => $month,
+            'SatDay' => $day, 'SatTime' => '12:00', 'SatCall' => 'W5FTR', 'SatReport' => 'Heard',
+            'SatGridSquare' => 'EM48',
+        ];
+
+        foreach (['review' => $query, 'thank you' => $query + ['Confirm' => 'yes']] as $page => $q) {
+            $body = (string) $this->newGuestClient()->get('/submit.php', ['query' => $q])->getBody();
+
+            $this->assertStringContainsString('Satellite Corporation (AMSAT)', $body, $page);
+            $this->assertStringContainsString('>Support AMSAT</a>', $body, $page);
+            $this->assertStringContainsString('>Acknowledgments</a>', $body, $page);
+            $this->assertStringNotContainsString('paypal.com', $body, $page);
         }
     }
 

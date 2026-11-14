@@ -434,11 +434,13 @@ CHANGE LOG:
       unreachable, the page says so instead of failing. Only the admin
       pages still use the database (they move to frontend-v2).
     - Submit form: removed the stray comma after the month dropdown.
-    - Footer: links to Acknowledgments (the new ACKNOWLEDGEMENTS.md), the
+    - Footer: links to Acknowledgments (the new ACKNOWLEDGMENTS.md), the
       API docs and the Changelog, in that order; no trailing period after
       the copyright; the Support AMSAT button moved here from below the
-      submit form, smaller, under the copyright line.
-      ACKNOWLEDGEMENTS.md now holds every credit: the status page's
+      submit form, smaller, under the copyright line. The submit review
+      and thank-you pages now share this footer, replacing their old
+      PayPal Donate form.
+      ACKNOWLEDGMENTS.md now holds every credit: the status page's
       original idea (David Carr, KD5QGR, and Bob Bruninga, WB4APR) and
       the API contributors. /api/v1/acknowledgements.php is removed.
       (Issue #67, PR #72)

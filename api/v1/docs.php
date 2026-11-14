@@ -39,7 +39,7 @@ declare(strict_types=1);
 <body>
   <nav class="api-docs-nav" aria-label="API documentation links">
     <a href="./overview.php">API overview</a>
-    <a href="https://github.com/AMSAT-NA/satellite-status/blob/main/ACKNOWLEDGEMENTS.md">Acknowledgements</a>
+    <a href="https://github.com/AMSAT-NA/satellite-status/blob/main/ACKNOWLEDGMENTS.md">Acknowledgments</a>
   </nav>
   <div id="swagger-ui"></div>
   <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
