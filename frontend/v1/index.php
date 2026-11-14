@@ -93,9 +93,70 @@ others and keep it current every time you access a bird.
 
 $nDays = 6;
 
-$db = mysqli_connect($mysqlHost, $mysqlUsername,$mysqlPassword);
-mysqli_select_db($db, $mysqlDatabase);
-mysqli_query($db, "SET time_zone = '+00:00'");
+// Issue #67: the page reads everything through the API instead of
+// MariaDB. The grid, its tooltips and "Reports From" are still computed
+// here from raw reports, exactly as the SQL below used to do.
+require_once __DIR__ . '/lib/status_api.php';
+
+// Issue #46: the window is today plus the previous $nDays - 1 UTC days,
+// from 00:00 UTC, up to (not including) 00:00 UTC tomorrow. The bounds are
+// whole days, so no 15-minute dedup period is split.
+$nTodayStart = intdiv(time(), 86400) * 86400;
+$sWindowStart = gmdate('Y-m-d\TH:i:s\Z', $nTodayStart - ($nDays - 1) * 86400);
+$nWindowEnd = $nTodayStart + 86400;
+
+$aWindowReports = status_api_reports_since($apiInternalUrl, $sWindowStart);
+$aCatalog = status_api_catalog($apiInternalUrl);
+$bStatusDataAvailable = $aWindowReports !== null && $aCatalog !== null;
+
+// Every report in the window, superseded ones included (PR #30, Issue
+// #50): superseded_by is null for the report that counts, so "counted"
+// is the API's superseded_by === null. day/hour/twohour/col are what the
+// old queries derived with DATE()/HOUR() and the grid-column expression;
+// col 0 is today's 22:00-23:59 cell, counting back 2 hours per column.
+$aTipRows = [];
+foreach ($aWindowReports ?? [] as $aReport) {
+    $nObserved = strtotime((string) $aReport['observation_time']);
+    if ($nObserved === false || $nObserved >= $nWindowEnd) {
+        continue; // future-dated legacy rows were never on the grid
+    }
+    $nHour = (int) gmdate('G', $nObserved);
+    $aTipRows[] = [
+        'name' => (string) $aReport['name'],
+        'report' => (string) $aReport['report'],
+        'id' => (int) $aReport['id'],
+        'callsign' => (string) $aReport['callsign'],
+        'day' => gmdate('Y-m-d', $nObserved),
+        'twohour' => intdiv($nHour, 2),
+        'grid_square' => (string) ($aReport['grid_square'] ?? ''),
+        'observed' => $nObserved,
+        'counted' => $aReport['superseded_by'] === null,
+        'col' => intdiv(23 - $nHour, 2) + intdiv($nTodayStart - intdiv($nObserved, 86400) * 86400, 86400) * 12,
+    ];
+}
+
+// The grid only counts each callsign's latest submission per period.
+$aGridRows = array_values(array_filter($aTipRows, static fn (array $r): bool => $r['counted']));
+
+// Same orders the SQL used: tooltips by name, cell (newest first), id
+// descending; grid by name, column, id descending. Name order follows
+// the tables' collation (status_name_compare).
+usort($aTipRows, static function (array $a, array $b): int {
+    return status_name_compare($a['name'], $b['name'])
+        ?: strcmp($b['day'], $a['day'])
+        ?: $b['twohour'] <=> $a['twohour']
+        ?: $b['id'] <=> $a['id'];
+});
+usort($aGridRows, static function (array $a, array $b): int {
+    return status_name_compare($a['name'], $b['name'])
+        ?: $a['col'] <=> $b['col']
+        ?: $b['id'] <=> $a['id'];
+});
+
+$aWebsites = [];
+foreach ($aCatalog ?? [] as $aSatellite) {
+    $aWebsites[(string) $aSatellite['name']] = (string) ($aSatellite['website'] ?? '');
+}
 
 ?>
 <!--       TIPSTER v3.0        -->
@@ -378,53 +439,20 @@ with (docTips)
 
 <?php
 
-// Get all reports for tooltip generation
-
-// Issue #24: day/hour/period are a frozen historical archive -- reads use
-// observation_time instead. DATE(observation_time)/HOUR(observation_time) substitute
-// mechanically for day/hour below so the bucketing (and thus the grid
-// layout) is unchanged; only the source column differs.
-//
-// Corrected reports (PR #30): writes are non-destructive since Issue #24,
-// so a resubmission (e.g. correcting a mistaken status) adds a row instead
-// of deleting and replacing the earlier one. To keep the grid exactly as
-// it behaved under delete+insert, only each callsign's latest submission
-// per satellite per 15-minute period counts toward a cell's colour --
-// "latest" by id, which is monotonic and so also orders historical rows
-// whose submission_time is NULL. The grid's 2-hour cells and layout are
-// unchanged; this only decides which rows inside a cell are counted.
-// Earlier submissions stay in the database and are still listed in the
-// tooltip, greyed out and marked as corrected. Rows with an empty callsign
-// (legacy data only) are never collapsed together. Same rule as the API
-// (LATEST_PER_CALLSIGN_SQL in api/v1/lib/repository.php).
-$sGridColumn = "FLOOR((23 - HOUR(observation_time)) / 2) + ((TO_DAYS(NOW()) - TO_DAYS(observation_time)) * 12)";
-
-// Issue #46: the 6-day window as a plain range on observation_time, so
-// MariaDB can use idx_satellite_observation_time instead of evaluating
-// $sGridColumn on every row. It selects exactly the rows that
-// "$sGridColumn BETWEEN 0 AND $nDays * 12 - 1" did: the first term of
-// $sGridColumn is 0..11, so that test is true exactly when the row's day
-// is 0..$nDays-1 days before today -- today's date (including any later
-// hours) back to midnight $nDays-1 days ago. CURDATE() matches the
-// TO_DAYS(NOW()) it replaces (session time zone, pinned to UTC above).
-// The bounds are whole days, so no 15-minute dedup period is split.
-// $sGridColumn is still used in SELECT for the cell layout, where it only
-// runs on matching rows. tests/StatusGridTest.php pins the equivalence.
-$sGridWindow = "observation_time >= CURDATE() - INTERVAL " . ($nDays - 1) . " DAY AND observation_time < CURDATE() + INTERVAL 1 DAY";
-$sLatestPerCallsign = "ROW_NUMBER() OVER (PARTITION BY name, DATE(observation_time), HOUR(observation_time), FLOOR(MINUTE(observation_time) / 15), COALESCE(NULLIF(callsign, ''), CONCAT('#', id)) ORDER BY id DESC)";
-
-$result = mysqli_query($db, "SELECT name, report, id, callsign, DATE(observation_time) AS day, HOUR(observation_time) AS hour, FLOOR(HOUR(observation_time) / 2) AS twohour, grid_square, observation_time, " .
-                      $sLatestPerCallsign . " = 1 AS counted " .
-                      "FROM satellite " .
-                      "WHERE name IS NOT NULL and " . $sGridWindow . " " .
-                      "ORDER BY name, DATE(observation_time) DESC, FLOOR(HOUR(observation_time) / 2) DESC, ID DESC");
+// Get all reports for tooltip generation: every report in the window
+// (see $aTipRows above). Earlier submissions that a later one from the
+// same callsign in the same 15-minute period superseded are still listed,
+// greyed out and marked as corrected, but don't count toward the cell's
+// colour. Rows with an empty callsign (legacy data only) are never
+// superseded. Same rule as the API (LATEST_PER_CALLSIGN_SQL in
+// api/v1/lib/repository.php), which now supplies superseded_by.
 
 $sLastName = "";
 $sLastDay = "";
 $nLastTwoHour = 0;
 $bStart = true;
 
-while ($aRow = mysqli_fetch_array($result))
+foreach ($aTipRows as $aRow)
 {
     $bSameName = $aRow["name"] == $sLastName;
     $bSameDay = $aRow["day"] == $sLastDay;
@@ -459,7 +487,7 @@ while ($aRow = mysqli_fetch_array($result))
     // reconstructed quarter-hour period range -- a precision improvement,
     // since observation_time is minute-accurate (period was only a 15-minute
     // bucket).
-    $observationTimeDisplay = date("Y-m-d H:i", strtotime($aRow["observation_time"]));
+    $observationTimeDisplay = gmdate("Y-m-d H:i", $aRow["observed"]);
     $tipEntry = $aRow["report"] . "<br>" . $aRow["callsign"] . $gridSquareElement . "<br>" . $observationTimeDisplay . " UTC";
     if (!$aRow["counted"]) {
         // Superseded by a later submission from the same callsign in this
@@ -544,15 +572,9 @@ echo("</tr>");
 
 
 // Only each callsign's latest submission per cell is counted (see the
-// tooltip query above). The cell's tooltip key is the highest id in the
+// tooltip rows above). The cell's tooltip key is the highest id in the
 // cell, which is always a counted row, so it still matches the tooltip.
-$result = mysqli_query($db, "SELECT name, report, id, col FROM (" .
-                      "SELECT name, report, id, " . $sGridColumn . " AS col, " . $sLatestPerCallsign . " AS rn " .
-                      "FROM satellite " .
-                      "WHERE " . $sGridWindow .
-                      ") latest " .
-                      "WHERE rn = 1 " .
-                      "ORDER BY name, col ASC, id DESC");
+$nGridRow = 0;
 
 $sLastName = "";
 $sLastDay = "";
@@ -560,7 +582,7 @@ $nLastColumn = 0;
 $nCurColumn = 0;
 
 // Fetch first row
-$aRow = mysqli_fetch_array($result);
+$aRow = $aGridRows[$nGridRow++] ?? null;
 
 if ($aRow)
 {
@@ -571,10 +593,6 @@ if ($aRow)
 }
 
 // Print rows in satellite status table
-$conn = new mysqli($mysqlHost, $mysqlUsername, $mysqlPassword, $mysqlDatabase);
-$conn->query("SET time_zone = '+00:00'");
-// Prepared once and re-executed per row inside the loop below.
-$websiteLookup = $conn->prepare("SELECT website FROM satellite_name WHERE html_element_name = ?");
 while ($aRow)
 {
     if (!$bSameName)
@@ -584,16 +602,7 @@ while ($aRow)
         // We're on a new row, so reset current column number
         $nCurColumn = 0;
 
-        $websiteLookup->bind_param("s", $aRow["name"]);
-        $websiteLookup->execute();
-        $resultwebsite = $websiteLookup->get_result();
-
-        if ($resultwebsite->num_rows > 0) {
-            // output data of each row
-            while($row = $resultwebsite->fetch_assoc()) {
-                $satPage = $row["website"];
-            }
-        }
+        $satPage = $aWebsites[$aRow["name"]] ?? "";
 
         // Only add link if we have a site
         if ($satPage != "")
@@ -639,7 +648,7 @@ while ($aRow)
     }
 
     // Fetch next row
-    $aRow = mysqli_fetch_array($result);
+    $aRow = $aGridRows[$nGridRow++] ?? null;
     if ($aRow)
     {
         $bSameName = $aRow["name"] == $sLastName;
@@ -667,7 +676,7 @@ while ($aRow)
                 $nCrew++;
             }
 
-            $aRow = mysqli_fetch_array($result);
+            $aRow = $aGridRows[$nGridRow++] ?? null;
 
             if ($aRow)
             {
@@ -733,12 +742,12 @@ while ($aRow)
     }
 }
 
-// Disconnect from database
-$websiteLookup->close();
-$conn->close();
-
-
 echo("</table>");
+
+if (!$bStatusDataAvailable)
+{
+    echo("<p><b>Status data is temporarily unavailable. Please try again in a few minutes.</b></p>");
+}
 
 ?>
 </center>
@@ -757,12 +766,24 @@ echo("</table>");
 <br>
 <div class="reportsFromList">
 <?php
-$result = mysqli_query($db, "SELECT callsign, MAX(observation_time) AS last_report FROM satellite " .
-                      "WHERE " . $sGridWindow . " " .
-                      "AND callsign <> 'TEST' AND callsign <> '' GROUP BY callsign ORDER BY last_report DESC");
-while($value = mysqli_fetch_array($result))
+// Each callsign with a report in the window, most recent first. Every
+// report counts here, superseded ones included, as the old query did.
+// Callsigns compare case-insensitively (as the column's collation did),
+// and TEST and blank callsigns are left out.
+$aLastReport = [];
+foreach ($aTipRows as $aRow)
 {
-  printf("<br><b>%s</b>",strtoupper($value['callsign']));
+    $sCallsign = strtoupper(rtrim($aRow["callsign"]));
+    if ($sCallsign === "" || $sCallsign === "TEST")
+    {
+        continue;
+    }
+    $aLastReport[$sCallsign] = max($aLastReport[$sCallsign] ?? 0, $aRow["observed"]);
+}
+arsort($aLastReport);
+foreach (array_keys($aLastReport) as $sCallsign)
+{
+  printf("<br><b>%s</b>", htmlspecialchars((string) $sCallsign));
 }
 
 ?>
@@ -796,28 +817,18 @@ while($value = mysqli_fetch_array($result))
   <option value="">Select Satellite</option>
 
 <?php
-// Create connection
-$conn = new mysqli($mysqlHost, $mysqlUsername, $mysqlPassword, $mysqlDatabase);
-// Check connection
-if ($conn->connect_error) {
-    die("Connection failed: " . $conn->connect_error);
-}
-$conn->query("SET time_zone = '+00:00'");
-
-$sql = "SELECT * FROM satellite_name ORDER BY name ASC";
-$result = $conn->query($sql);
-
-if ($result->num_rows > 0) {
-    // output data of each row
-    while($row = $result->fetch_assoc()) {
+// Issue #67: from the API catalog, which is already ordered by display name.
+if ($aCatalog === null) {
+    echo "Satellite list unavailable";
+} elseif ($aCatalog === []) {
+    echo "0 results";
+} else {
+    foreach ($aCatalog as $aSatellite) {
         ?>
-        <option value="<?php echo $row['html_element_name'];?>"><?php echo $row['name'];?></option>
+        <option value="<?php echo htmlspecialchars((string) $aSatellite['name']);?>"><?php echo htmlspecialchars((string) $aSatellite['display_name']);?></option>
         <?php
     }
-} else {
-    echo "0 results";
 }
-$conn->close();
 ?>
 
 </select>
@@ -945,11 +956,8 @@ $conn->close();
 <hr>
 <br>
 <center>
-&copy; Radio Amateur Satellite Corporation (AMSAT).
-<p>Based on the original idea of David Carr, KD5QGR & Bob Bruninga, WB4APR</p>
-<?php if ($appCommitSha !== null && $appDeployedAt !== null): ?>
-<p style="font-size:12px;color:#888;">Last updated <?php echo htmlspecialchars(date('m/d/Y H:i', strtotime($appDeployedAt))); ?> UTC (commit <?php echo htmlspecialchars(substr($appCommitSha, 0, 7)); ?>) &middot; <a href="https://github.com/AMSAT-NA/satellite-status/blob/main/CHANGELOG" target="_blank" rel="noopener" style="color:#888;">CHANGELOG</a></p>
-<?php endif; ?>
+&copy; Radio Amateur Satellite Corporation (AMSAT)
+<p style="font-size:12px;color:#888;"><?php if ($appCommitSha !== null && $appDeployedAt !== null): ?>Last updated <?php echo htmlspecialchars(date('m/d/Y H:i', strtotime($appDeployedAt))); ?> UTC (commit <?php echo htmlspecialchars(substr($appCommitSha, 0, 7)); ?>) &middot; <?php endif; ?><a href="https://github.com/AMSAT-NA/satellite-status/blob/main/CHANGELOG" target="_blank" rel="noopener" style="color:#888;">CHANGELOG</a> &middot; <a href="/api/v1/overview.php" style="color:#888;">API</a> &middot; <a href="https://github.com/AMSAT-NA/satellite-status/blob/main/ACKNOWLEDGEMENTS.md" target="_blank" rel="noopener" style="color:#888;">Acknowledgements</a></p>
 <br>
 </body>
 </html>

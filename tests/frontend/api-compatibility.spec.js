@@ -403,20 +403,6 @@ test.describe('public frontend/API compatibility', () => {
     );
   });
 
-  test('API acknowledgements page is public', async ({ page }) => {
-    const response = await page.goto('/api/v1/acknowledgements.php');
-
-    expect(response.status()).toBe(200);
-    expect(response.headers()['content-type']).toContain('text/plain');
-    await expect(page.locator('body')).toContainText(
-      'AMSAT Satellite Status API Acknowledgements'
-    );
-    await expect(page.locator('body')).toContainText('Ben Welsh, KFØIA');
-    await expect(page.locator('body')).toContainText('Dominic Hord, AD8AK');
-    await expect(page.locator('body')).toContainText('API overview:');
-    await expect(page.locator('body')).toContainText('Swagger documentation:');
-  });
-
   test('Swagger docs are public and load the OpenAPI document', async ({ page }) => {
     const openApiResponses = [];
     const failedApiResponses = [];

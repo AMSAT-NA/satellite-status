@@ -14,12 +14,13 @@ satellite-status/
 │   └── v1/               # PHP REST API
 │       ├── Dockerfile    # builds the API container
 │       ├── overview.php  # HTML API documentation
-│       ├── docs.php      # Swagger UI
-│       └── acknowledgements.php
+│       └── docs.php      # Swagger UI
 ├── db/schema.sql         # database schema
 ├── db/seed.sql           # local dev seed data
 ├── tests/                # PHPUnit + Playwright test suites
-└── docker-compose.yml    # local dev stack
+├── docker-compose.yml    # local dev stack
+├── CHANGELOG
+└── ACKNOWLEDGEMENTS.md   # credits for the status page and API
 ```
 
 ## Installation

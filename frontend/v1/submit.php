@@ -4,6 +4,7 @@
 <?php
  // Include files
 include("config.php");
+require_once __DIR__ . "/lib/status_api.php";
 
 const PARSE_GRID_SQUARE_FROM_CALLSIGN = true;
 
@@ -96,22 +97,21 @@ if ($submit)
  // before the API is ever called. If you change validation rules there,
  // check whether this needs the same change.
  if($SatName != "") {
-   $conn = new mysqli($mysqlHost,$mysqlUsername,$mysqlPassword,$mysqlDatabase);
-   $conn->query("SET time_zone = '+00:00'");
+   // Issue #67: checked against the API catalog instead of MariaDB. The
+   // catalog lookup also matches display names, so require the API name
+   // the form sends. Case-insensitive, as the old query's collation was.
+   $catalogResult = status_api_get($apiInternalUrl, 'catalog.php', ['name' => $SatName]);
 
-   $stmt = $conn->prepare("SELECT html_element_name FROM satellite_name WHERE html_element_name = ?");
-   $stmt->bind_param("s", $SatName);
-   $stmt->execute();
-   $result = $stmt->get_result();
-   $rowcount = $result->num_rows;
-   $stmt->close();
-
-   if ($rowcount != 1) {
-     echo "<br><br><div style=\" font-family: Helvetica,Arial,sans-serif;padding: 10px; font-size:20px; width: 50%; margin: 0 auto; color: #a94442;background-color: #f2dede;border-color: #ebccd1;\">Satellite Name does not match.</div>";
+   if ($catalogResult['status'] !== 200 && $catalogResult['status'] !== 404) {
+     echo "<br><br><div style=\" font-family: Helvetica,Arial,sans-serif;padding: 10px; font-size:20px; width: 50%; margin: 0 auto; color: #a94442;background-color: #f2dede;border-color: #ebccd1;\">The report service is temporarily unavailable. Please try again in a few minutes.</div>";
      exit;
    }
 
-   mysqli_close($conn);
+   $catalogNames = array_map('strtoupper', array_column($catalogResult['body']['data'] ?? [], 'name'));
+   if ($catalogResult['status'] !== 200 || !in_array(strtoupper($SatName), $catalogNames, true)) {
+     echo "<br><br><div style=\" font-family: Helvetica,Arial,sans-serif;padding: 10px; font-size:20px; width: 50%; margin: 0 auto; color: #a94442;background-color: #f2dede;border-color: #ebccd1;\">Satellite Name does not match.</div>";
+     exit;
+   }
  }
 
  if($Confirm == "yes")
