@@ -757,6 +757,7 @@ if (!$bStatusDataAvailable)
 
 <br>
 <center><b>Hover mouse over number for more data. Satellites do not appear if they have no data available.</b>
+<br>To correct a report made in error, re-submit with the same callsign, time, and corrected information.
 </center>
 
 <br>
@@ -792,17 +793,6 @@ foreach (array_keys($aLastReport) as $sCallsign)
 <td width="80%" align="center" valign="top">
 <br>
 
-<center>
-<table bgcolor=ffcccc>
-<tr><td>
-<b>To correct a report made in error:</b>
-<br>Enter the same data as before, except with the correct status.
-<br>Then click submit---the original entry will be corrected.
-</td></tr>
-</table>
-</center>
-
-<br>
 <table width="60%" cellpadding=10 border=0>
 <tr><td colspan=2 align="center">
 <Font size=5>Submit Report</font>
@@ -910,7 +900,7 @@ if ($aCatalog === null) {
 <input type="text" name="SatTime" value="<?php echo date("H:i"); ?>"
        pattern="([01]?[0-9]|2[0-3]):[0-5][0-9]" inputmode="numeric"
        maxlength="5" size="5" placeholder="HH:MM" required
-       title="24-hour UTC time, HH:MM (e.g. 14:30 or 9:05)"> UTC, 24-hour (HH:MM)
+       title="24-hour UTC time, HH:MM (e.g. 14:30 or 9:05)"> (24 hour format, HH:MM)
 </td></tr>
 
 <tr>
@@ -939,10 +929,6 @@ if ($aCatalog === null) {
 </form>
 </td></tr>
 </table>
-
-<div class="contact_support">
-<span style="font-size:18px;">Questions? E-mail support at: webmaster@amsat.org</span>
-</div>
 
 <!--- main layout table-->
 </td>

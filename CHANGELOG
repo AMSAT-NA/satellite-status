@@ -408,6 +408,7 @@ CHANGE LOG:
       retired from frontend-v1 once frontend-v2's admin pages ship. #67
       uses cursor paging in reports.php for the grid's full window.
       (PR #70)
+2026-11-14:
     - GET /api/v1/reports.php pages large results: responses carry
       meta.next_cursor and links.next (null on the last page), and a new
       cursor parameter fetches the next page. Paging is keyset-based and
@@ -425,7 +426,7 @@ CHANGE LOG:
       tooltip entries, read its full 6-day window through the API.
       API version 1.5.
       (Issues #67 and #50, PR #71)
-2026-11-14:
+2026-11-15:
     - The status page and submit form read through the API instead of
       querying MariaDB directly: the 6-day grid, tooltips (superseded
       reports still struck through), "Reports From" and the satellite
@@ -444,3 +445,13 @@ CHANGE LOG:
       original idea (David Carr, KD5QGR, and Bob Bruninga, WB4APR) and
       the API contributors. /api/v1/acknowledgements.php is removed.
       (Issue #67, PR #72)
+    - Footer: the "Questions? E-mail support" line moved from below the
+      submit form into the footer, under the Support AMSAT button (so the
+      submit pages show it too), and the API link opens in a new tab like
+      Acknowledgments and Changelog.
+    - Submit form: the time hint reads "(24 hour format, HH:MM)" (the
+      "Time Heard (UTC)" label already says UTC). The pink "To correct a
+      report made in error" box is replaced by one line under the "Hover
+      mouse over number" hint: "To correct a report made in error,
+      re-submit with the same callsign, time, and corrected information."
+      (PR #73)
