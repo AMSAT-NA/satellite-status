@@ -757,7 +757,7 @@ if (!$bStatusDataAvailable)
 
 <br>
 <center><b>Hover mouse over number for more data. Satellites do not appear if they have no data available.</b>
-<br>To correct a report made in error, re-submit with the correct information.
+<br>To correct a report made in error, re-submit with the same callsign, time, and corrected information.
 </center>
 
 <br>

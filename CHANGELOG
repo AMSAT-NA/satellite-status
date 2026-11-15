@@ -453,5 +453,5 @@ CHANGE LOG:
       "Time Heard (UTC)" label already says UTC). The pink "To correct a
       report made in error" box is replaced by one line under the "Hover
       mouse over number" hint: "To correct a report made in error,
-      re-submit with the correct information."
+      re-submit with the same callsign, time, and corrected information."
       (PR #73)

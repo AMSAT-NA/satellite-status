@@ -82,7 +82,7 @@ final class StatusPageViaApiTest extends TestCase
         // The correction note is one plain line under the hover hint, with
         // no pink box.
         $hover = strpos($body, 'Hover mouse over number for more data.');
-        $note = strpos($body, 'To correct a report made in error, re-submit with the correct information.');
+        $note = strpos($body, 'To correct a report made in error, re-submit with the same callsign, time, and corrected information.');
         $this->assertNotFalse($note);
         $this->assertGreaterThan($hover, $note);
         $this->assertStringNotContainsString('ffcccc', $body);
