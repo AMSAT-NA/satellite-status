@@ -98,6 +98,23 @@ test.describe('public frontend/API compatibility', () => {
     await expect(page.locator('select[name="SatName"]')).toContainText('AO-91');
   });
 
+  test('"Reports From" ends with the submit form, not below it', async ({ page }) => {
+    // The list fills its cell and scrolls inside it, so the row is only as
+    // tall as the submit form: no dead space under the Submit button.
+    await page.goto('/');
+
+    const submit = await page.locator('input[name="SatSubmit"]').boundingBox();
+    const formCell = await page.locator('input[name="SatSubmit"]').evaluate(
+      (el) => el.closest('td[width="80%"]').getBoundingClientRect().bottom,
+    );
+    const panel = await page.locator('.reportsFromPanel').boundingBox();
+
+    expect(submit).not.toBeNull();
+    expect(panel).not.toBeNull();
+    expect(panel.y + panel.height).toBeLessThanOrEqual(formCell + 1);
+    await expect(page.locator('.reportsFromList')).toHaveCSS('overflow-y', 'auto');
+  });
+
   test('browser clients can read the new reports API envelope', async ({ page }) => {
     await page.goto('/');
 

@@ -455,3 +455,8 @@ CHANGE LOG:
       mouse over number" hint: "To correct a report made in error,
       re-submit with the same callsign, time, and corrected information."
       (PR #73)
+    - The Support AMSAT button opens the donations page in a new tab, and
+      the "Reports From" list is sized to the submit form beside it
+      (scrolling within that height) instead of a fixed 500px, so there's
+      no dead space under the Submit button.
+      (PR #74)
