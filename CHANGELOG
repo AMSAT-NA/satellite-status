@@ -449,4 +449,9 @@ CHANGE LOG:
       submit form into the footer, under the Support AMSAT button (so the
       submit pages show it too), and the API link opens in a new tab like
       Acknowledgments and Changelog.
+    - Submit form: the time hint reads "(24 hour format, HH:MM)" (the
+      "Time Heard (UTC)" label already says UTC). The pink "To correct a
+      report made in error" box is replaced by one line under the "Hover
+      mouse over number" hint: "To correct a report made in error,
+      re-submit with the correct information."
       (PR #73)

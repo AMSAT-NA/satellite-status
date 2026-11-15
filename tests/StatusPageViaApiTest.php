@@ -70,6 +70,24 @@ final class StatusPageViaApiTest extends TestCase
         $this->assertStringNotContainsString('original idea', $body);
     }
 
+    public function testFormHintsAndCorrectionNote(): void
+    {
+        $body = (string) $this->newGuestClient()->get('/')->getBody();
+
+        // "Time Heard (UTC)" already names the time zone.
+        $this->assertStringContainsString('Time Heard (UTC)', $body);
+        $this->assertStringContainsString('> (24 hour format, HH:MM)', $body);
+        $this->assertStringNotContainsString('UTC, 24-hour', $body);
+
+        // The correction note is one plain line under the hover hint, with
+        // no pink box.
+        $hover = strpos($body, 'Hover mouse over number for more data.');
+        $note = strpos($body, 'To correct a report made in error, re-submit with the correct information.');
+        $this->assertNotFalse($note);
+        $this->assertGreaterThan($hover, $note);
+        $this->assertStringNotContainsString('ffcccc', $body);
+    }
+
     public function testAcknowledgmentsFileHasEveryCredit(): void
     {
         $text = (string) file_get_contents(__DIR__ . '/../ACKNOWLEDGMENTS.md');
