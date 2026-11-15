@@ -444,3 +444,9 @@ CHANGE LOG:
       original idea (David Carr, KD5QGR, and Bob Bruninga, WB4APR) and
       the API contributors. /api/v1/acknowledgements.php is removed.
       (Issue #67, PR #72)
+2026-11-15:
+    - Footer: the "Questions? E-mail support" line moved from below the
+      submit form into the footer, under the Support AMSAT button (so the
+      submit pages show it too), and the API link opens in a new tab like
+      Acknowledgments and Changelog.
+      (PR #73)
