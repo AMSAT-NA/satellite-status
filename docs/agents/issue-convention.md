@@ -1,7 +1,7 @@
 ---
 type: Convention
 title: Issue Titles and Labels
-description: Prefix issue titles with the part of the project they belong to (api-v1, api-v2, frontend-v1, frontend-v2, db), and apply the matching label.
+description: Prefix issue titles with the part of the project they belong to (api-v1, api-v2, frontend-v1, frontend-v2, db, docs), and apply the matching label.
 tags: [issues, labels, process, agents]
 timestamp: 2026-11-15T00:00:00Z
 ---
@@ -9,7 +9,7 @@ timestamp: 2026-11-15T00:00:00Z
 # Issue Titles and Labels
 
 Prefix each issue title with the part of the project it belongs to, then a
-colon, and apply the label of the same name. Each label exists in the repo:
+colon, and apply the matching label (the same name, except `docs`). Each label exists in the repo:
 
 | Prefix / label | Covers |
 |---|---|
@@ -18,6 +18,7 @@ colon, and apply the label of the same name. Each label exists in the repo:
 | `frontend-v1` | The PHP v1 frontend (`frontend/v1`) |
 | `frontend-v2` | The v2 frontend (`frontend-v2`) |
 | `db` | The shared database: schema, migrations and catalog data (`db/`) |
+| `docs` | Documentation only. Uses GitHub's existing `documentation` label |
 
 Example: `frontend-v2: Add field for comments`, labeled `frontend-v2`.
 
