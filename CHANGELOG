@@ -464,5 +464,6 @@ CHANGE LOG:
       that the frontend-v2 admin ships before the public frontend-v2,
       together with the #26 schema redesign (Issue #75). New
       issue-convention.md: issue titles start with api-v1, api-v2,
-      frontend-v1 or frontend-v2, with the matching label.
+      frontend-v1, frontend-v2 or db, with the matching label; bugs keep
+      their area prefix plus the bug label.
       (PR #76)
