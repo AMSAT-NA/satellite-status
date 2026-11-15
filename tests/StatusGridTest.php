@@ -84,50 +84,10 @@ final class StatusGridTest extends TestCase
     }
 
     /**
-     * Issue #46: the status page's 6-day window moved from
-     * "<grid column> BETWEEN 0 AND 71" (a function of every row, so a full
-     * table scan) to a plain range on observation_time. Both must select
-     * exactly the same rows. Rows sit on each side of every boundary: the
-     * old lower edge, each midnight in the window, late today, and
-     * tomorrow (direct inserts can be future-dated; the API rejects that).
-     */
-    public function testWindowRangeSelectsSameRowsAsGridColumnExpression(): void
-    {
-        $this->db->query("SET time_zone = '+00:00'");
-        $this->db->query("DELETE FROM satellite");
-
-        $offsets = [];
-        for ($day = -1; $day <= 7; $day++) {
-            foreach (['00:00:00', '00:00:01', '11:59:59', '23:59:59'] as $time) {
-                $offsets[] = [$day, $time];
-            }
-        }
-        $stmt = $this->db->prepare(
-            'INSERT INTO satellite (name, longname, callsign, report, grid_square, observation_time) '
-            . "VALUES ('ISS', 'ISS', 'W5WIN', 'Heard', '', TIMESTAMP(CURDATE() - INTERVAL ? DAY, ?))"
-        );
-        foreach ($offsets as [$day, $time]) {
-            $stmt->bind_param('is', $day, $time);
-            $stmt->execute();
-        }
-        $stmt->close();
-
-        $old = 'FLOOR((23 - HOUR(observation_time)) / 2)'
-            . ' + ((TO_DAYS(NOW()) - TO_DAYS(observation_time)) * 12) BETWEEN 0 AND 71';
-        $new = 'observation_time >= CURDATE() - INTERVAL 5 DAY'
-            . ' AND observation_time < CURDATE() + INTERVAL 1 DAY';
-
-        $oldIds = $this->ids("SELECT id FROM satellite WHERE $old ORDER BY id");
-        $newIds = $this->ids("SELECT id FROM satellite WHERE $new ORDER BY id");
-
-        // Days 0..5 x 4 times. Guards against both sides being empty.
-        $this->assertCount(24, $oldIds);
-        $this->assertSame($oldIds, $newIds);
-    }
-
-    /**
      * Issue #46, end to end: a report at midnight 5 days ago is on the
-     * page; one a second earlier, or dated tomorrow, is not. Checked via
+     * page; one a second earlier, or dated tomorrow, is not. (Issue #67:
+     * the window is now a since= on the API plus a filter in index.php,
+     * so this end-to-end test is the one that pins it.) Checked via
      * the "Reports From" list, which lists each callsign in the window.
      */
     public function testStatusPageWindowEdges(): void
@@ -149,17 +109,6 @@ final class StatusGridTest extends TestCase
         $this->assertStringContainsString('<b>W5IN</b>', $body);
         $this->assertStringNotContainsString('W5OUT', $body);
         $this->assertStringNotContainsString('W5TMR', $body);
-    }
-
-    /** @return list<int> */
-    private function ids(string $sql): array
-    {
-        $result = $this->db->query($sql);
-        $ids = [];
-        while ($row = $result->fetch_row()) {
-            $ids[] = (int) $row[0];
-        }
-        return $ids;
     }
 
     private function insertReport(string $callsign, string $report, string $time): void
