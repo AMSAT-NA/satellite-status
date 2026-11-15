@@ -940,10 +940,6 @@ if ($aCatalog === null) {
 </td></tr>
 </table>
 
-<div class="contact_support">
-<span style="font-size:18px;">Questions? E-mail support at: webmaster@amsat.org</span>
-</div>
-
 <!--- main layout table-->
 </td>
 </tr>

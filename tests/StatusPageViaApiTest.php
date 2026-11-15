@@ -45,9 +45,12 @@ final class StatusPageViaApiTest extends TestCase
     {
         $body = (string) $this->newGuestClient()->get('/')->getBody();
 
-        // Alphabetical: Acknowledgments, API, Changelog.
+        // Alphabetical: Acknowledgments, API, Changelog; each opens in a
+        // new tab.
         $this->assertMatchesRegularExpression(
-            '#ACKNOWLEDGMENTS\.md"[^>]*>Acknowledgments</a> &middot; <a href="/api/v1/overview\.php"[^>]*>API</a> &middot; <a href="[^"]*blob/main/CHANGELOG"[^>]*>Changelog</a>#',
+            '#ACKNOWLEDGMENTS\.md" target="_blank" rel="noopener"[^>]*>Acknowledgments</a> &middot; '
+            . '<a href="/api/v1/overview\.php" target="_blank" rel="noopener"[^>]*>API</a> &middot; '
+            . '<a href="[^"]*blob/main/CHANGELOG" target="_blank" rel="noopener"[^>]*>Changelog</a>#',
             $body
         );
         $this->assertStringContainsString("Satellite Corporation (AMSAT)\n", $body);
@@ -58,6 +61,12 @@ final class StatusPageViaApiTest extends TestCase
         $this->assertNotFalse($button);
         $this->assertGreaterThan($copyright, $button);
         $this->assertSame(1, substr_count($body, '>Support AMSAT</a>'));
+
+        // The support e-mail line sits in the footer, under the button.
+        $contact = strpos($body, 'Questions? E-mail support at: webmaster@amsat.org');
+        $this->assertNotFalse($contact);
+        $this->assertGreaterThan($button, $contact);
+        $this->assertSame(1, substr_count($body, 'Questions? E-mail support'));
         $this->assertStringNotContainsString('original idea', $body);
     }
 
@@ -90,6 +99,7 @@ final class StatusPageViaApiTest extends TestCase
             $this->assertStringContainsString('Satellite Corporation (AMSAT)', $body, $page);
             $this->assertStringContainsString('>Support AMSAT</a>', $body, $page);
             $this->assertStringContainsString('>Acknowledgments</a>', $body, $page);
+            $this->assertStringContainsString('Questions? E-mail support at: webmaster@amsat.org', $body, $page);
             $this->assertStringNotContainsString('paypal.com', $body, $page);
         }
     }
