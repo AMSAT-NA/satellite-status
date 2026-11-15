@@ -61,6 +61,10 @@ final class StatusPageViaApiTest extends TestCase
         $this->assertNotFalse($button);
         $this->assertGreaterThan($copyright, $button);
         $this->assertSame(1, substr_count($body, '>Support AMSAT</a>'));
+        $this->assertStringContainsString(
+            'href="https://www.amsat.org/donations/amsat-general-fund-donations/" target="_blank" rel="noopener"',
+            $body
+        );
 
         // The support e-mail line sits in the footer, under the button.
         $contact = strpos($body, 'Questions? E-mail support at: webmaster@amsat.org');

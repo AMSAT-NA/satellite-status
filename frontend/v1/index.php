@@ -33,8 +33,24 @@ $hasBanner = is_file($bannerPath) && trim((string) file_get_contents($bannerPath
 </style>
 
 <style media="screen">
+  /* The "Reports From" column takes no height of its own: the panel is
+     positioned to fill its cell, so the row is as tall as the submit
+     form beside it, and the list scrolls within that height. */
+  .reportsFromCell {
+    position: relative;
+  }
+  .reportsFromPanel {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    display: flex;
+    flex-direction: column;
+  }
   .reportsFromList {
-    max-height: 500px;
+    flex: 1;
+    min-height: 0;
     overflow-y: auto;
     width: 100%;
     text-align: center;
@@ -763,8 +779,9 @@ if (!$bStatusDataAvailable)
 <br>
 <table width="100%" border=0>
 <tr>
-<td width="20%" align="center" cellpadding=20 valign="top"><font color="4169E1" size=4><b>Reports From:</b></font>
-<br>
+<td width="20%" align="center" cellpadding=20 valign="top" class="reportsFromCell">
+<div class="reportsFromPanel">
+<div><font color="4169E1" size=4><b>Reports From:</b></font></div>
 <div class="reportsFromList">
 <?php
 // Each callsign with a report in the window, most recent first. Every
@@ -788,6 +805,7 @@ foreach (array_keys($aLastReport) as $sCallsign)
 }
 
 ?>
+</div>
 </div>
 </td>
 <td width="80%" align="center" valign="top">
