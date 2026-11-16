@@ -460,3 +460,10 @@ CHANGE LOG:
       (scrolling within that height) instead of a fixed 500px, so there's
       no dead space under the Submit button.
       (PR #74)
+    - docs/agents: the v1/v2 dividing-line decision record now records
+      that the frontend-v2 admin ships before the public frontend-v2,
+      together with the #26 schema redesign (Issue #75). New
+      issue-convention.md: issue titles start with api-v1, api-v2,
+      frontend-v1, frontend-v2, db or docs, with the matching label; bugs keep
+      their area prefix plus the bug label.
+      (PR #76)

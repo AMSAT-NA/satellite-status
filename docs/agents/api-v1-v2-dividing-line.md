@@ -1,7 +1,7 @@
 ---
 type: Decision Record
 title: api-v2 Language and the v1 / v2 Dividing Line
-description: Why api-v2 will be TypeScript, what work still goes into the PHP v1 API and frontend, and how v1 serves the status grid's full window (paging).
+description: Why api-v2 will be TypeScript, what work still goes into the PHP v1 API and frontend, how v1 serves the status grid's full window (paging), and why the v2 admin ships before the public frontend-v2.
 tags: [api, architecture, v2, versioning, agents]
 timestamp: 2026-11-12T00:00:00Z
 ---
@@ -37,7 +37,8 @@ timestamp: 2026-11-12T00:00:00Z
 - **the admin pages**. These are *not* moved onto v1 API endpoints.
   They'll be rebuilt as frontend-v2 admin pages on api-v2, and the
   frontend-v1 admin pages (`frontend/v1/admin/*`) will be retired when
-  that ships. Until then, they keep their direct database access;
+  that ships. Until then, they keep their direct database access. The
+  v2 admin ships first (section 4);
 - member sign-in through WildApricot
   ([Issue #44](https://github.com/AMSAT-NA/satellite-status/issues/44)) for
   new features.
@@ -67,3 +68,25 @@ in api-v2. v1 stays on MINOR versions (`API_VERSION` in
   tooltips and "Reports From", using rows fetched from the API.
 - Raising the cap (e.g. to 5,000) was the smaller alternative but keeps a
   fixed ceiling, so it was rejected.
+
+## 4. Order of v2 work: the admin ships first
+
+Decided 2026-11-15
+([Issue #75](https://github.com/AMSAT-NA/satellite-status/issues/75)).
+
+1. The schema redesign
+   ([Issue #26](https://github.com/AMSAT-NA/satellite-status/issues/26)):
+   spacecraft, mode, mode category and observation tables.
+2. api-v2 admin endpoints for the catalog.
+3. frontend-v2 admin pages on those endpoints. The frontend-v1 admin
+   pages are retired in the same release.
+4. The public frontend-v2.
+
+Steps 1–3 go live together, or with the catalog frozen in between.
+
+- **Why:** from step 3 on, the catalog is edited through one interface
+  only. That interface can enforce rules the database alone can't
+  explain to a user, starting with a required category on every mode.
+- **It also saves work:** the v1 admin pages write directly into today's
+  `satellite_name` table, so keeping them past #26 would mean patching
+  them to write the new tables.
