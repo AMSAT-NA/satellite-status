@@ -1,5 +1,5 @@
 # Built and pushed to ACR by .github/workflows/cd.yml
-FROM php:8.5-apache
+FROM php:8.6-rc-apache
 
 RUN docker-php-ext-install mysqli \
     && apt-get update \

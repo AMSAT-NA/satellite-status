@@ -1,7 +1,7 @@
 # Built and pushed to ACR by .github/workflows/cd.yml.
 # Build context is ./api (not ./api/v1) so the /api front door
 # (api/index.php) ships in the same image as v1 -- see issue #38.
-FROM php:8.5-apache
+FROM php:8.6-rc-apache
 
 RUN docker-php-ext-install mysqli \
     && apt-get update \

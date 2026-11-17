@@ -58,7 +58,7 @@ jobs:
         id: read
         run: |
           read_version() {
-            sed -nE 's/^FROM php:([0-9]+\.[0-9]+)-apache.*$/\1/p' "$1" | head -n1
+            sed -nE 's/^FROM php:([0-9]+\.[0-9]+(-rc)?)-apache.*$/\1/p' "$1" | head -n1
           }
           API=$(read_version api/Dockerfile)
           FRONTEND=$(read_version frontend/v1/Dockerfile)
@@ -73,7 +73,9 @@ jobs:
       - name: Confirm the CI image matches
         run: |
           docker run --rm "php:${{ steps.read.outputs.php }}-cli" php --version \
-            | tee /dev/stderr | head -n1 | grep -q "^PHP ${{ steps.read.outputs.php }}\."
+            | tee /dev/stderr | head -n1 | grep -q "^PHP ${PHPV%-rc}\."
+        env:
+          PHPV: ${{ steps.read.outputs.php }}
 
   # Issue #24 follow-up: guards against a *new* raw DB connection being
   # added without the UTC time_zone pin every connection needs (see
