@@ -487,4 +487,4 @@ TBD:
       (typecheck, types check, build, tests against MariaDB) and an
       api-v2 service in the local compose stack, smoke-tested in CI.
       Not deployed to production yet.
-      (PR #NN)
+      (PR #78)
