@@ -506,4 +506,4 @@ TBD:
       have it yet), deploy/docker-compose.yml runs it behind Traefik with
       a router that outranks v1's /api router for /api/v2 only, and each
       deploy ends by checking /api/v2/health through the public URL.
-      (PR #NN)
+      (PR #79)
