@@ -70,6 +70,12 @@ jobs:
           fi
           echo "php=$API" >> "$GITHUB_OUTPUT"
 
+      - name: TEMP list extensions in the 8.5 and 8.6 images
+        run: |
+          for t in 8.5-apache 8.5-cli 8.6-rc-apache 8.6-rc-cli; do
+            echo "== php:$t"; docker run --rm "php:$t" php -m | tr '\n' ' '; echo
+          done
+
       - name: Confirm the CI image matches
         run: |
           docker run --rm "php:${{ steps.read.outputs.php }}-cli" php --version \
@@ -160,6 +166,7 @@ jobs:
         run: |
           apt-get update -yqq
           apt-get install -yqq --no-install-recommends git unzip
+          php -m | grep -qx mbstring || { docker-php-ext-configure mbstring --disable-mbregex && docker-php-ext-install mbstring; }
           curl -sS https://getcomposer.org/installer | php -- --quiet
           php composer.phar install --no-progress --no-interaction
       - name: Check platform requirements
@@ -219,6 +226,7 @@ jobs:
           apt-get update -yqq
           apt-get install -yqq --no-install-recommends git unzip default-mysql-client
           docker-php-ext-install mysqli
+          php -m | grep -qx mbstring || { docker-php-ext-configure mbstring --disable-mbregex && docker-php-ext-install mbstring; }
 
       - name: Wait for MariaDB
         run: until mysql -h mariadb -usatstatus -psatstatus -e "SELECT 1" >/dev/null 2>&1; do sleep 1; done
@@ -291,6 +299,7 @@ jobs:
           apt-get update -yqq
           apt-get install -yqq --no-install-recommends curl default-mysql-client git unzip nodejs npm
           docker-php-ext-install mysqli
+          php -m | grep -qx mbstring || { docker-php-ext-configure mbstring --disable-mbregex && docker-php-ext-install mbstring; }
           php --version | head -n1
           node --version
 

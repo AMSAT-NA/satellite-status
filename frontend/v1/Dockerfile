@@ -2,6 +2,7 @@
 FROM php:8.6-rc-apache
 
 RUN docker-php-ext-install mysqli \
+    && (php -m | grep -qx mbstring || { docker-php-ext-configure mbstring --disable-mbregex && docker-php-ext-install mbstring; }) \
     && apt-get update \
     && apt-get install -y --no-install-recommends curl \
     && rm -rf /var/lib/apt/lists/*
