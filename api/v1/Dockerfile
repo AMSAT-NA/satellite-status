@@ -22,7 +22,14 @@ RUN mv "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini"
 # Behind Traefik, Apache only ever sees plain http, so that redirect
 # would be built as http://... and cost a second hop through Traefik's
 # https redirect.
-RUN printf '%s\n' 'AliasMatch "^/api/?$" "/var/www/html/api/v1/api-root.php"' \
+#
+# Also 404 the build and image-only files under /api/v1/ (Dockerfile,
+# .dockerignore, docker/). The image removes them from the web root
+# below; this rule covers the local dev stack too, which bind-mounts
+# api/v1/ over the web root (docker-compose.yml).
+RUN printf '%s\n' \
+        'AliasMatch "^/api/?$" "/var/www/html/api/v1/api-root.php"' \
+        'RedirectMatch 404 "^/api/v1/(Dockerfile|\.dockerignore|docker(/.*)?)$"' \
         > /etc/apache2/conf-available/api-root.conf \
     && a2enconf api-root
 
