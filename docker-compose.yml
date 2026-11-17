@@ -81,6 +81,30 @@ services:
       - "traefik.http.routers.satellite-status-api.priority=20"
       - "traefik.http.services.satellite-status-api.loadbalancer.server.port=80"
 
+  # api-v2 (TypeScript): local dev and the CI smoke test. Not deployed
+  # yet; production routing at /api/v2 comes in a follow-up.
+  api-v2:
+    build:
+      context: ./api-v2
+      dockerfile: Dockerfile
+    ports:
+      - "8082:3000"
+    environment:
+      MYSQL_HOST: db
+      MYSQL_USER: satellite
+      MYSQL_PASSWORD: satellite
+      MYSQL_DATABASE: satellite_status
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      # The slim Node image has no curl.
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/v2/health').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
+
   db:
     image: mariadb:12.3
     # Issue #24: server-level UTC default, as defense in depth alongside

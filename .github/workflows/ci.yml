@@ -253,6 +253,87 @@ jobs:
           path: /tmp/php-server.log
           retention-days: 7
 
+  # api-v2 (TypeScript, docs/agents/api-v2-stack.md): typecheck, generated
+  # database types in sync with db/schema.sql, build, and tests against a
+  # real MariaDB loaded with the same schema PHPUnit uses.
+  api-v2:
+    runs-on: ubuntu-latest
+    container: node:26-bookworm-slim
+    services:
+      mariadb:
+        image: mariadb:11
+        env:
+          MARIADB_ROOT_PASSWORD: testrootpw
+          MARIADB_DATABASE: satstatus
+          MARIADB_USER: satstatus
+          MARIADB_PASSWORD: satstatus
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+    env:
+      TEST_DB_HOST: mariadb
+      TEST_DB_PORT: "3306"
+      TEST_DB_USER: satstatus
+      TEST_DB_PASS: satstatus
+      TEST_DB_NAME: satstatus
+      DATABASE_URL: mysql://satstatus:satstatus@mariadb:3306/satstatus
+    defaults:
+      run:
+        working-directory: api-v2
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install system dependencies
+        working-directory: .
+        run: |
+          apt-get update -yqq
+          apt-get install -yqq --no-install-recommends git mariadb-client ca-certificates
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Wait for MariaDB and load the schema
+        working-directory: .
+        run: |
+          until mariadb -h mariadb -usatstatus -psatstatus --skip-ssl -e "SELECT 1" >/dev/null 2>&1; do sleep 1; done
+          mariadb -h mariadb -usatstatus -psatstatus --skip-ssl satstatus < db/schema.sql
+
+      # One-time bootstrap: the lockfile and generated types are produced
+      # here when missing, printed to the log, then committed.
+      - name: Bootstrap lockfile and database types (only when missing)
+        run: |
+          if [ -f package-lock.json ]; then exit 0; fi
+          npm install --no-audit --no-fund
+          echo "----- BEGIN package-lock.json (gzip+base64) -----"
+          gzip -9c package-lock.json | base64 -w0; echo
+          echo "----- END package-lock.json -----"
+          npm run db:types
+          echo "----- BEGIN src/db/types.ts (gzip+base64) -----"
+          gzip -9c src/db/types.ts | base64 -w0; echo
+          echo "----- END src/db/types.ts -----"
+          echo "::error title=api-v2::package-lock.json is missing; commit the generated one above."
+          exit 1
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Database types match db/schema.sql
+        run: |
+          npm run db:types
+          if ! git diff --exit-code -- src/db/types.ts; then
+            echo "::error title=api-v2::src/db/types.ts is out of date with db/schema.sql. Run npm run db:types against a database loaded with db/schema.sql and commit the result (the diff above)."
+            exit 1
+          fi
+
+      - name: Build
+        run: npm run build
+
+      - name: Test
+        run: npm test
+
   # Runs in the deploy PHP version's official image (it used to run in the
   # Playwright image with Ubuntu's PHP 8.3 while production ran 8.5). Node
   # and Chromium are installed here instead.
@@ -449,6 +530,12 @@ jobs:
           BODY=$(curl -sf http://localhost:8081/api/v1/health.php)
           echo "$BODY"
           echo "$BODY" | jq -e '.data.status == "ok"'
+
+      - name: Smoke-test api-v2 health (built image, DB connectivity)
+        run: |
+          BODY=$(curl -sf http://localhost:8082/api/v2/health)
+          echo "$BODY"
+          echo "$BODY" | jq -e '.status == "ok" and .database == "ok"'
 
       - name: Smoke-test API data endpoint (schema seeded)
         run: |
