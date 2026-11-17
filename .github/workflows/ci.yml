@@ -70,12 +70,6 @@ jobs:
           fi
           echo "php=$API" >> "$GITHUB_OUTPUT"
 
-      - name: TEMP list extensions in the 8.5 and 8.6 images
-        run: |
-          for t in 8.5-apache 8.5-cli 8.6-rc-apache 8.6-rc-cli; do
-            echo "== php:$t"; docker run --rm "php:$t" php -m | tr '\n' ' '; echo
-          done
-
       - name: Confirm the CI image matches
         run: |
           docker run --rm "php:${{ steps.read.outputs.php }}-cli" php --version \
@@ -166,6 +160,7 @@ jobs:
         run: |
           apt-get update -yqq
           apt-get install -yqq --no-install-recommends git unzip
+          # PHPUnit's dependencies need mbstring; the PHP 8.6 images no longer ship it (#37).
           php -m | grep -qx mbstring || { docker-php-ext-configure mbstring --disable-mbregex && docker-php-ext-install mbstring; }
           curl -sS https://getcomposer.org/installer | php -- --quiet
           php composer.phar install --no-progress --no-interaction
@@ -226,6 +221,7 @@ jobs:
           apt-get update -yqq
           apt-get install -yqq --no-install-recommends git unzip default-mysql-client
           docker-php-ext-install mysqli
+          # PHPUnit needs mbstring; the PHP 8.6 images no longer ship it (#37).
           php -m | grep -qx mbstring || { docker-php-ext-configure mbstring --disable-mbregex && docker-php-ext-install mbstring; }
 
       - name: Wait for MariaDB
@@ -299,6 +295,7 @@ jobs:
           apt-get update -yqq
           apt-get install -yqq --no-install-recommends curl default-mysql-client git unzip nodejs npm
           docker-php-ext-install mysqli
+          # PHPUnit needs mbstring; the PHP 8.6 images no longer ship it (#37).
           php -m | grep -qx mbstring || { docker-php-ext-configure mbstring --disable-mbregex && docker-php-ext-install mbstring; }
           php --version | head -n1
           node --version
@@ -490,6 +487,11 @@ jobs:
           SELF=$(echo "$BODY" | jq -r '.data[0].links.self')
           echo "Self link: $SELF"
           [ "$SELF" = "${SITE_URL}/api/v1/catalog.php?name=AO-91" ]
+
+      - name: Frontend image has mbstring (Issue #37)
+        # Parsedown (banner rendering) calls mb_strlen. The PHP 8.6 base
+        # images dropped mbstring, so frontend/v1/Dockerfile installs it.
+        run: docker compose exec -T frontend php -m | grep -qx mbstring
 
       - name: Smoke-test gpdata-sync wiring in the API image (Issue #25)
         # Only the built image can prove these: the pinned scheduler binary
