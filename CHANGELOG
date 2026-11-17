@@ -531,4 +531,4 @@ TBD:
       (Parsedown) and CI needs for PHPUnit, so both now install it, without
       the deprecated mb_ereg_* functions. A new smoke test checks the
       frontend image has it.
-      (Issue #37, PR #NN)
+      (Issue #37, PR #77)
