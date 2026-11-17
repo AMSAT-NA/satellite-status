@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 /**
  * Scheduled GP data sync (Issue #25). Run daily by the scheduler baked into
- * the API image (api/crontab); also runnable by hand:
+ * the API image (api/v1/docker/crontab); also runnable by hand:
  *
  *   docker compose exec api php /opt/satellite-status/bin/gpdata-sync.php
  *
@@ -18,9 +18,9 @@ if (PHP_SAPI !== 'cli') {
     exit;
 }
 
-// In the repo, the API code is a sibling directory; in the image it is in
-// the web root.
-$lib = is_dir(__DIR__ . '/../v1/lib') ? __DIR__ . '/../v1/lib' : '/var/www/html/api/v1/lib';
+// In the repo, this is api/v1/docker/bin/ and the API code is two levels
+// up; in the image, the CLI job is in /opt and the API in the web root.
+$lib = is_dir(__DIR__ . '/../../lib') ? __DIR__ . '/../../lib' : '/var/www/html/api/v1/lib';
 
 require_once $lib . '/bootstrap.php';
 require_once $lib . '/gpdata_sync.php';

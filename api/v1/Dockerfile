@@ -1,6 +1,9 @@
 # Built and pushed to ACR by .github/workflows/cd.yml.
-# Build context is ./api (not ./api/v1) so the /api front door
-# (api/index.php) ships in the same image as v1 -- see issue #38.
+# Build context is ./api/v1: everything the v1 API image needs lives in
+# api/v1/, so a change elsewhere (e.g. api/v2) never rebuilds this image.
+# The web code is api/v1/*.php and lib/; image-only files (the gpdata-sync
+# CLI job, its crontab, the entrypoint) are in api/v1/docker/. The /api
+# front door (#38) is api/v1/api-root.php.
 FROM php:8.5-apache
 
 RUN docker-php-ext-install mysqli \
@@ -19,15 +22,16 @@ RUN mv "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini"
 # Behind Traefik, Apache only ever sees plain http, so that redirect
 # would be built as http://... and cost a second hop through Traefik's
 # https redirect.
-RUN printf '%s\n' 'AliasMatch "^/api$" "/var/www/html/api/index.php"' \
+RUN printf '%s\n' 'AliasMatch "^/api/?$" "/var/www/html/api/v1/api-root.php"' \
         > /etc/apache2/conf-available/api-root.conf \
     && a2enconf api-root
 
-# Explicit COPYs rather than `COPY .`: only the served tree lands in the
-# web root, so build files (this Dockerfile, .dockerignore) are never
-# publicly fetchable.
-COPY index.php /var/www/html/api/index.php
-COPY v1/ /var/www/html/api/v1/
+# The web root gets api/v1/ minus its build and image-only files, so the
+# Dockerfile, .dockerignore and docker/ (the CLI job outside the web root,
+# its crontab, the entrypoint) are never publicly fetchable. CI's smoke
+# test checks they answer 404.
+COPY . /var/www/html/api/v1/
+RUN rm -rf /var/www/html/api/v1/Dockerfile /var/www/html/api/v1/.dockerignore /var/www/html/api/v1/docker
 
 # ── Scheduler for the daily gpdata-sync (Issue #25) ─────────────────────
 # supercronic: a cron built for containers. It runs as a child of this
@@ -46,9 +50,9 @@ RUN curl -fsSLO "$SUPERCRONIC_URL" \
 
 # Command-line jobs live OUTSIDE the web root, so they can't be requested
 # over HTTP.
-COPY bin/ /opt/satellite-status/bin/
-COPY crontab /etc/satellite-status/crontab
-COPY docker-entrypoint.sh /usr/local/bin/satellite-status-entrypoint
+COPY docker/bin/ /opt/satellite-status/bin/
+COPY docker/crontab /etc/satellite-status/crontab
+COPY docker/docker-entrypoint.sh /usr/local/bin/satellite-status-entrypoint
 RUN chmod +x /usr/local/bin/satellite-status-entrypoint
 
 ENTRYPOINT ["satellite-status-entrypoint"]

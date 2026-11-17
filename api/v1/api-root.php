@@ -16,10 +16,10 @@ declare(strict_types=1);
  * See issue #38.
  */
 
-// Reuse v1's bootstrap for config (SITE_URL), the JSON envelope, CORS,
-// method handling, and the deploy-identity headers. This file ships in
-// the v1 image, so v1's helpers are always present alongside it.
-require_once __DIR__ . '/v1/lib/bootstrap.php';
+// Served at /api and /api/ (an Apache AliasMatch in api/v1/Dockerfile).
+// It lives in api/v1/ and reuses v1's bootstrap for config (SITE_URL), the
+// JSON envelope, CORS, method handling, and the deploy-identity headers.
+require_once __DIR__ . '/lib/bootstrap.php';
 
 api_require_method(['GET']);
 

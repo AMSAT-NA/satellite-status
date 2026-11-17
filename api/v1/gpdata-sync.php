@@ -11,7 +11,7 @@ require_once __DIR__ . '/lib/gpdata_sync.php';
  * Admin-only: requires "Authorization: Bearer <GPDATA_SYNC_TOKEN>". Used by
  * the admin dashboard's "Sync now" button (e.g. to pick up new NORAD
  * catalog numbers during a launch); the daily run uses the same code via
- * api/bin/gpdata-sync.php. Rules: see lib/gpdata_sync.php.
+ * api/v1/docker/bin/gpdata-sync.php. Rules: see lib/gpdata_sync.php.
  *
  * Named for GP data in general, not just NORAD IDs: frontend v2 may sync
  * more from the same feed. A public read-only GET (last-run status) may be

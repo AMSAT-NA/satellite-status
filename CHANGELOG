@@ -467,3 +467,13 @@ CHANGE LOG:
       frontend-v1, frontend-v2, db or docs, with the matching label; bugs keep
       their area prefix plus the bug label.
       (PR #76)
+TBD:
+    - Repo layout: everything for the v1 API container now lives in
+      api/v1/, matching frontend/v1/. The Dockerfile moved to
+      api/v1/Dockerfile (build context api/v1), image-only files (the
+      gpdata-sync CLI job, its crontab, the entrypoint) to api/v1/docker/,
+      and the /api versions index to api/v1/api-root.php. api/ now holds
+      only version folders, so api/v2 can sit beside v1 without
+      rebuilding it. No behavior change: /api, /api/ and /api/v1/* answer
+      as before, and the image-only files still aren't web-accessible.
+      (PR #NN)

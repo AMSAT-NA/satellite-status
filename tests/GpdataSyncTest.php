@@ -326,7 +326,7 @@ final class GpdataSyncTest extends TestCase
     public function testScheduledCliJobRunsSync(): void
     {
         $cmd = 'GPDATA_FEED_URL=' . escapeshellarg(self::FEED) . ' '
-            . escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(__DIR__ . '/../api/bin/gpdata-sync.php') . ' 2>&1';
+            . escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(__DIR__ . '/../api/v1/docker/bin/gpdata-sync.php') . ' 2>&1';
 
         exec($cmd, $output, $exitCode);
 
