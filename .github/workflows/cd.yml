@@ -28,6 +28,7 @@ jobs:
     outputs:
       frontend: ${{ steps.filter.outputs.frontend }}
       api: ${{ steps.filter.outputs.api }}
+      api-v2: ${{ steps.filter.outputs.api_v2 }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -41,11 +42,13 @@ jobs:
               - 'frontend/v1/**'
             api:
               - 'api/v1/**'
+            api_v2:
+              - 'api/v2/**'
 
   # ── Job 2: Docker build test (all branches, no push) ─────────────────────────
   # Catches Dockerfile issues on PRs and non-main branches. Only runs when
-  # something under frontend/v1/** or api/** actually changed; builds both
-  # images when it does (no per-image split here — see job 3 for that).
+  # something under frontend/v1/**, api/v1/** or api/v2/** actually changed;
+  # builds every image when it does (no per-image split here — see job 3).
   docker-build-test:
     name: Docker Build Test
     runs-on: ubuntu-latest
@@ -53,6 +56,7 @@ jobs:
     if: |
       needs.changes.outputs.frontend == 'true' ||
       needs.changes.outputs.api == 'true' ||
+      needs.changes.outputs.api-v2 == 'true' ||
       github.event_name == 'workflow_dispatch'
     steps:
       - uses: actions/checkout@v6
@@ -80,6 +84,17 @@ jobs:
           no-cache: ${{ github.event_name == 'workflow_dispatch' }}
           cache-from: type=gha,scope=api
           cache-to: type=gha,mode=max,scope=api
+
+      - name: Build api-v2 image
+        uses: docker/build-push-action@v7
+        with:
+          context: ./api/v2
+          push: false
+          tags: satellite-status-api-v2:ci
+          pull: true
+          no-cache: ${{ github.event_name == 'workflow_dispatch' }}
+          cache-from: type=gha,scope=api-v2
+          cache-to: type=gha,mode=max,scope=api-v2
 
   # ── Job 3: Push to ACR (main branch only, after job 2) ────────────────────────
   # Same OIDC pattern as amsat-discord-bot. Per-image gating: only build/push
@@ -142,9 +157,41 @@ jobs:
           cache-from: type=gha,scope=api
           cache-to: type=gha,mode=max,scope=api
 
+      # The api-v2 image is also built when ACR doesn't have it yet: the
+      # first deploy runs `docker compose pull`, which fails if any
+      # image in deploy/docker-compose.yml is missing, even when nothing
+      # under api/v2/ changed in that push.
+      - name: Check whether ACR has the api-v2 image
+        id: api_v2_image
+        run: |
+          if az acr repository show-tags --name ${{ vars.AZURE_ACR_NAME }} \
+               --repository satellite-status-api-v2 --query "contains(@, 'latest')" -o tsv 2>/dev/null \
+               | grep -qx true; then
+            echo "missing=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "missing=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build and push api-v2 image
+        if: |
+          needs.changes.outputs.api-v2 == 'true' ||
+          steps.api_v2_image.outputs.missing == 'true' ||
+          github.event_name == 'workflow_dispatch'
+        uses: docker/build-push-action@v7
+        with:
+          context: ./api/v2
+          push: true
+          tags: |
+            ${{ vars.AZURE_ACR_NAME }}.azurecr.io/satellite-status-api-v2:${{ github.sha }}
+            ${{ vars.AZURE_ACR_NAME }}.azurecr.io/satellite-status-api-v2:latest
+          pull: true
+          no-cache: ${{ github.event_name == 'workflow_dispatch' }}
+          cache-from: type=gha,scope=api-v2
+          cache-to: type=gha,mode=max,scope=api-v2
+
   # ── Job 4: Configure server environment (main branch only, after job 3) ──────
   # Mirrors configure-env from amsat-discord-bot exactly. Runs even if job 3
-  # pushed no images (nothing under frontend/v1 or api changed) since the
+  # pushed no images (nothing under frontend/v1, api or api-v2 changed) since the
   # .env or deploy/docker-compose.yml may still need to ship.
   configure-env:
     name: Configure Server Environment
@@ -245,3 +292,12 @@ jobs:
           docker compose pull
           docker compose up -d
           ENDSSH
+
+      # Through the public URL, so it checks Traefik's routing too:
+      # /api/v2 must reach api-v2 (priority 30), not v1's /api router.
+      - name: Check api-v2 is reachable at /api/v2
+        run: |
+          BODY=$(curl -sf --retry 12 --retry-delay 5 --retry-all-errors \
+            "${{ vars.SITE_URL }}/api/v2/health")
+          echo "$BODY"
+          echo "$BODY" | jq -e '.status == "ok"'
