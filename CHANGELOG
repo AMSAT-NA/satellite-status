@@ -476,4 +476,4 @@ TBD:
       only version folders, so api/v2 can sit beside v1 without
       rebuilding it. No behavior change: /api, /api/ and /api/v1/* answer
       as before, and the image-only files still aren't web-accessible.
-      (PR #NN)
+      (PR #80)
