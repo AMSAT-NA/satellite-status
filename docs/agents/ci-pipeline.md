@@ -30,6 +30,8 @@ The following jobs were translated directly:
 | `composer-platform` | php:X-cli | Validates Composer platform requirements |
 | `phpunit` | php:X-cli + mariadb:11 | Runs PHPUnit integration tests |
 | `playwright` | php:X-cli + mariadb:11 (Node and Chromium installed in the job) | Runs browser/E2E tests |
+| `changes` | ubuntu-latest | Decides which suites run, from the changed paths (see below) |
+| `api-v2` | node:26-bookworm-slim + mariadb:11 | api-v2 typecheck, generated DB types check, build, Vitest (`api-v2-stack.md`) |
 
 The Auto-DevOps stages (DAST, container scanning, canary, production rollout) were **not** ported —
 they were never configured and relied on GitLab-specific infrastructure.
@@ -56,6 +58,31 @@ This replaces the earlier decision (when the Dockerfile used a floating `php:apa
 latest PHP in CI. That decision's rationale, that the Dockerfile is the authority on the runtime
 version, still holds; CI now follows it exactly. No `PHP_VERSION` variable or repository setting is
 involved: the version lives only in the Dockerfiles.
+
+### Suites run only for what changed (Nov 2026)
+
+The first job, `changes`, uses `dorny/paths-filter` (as `cd.yml` already did for images)
+to decide which suites a push or PR needs. With v1 and v2 in one repo, a change to one
+stack no longer spends CI time on the other.
+
+| Suite | Runs when these change |
+|---|---|
+| v1 (`check-php-version` and every PHP job that needs it) | `frontend/v1/**`, `api/**`, `tests/**`, `tools/**`, `composer.json`/`.lock`, **`db/**`** |
+| `api-v2` | `api-v2/**`, **`db/**`** |
+| `migration-dry-run` | `db/**` |
+| `docker-compose-smoke` | any of the above, `docker-compose.yml`, `deploy/**` |
+| everything | `.github/workflows/**`, or a manual run |
+
+- **`db/` runs both API suites,** because both read the shared schema. api-v2's generated
+  types (`api-v2/src/db/types.ts`) are checked against `db/schema.sql`, so a schema change
+  that breaks api-v2 fails CI even when no api-v2 file changed.
+- **Docs-only changes** (`docs/**`, `CHANGELOG`, `README.md`) run only `changes` and `build`.
+- **frontend-v2** gets its own filter when that project lands. It talks to the API, not
+  the database, so `db/` changes won't need to run it.
+- The v1 PHP jobs are gated through `check-php-version`, which they all need: when it's
+  skipped, they are too.
+- The repo's ruleset requires a PR but no specific status checks, so skipped jobs don't
+  block merging.
 
 ### MariaDB service health checks
 

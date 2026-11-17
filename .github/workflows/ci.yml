@@ -11,6 +11,73 @@ on:
 
 jobs:
 
+  # ── Which parts changed ──────────────────────────────────────────────────
+  # Each test suite runs only when something it covers changed:
+  #
+  #   v1      frontend/v1, api (v1), their PHP tests and tools, Composer
+  #   api-v2  api-v2
+  #   db      db/ (schema, migrations): runs BOTH API suites, since both
+  #           read the shared schema (api-v2's generated types included)
+  #   smoke   the compose stack: any app, db/, or the compose files
+  #
+  # Changes to the workflows themselves, and manual runs, run everything.
+  # Docs-only changes run none of the suites. frontend-v2 gets its own
+  # filter when that project lands; it talks to the API, not the database,
+  # so db/ changes won't need to run it. Nothing in the repo's ruleset
+  # requires specific check names, so skipped jobs don't block a merge.
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      v1: ${{ steps.decide.outputs.v1 }}
+      api-v2: ${{ steps.decide.outputs.api_v2 }}
+      db: ${{ steps.decide.outputs.db }}
+      smoke: ${{ steps.decide.outputs.smoke }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: dorny/paths-filter@v4
+        id: filter
+        with:
+          filters: |
+            v1:
+              - 'frontend/v1/**'
+              - 'api/**'
+              - 'tests/**'
+              - 'tools/**'
+              - 'composer.json'
+              - 'composer.lock'
+            api_v2:
+              - 'api-v2/**'
+            db:
+              - 'db/**'
+            compose:
+              - 'docker-compose.yml'
+              - 'deploy/**'
+            workflows:
+              - '.github/workflows/**'
+
+      - name: Decide which suites run
+        id: decide
+        env:
+          V1: ${{ steps.filter.outputs.v1 }}
+          API_V2: ${{ steps.filter.outputs.api_v2 }}
+          DB: ${{ steps.filter.outputs.db }}
+          COMPOSE: ${{ steps.filter.outputs.compose }}
+          WORKFLOWS: ${{ steps.filter.outputs.workflows }}
+          MANUAL: ${{ github.event_name == 'workflow_dispatch' }}
+        run: |
+          all=false
+          if [ "$WORKFLOWS" = true ] || [ "$MANUAL" = true ]; then all=true; fi
+          any() { for v in "$@"; do [ "$v" = true ] && { echo true; return; }; done; echo false; }
+          {
+            echo "v1=$(any "$V1" "$DB" "$all")"
+            echo "api_v2=$(any "$API_V2" "$DB" "$all")"
+            echo "db=$(any "$DB" "$all")"
+            echo "smoke=$(any "$V1" "$API_V2" "$DB" "$COMPOSE" "$all")"
+          } | tee -a "$GITHUB_OUTPUT"
+
   build:
     runs-on: ubuntu-latest
     steps:
@@ -48,7 +115,11 @@ jobs:
   # images, so CI tests exactly what production runs. Bumping PHP is then
   # only the two FROM lines (api/v1/Dockerfile, frontend/v1/Dockerfile); CI
   # follows automatically. Fails if the two images disagree.
+  # Gates every v1 PHP job below: they all need it, so they're skipped
+  # with it when nothing v1 changed.
   check-php-version:
+    needs: changes
+    if: needs.changes.outputs.v1 == 'true'
     runs-on: ubuntu-latest
     outputs:
       php: ${{ steps.read.outputs.php }}
@@ -257,6 +328,8 @@ jobs:
   # database types in sync with db/schema.sql, build, and tests against a
   # real MariaDB loaded with the same schema PHPUnit uses.
   api-v2:
+    needs: changes
+    if: needs.changes.outputs.api-v2 == 'true'
     runs-on: ubuntu-latest
     container: node:26-bookworm-slim
     services:
@@ -417,6 +490,8 @@ jobs:
           retention-days: 7
 
   migration-dry-run:
+    needs: changes
+    if: needs.changes.outputs.db == 'true'
     # Runs EVERY forward production migration in db/migrations/ (in file-
     # name order: #24's 2026_08_08_*, then #25's 2026_11_11_*, ...) against
     # the pre-#24 schema on the production MariaDB version, then proves the
@@ -497,6 +572,8 @@ jobs:
           [ "$got" = "1,1,1,1" ] || { echo "::error title=migration-dry-run::new insert: got '$got', expected '1,1,1,1' (day/hour/period NULL, submission_time set)"; exit 1; }
 
   docker-compose-smoke:
+    needs: changes
+    if: needs.changes.outputs.smoke == 'true'
     runs-on: ubuntu-latest
     env:
       # Production-shaped value (single host, https, no port) so the

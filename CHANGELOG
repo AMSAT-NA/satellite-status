@@ -487,4 +487,10 @@ TBD:
       (typecheck, types check, build, tests against MariaDB) and an
       api-v2 service in the local compose stack, smoke-tested in CI.
       Not deployed to production yet.
+    - CI runs only the suites a change touches: v1 PHP jobs for
+      frontend/v1, api, tests, tools and Composer changes; api-v2 for
+      api-v2; both for db/ changes (shared schema); the migration dry run
+      for db/; the compose smoke test for any of these. Workflow changes
+      and manual runs still run everything. Docs-only changes run no
+      suites.
       (PR #78)
