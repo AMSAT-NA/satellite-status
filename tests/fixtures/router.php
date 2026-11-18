@@ -18,8 +18,24 @@ $repoRoot = realpath(__DIR__ . '/../..');
 
 $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 
-// API paths: the api/ tree sits under the document root — serve normally.
-// Emit 404 explicitly for missing paths so security regression tests hold.
+// The /api front door (#38): Apache aliases /api and /api/ to
+// api/v1/api-root.php (api/v1/Dockerfile); do the same here.
+if ($path === '/api' || $path === '/api/') {
+    require $repoRoot . '/api/v1/api-root.php';
+    exit;
+}
+
+// Other API paths: the api/ tree sits under the document root — serve
+// normally. Emit 404 explicitly for missing paths so security regression
+// tests hold. The image-only files under api/v1/docker/ are never served
+// by Apache (api/v1/Dockerfile removes them from the web root), so 404
+// them here too.
+if (strpos($path, '/api/v1/docker/') === 0) {
+    http_response_code(404);
+    header('Content-Type: text/plain');
+    echo '404 Not Found';
+    exit;
+}
 if (strpos($path, '/api') === 0) {
     $file = $repoRoot . $path;
     if (is_file($file) || is_dir($file)) {

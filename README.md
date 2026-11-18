@@ -11,8 +11,10 @@ satellite-status/
 ├── frontend/v1/          # PHP frontend (status page, submit form, admin)
 │   └── Dockerfile        # builds the frontend container
 ├── api/
-│   └── v1/               # PHP REST API
-│       ├── Dockerfile    # builds the API container
+│   └── v1/               # PHP REST API: everything for the v1 API container
+│       ├── Dockerfile    # builds the API container (build context: api/v1)
+│       ├── docker/       # image-only files: gpdata-sync CLI job, crontab, entrypoint
+│       ├── api-root.php  # the /api versions index (#38)
 │       ├── overview.php  # HTML API documentation
 │       └── docs.php      # Swagger UI
 ├── db/schema.sql         # database schema

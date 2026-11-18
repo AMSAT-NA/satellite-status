@@ -46,7 +46,7 @@ jobs:
 
   # The PHP version every PHP job below runs on, read from the deploy
   # images, so CI tests exactly what production runs. Bumping PHP is then
-  # only the two FROM lines (api/Dockerfile, frontend/v1/Dockerfile); CI
+  # only the two FROM lines (api/v1/Dockerfile, frontend/v1/Dockerfile); CI
   # follows automatically. Fails if the two images disagree.
   check-php-version:
     runs-on: ubuntu-latest
@@ -60,9 +60,9 @@ jobs:
           read_version() {
             sed -nE 's/^FROM php:([0-9]+\.[0-9]+)-apache.*$/\1/p' "$1" | head -n1
           }
-          API=$(read_version api/Dockerfile)
+          API=$(read_version api/v1/Dockerfile)
           FRONTEND=$(read_version frontend/v1/Dockerfile)
-          echo "api/Dockerfile: php:${API:-?}-apache"
+          echo "api/v1/Dockerfile: php:${API:-?}-apache"
           echo "frontend/v1/Dockerfile: php:${FRONTEND:-?}-apache"
           if [ -z "$API" ] || [ "$API" != "$FRONTEND" ]; then
             echo "::error title=check-php-version::api and frontend images must both use FROM php:MAJOR.MINOR-apache with the same version"
@@ -493,8 +493,10 @@ jobs:
           code() { curl -s -o /tmp/sync.json -w "%{http_code}" "$@"; }
           URL=http://localhost:8081/api/v1/gpdata-sync.php
 
-          S=$(code http://localhost:8081/api/bin/gpdata-sync.php)
-          echo "CLI job over HTTP: $S"; [ "$S" = "404" ]
+          for P in /api/bin/gpdata-sync.php /api/v1/docker/bin/gpdata-sync.php; do
+            S=$(code "http://localhost:8081$P")
+            echo "CLI job over HTTP ($P): $S"; [ "$S" = "404" ]
+          done
 
           S=$(code -X POST "$URL")
           echo "no token: $S"; cat /tmp/sync.json; [ "$S" = "401" ]
@@ -513,8 +515,8 @@ jobs:
 
       - name: Smoke-test /api front door (real Apache, not the PHP dev server)
         # The PHPUnit harness can't exercise Apache config, so this is the
-        # only check that the AliasMatch for bare /api and the api/index.php
-        # COPY in api/Dockerfile actually work. Bare /api must answer 200
+        # only check that the AliasMatch for /api and /api/ to
+        # api/v1/api-root.php in api/v1/Dockerfile works. Bare /api must answer 200
         # directly -- a 301 here means mod_dir is redirecting, which behind
         # Traefik becomes an http:// hop.
         run: |
@@ -526,7 +528,7 @@ jobs:
             jq -e --arg u "${SITE_URL}/api/v1/" '.data.versions[] | select(.version == "v1") | .url == $u' /tmp/api-root.json
           done
           # Build files must not be fetchable from the web root.
-          for P in /api/Dockerfile /api/.dockerignore /api/v1/Dockerfile; do
+          for P in /api/Dockerfile /api/.dockerignore /api/v1/Dockerfile /api/v1/.dockerignore /api/v1/docker/crontab /api/v1/docker/docker-entrypoint.sh; do
             STATUS=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:8081$P")
             echo "$P -> HTTP $STATUS"
             [ "$STATUS" = "404" ]

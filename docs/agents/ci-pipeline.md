@@ -39,7 +39,7 @@ The placeholder `test` job (a bare `echo`) and the `container_scanning` manual j
 ### CI runs the deploy PHP version (Nov 2026)
 
 Every PHP job runs on the PHP `MAJOR.MINOR` the deploy images use. `check-php-version` reads it
-from `FROM php:X-apache` in `api/Dockerfile` and `frontend/v1/Dockerfile`, fails if the two differ,
+from `FROM php:X-apache` in `api/v1/Dockerfile` and `frontend/v1/Dockerfile`, fails if the two differ,
 and passes `X` on as a job output. The other jobs use `php:X-cli` / `php:X-alpine` via
 `needs.check-php-version.outputs.php`; `needs` is one of the contexts GitHub allows in
 `container.image`.

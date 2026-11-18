@@ -4,7 +4,7 @@ declare(strict_types=1);
 namespace AmsatStatus\Tests;
 
 /**
- * /api front door (api/index.php) -- see issue #38.
+ * /api front door (api/v1/api-root.php) -- see issue #38.
  *
  * Covers the PHP side through the dev-server router. The Apache side
  * (bare /api served without a mod_dir redirect, build files not in the

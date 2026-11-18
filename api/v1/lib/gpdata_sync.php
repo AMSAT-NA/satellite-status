@@ -8,7 +8,7 @@ declare(strict_types=1);
  *
  * The feed is the only source of these IDs; nothing else in the app writes
  * them. Called from three places, all with the same behaviour:
- *   - the daily scheduler in the API image (api/bin/gpdata-sync.php)
+ *   - the daily scheduler in the API image (api/v1/docker/bin/gpdata-sync.php)
  *   - POST /api/v1/gpdata-sync (token-protected; the admin "Sync now" button)
  *   - tests
  *
