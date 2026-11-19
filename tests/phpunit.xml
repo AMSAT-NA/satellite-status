@@ -8,8 +8,34 @@
          beStrictAboutOutputDuringTests="true"
          cacheDirectory="../.phpunit.cache">
     <testsuites>
-        <testsuite name="all">
+        <!-- Two suites, so CI can skip api-v1's when only frontend/v1
+             changed (.github/workflows/ci.yml, `changes` job). With no
+             testsuite named, PHPUnit runs both: every test.
+
+             api-v1: tests of the v1 API alone. List a new test here only
+             if it touches nothing in frontend/v1.
+             frontend-v1: everything else, including tests that span both
+             (admin pages that call the API, the smoke test). New tests
+             land here by default, which is the suite that runs on every
+             v1 change, so a test can't be skipped by forgetting this file. -->
+        <testsuite name="api-v1">
+            <file>ApiRootTest.php</file>
+            <file>ApiV1EndpointTest.php</file>
+            <file>MigrationBackfillTest.php</file>
+            <file>ObservationTimeFieldsTest.php</file>
+            <file>ReportsPagingTest.php</file>
+            <file>ReportsSupersededTest.php</file>
+            <file>TimezonePinningTest.php</file>
+        </testsuite>
+        <testsuite name="frontend-v1">
             <directory>.</directory>
+            <exclude>ApiRootTest.php</exclude>
+            <exclude>ApiV1EndpointTest.php</exclude>
+            <exclude>MigrationBackfillTest.php</exclude>
+            <exclude>ObservationTimeFieldsTest.php</exclude>
+            <exclude>ReportsPagingTest.php</exclude>
+            <exclude>ReportsSupersededTest.php</exclude>
+            <exclude>TimezonePinningTest.php</exclude>
         </testsuite>
     </testsuites>
     <php>

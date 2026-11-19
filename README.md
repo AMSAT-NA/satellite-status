@@ -8,9 +8,12 @@ This is a project space for development of the Satellite Status App and API, hos
 
 ```
 satellite-status/
-├── frontend/v1/          # PHP frontend (status page, submit form, admin)
-│   └── Dockerfile        # builds the frontend container
+├── frontend/
+│   ├── v1/               # PHP frontend (status page, submit form, admin)
+│   │   └── Dockerfile    # builds the frontend container
+│   └── v2/               # frontend-v2 placeholder (not built yet)
 ├── api/
+│   ├── v2/               # api-v2: TypeScript (Node, Fastify, Kysely); see its README
 │   └── v1/               # PHP REST API: everything for the v1 API container
 │       ├── Dockerfile    # builds the API container (build context: api/v1)
 │       ├── docker/       # image-only files: gpdata-sync CLI job, crontab, entrypoint

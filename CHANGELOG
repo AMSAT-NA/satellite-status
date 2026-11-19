@@ -467,7 +467,7 @@ CHANGE LOG:
       frontend-v1, frontend-v2, db or docs, with the matching label; bugs keep
       their area prefix plus the bug label.
       (PR #76)
-TBD:
+2026-11-18:
     - Repo layout: everything for the v1 API container now lives in
       api/v1/, matching frontend/v1/. The Dockerfile moved to
       api/v1/Dockerfile (build context api/v1), image-only files (the
@@ -477,3 +477,26 @@ TBD:
       rebuilding it. No behavior change: /api, /api/ and /api/v1/* answer
       as before, and the image-only files still aren't web-accessible.
       (PR #80)
+TBD:
+    - api-v2 project setup (api/v2/): TypeScript on Node 26, Fastify with
+      TypeBox schemas, and Kysely on mysql2, per the new decision record
+      docs/agents/api-v2-stack.md. One endpoint so far, GET
+      /api/v2/health (API and database status), and generated OpenAPI
+      docs at /api/v2/docs. Database types are generated from
+      db/schema.sql and CI fails if they drift. New api-v2 CI job
+      (typecheck, types check, build, tests against MariaDB) and an
+      api-v2 service in the local compose stack, smoke-tested in CI.
+      Not deployed to production yet. frontend/v2/ added as a
+      placeholder (README only) so CI's path filters cover it from the
+      start.
+    - CI runs only the suites a change touches, following dependencies
+      toward the consumers: an api/v1 change runs the api-v1 and
+      frontend-v1 tests (the frontend reads through the API); a
+      frontend/v1-only change runs frontend-v1's and skips api-v1's
+      PHPUnit suite (tests/phpunit.xml now has api-v1 and frontend-v1
+      suites); api/v2 runs api-v2 (and frontend-v2 once it has a job);
+      db/ runs both APIs, frontend-v1 and the migration dry run; the
+      compose smoke test runs for any app, db/ or compose change.
+      Workflow changes and manual runs still run everything. Docs-only
+      changes run no suites.
+      (PR #78)

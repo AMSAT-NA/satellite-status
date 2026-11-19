@@ -11,3 +11,4 @@ from reading the code or git history alone.
 * [changelog-convention.md](changelog-convention.md) - How agents should update the root CHANGELOG, and why it isn't CI-enforced
 * [api-v1-v2-dividing-line.md](api-v1-v2-dividing-line.md) - api-v2 in TypeScript; what still goes into v1; paging for the grid's full window; v2 admin first
 * [issue-convention.md](issue-convention.md) - Issue title prefixes (api-v1, api-v2, frontend-v1, frontend-v2, db, docs) and their matching labels
+* [api-v2-stack.md](api-v2-stack.md) - What api-v2 is built with (Node 26, Fastify, TypeBox, Kysely, Vitest) and why; generated database types

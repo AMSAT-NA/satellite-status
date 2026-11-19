@@ -18,9 +18,8 @@ timestamp: 2026-11-12T00:00:00Z
 - **Considered:** PHP (v1's language), Python and Rust. Rust was
   attractive, but its contributor pool is small for a volunteer project.
   Python was the runner-up.
-- **Candidate stack (not final):** Fastify or Hono; Zod or TypeBox for
-  schemas and OpenAPI; Kysely or Drizzle on mysql2; Vitest; a Node LTS
-  release.
+- **Stack:** decided 2026-11-17 in `api-v2-stack.md` (Node 26, Fastify,
+  TypeBox, Kysely on mysql2, Vitest).
 
 ## 2. Dividing line between v1 and v2
 

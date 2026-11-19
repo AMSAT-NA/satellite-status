@@ -11,6 +11,91 @@ on:
 
 jobs:
 
+  # ── Which parts changed ──────────────────────────────────────────────────
+  # Each suite runs when something it covers changed, or something it
+  # depends on. The dependencies run one way, toward the consumers:
+  #
+  #   frontend/v1  -> frontend-v1 tests
+  #   api/v1       -> api-v1 tests AND frontend-v1 tests (the frontend
+  #                   reads through the v1 API)
+  #   api/v2       -> api-v2 (and frontend-v2 once it has a job)
+  #   frontend/v2  -> frontend-v2 (placeholder; no job yet)
+  #   db/          -> both APIs, frontend-v1 (its admin pages still read
+  #                   the database directly) and the migration dry run.
+  #                   frontend-v2 talks only to the API, so db/ skips it.
+  #
+  # tests/, tools/ and the Composer files are shared by all the v1 PHP
+  # jobs, so they run every v1 suite. A frontend-only change runs the
+  # frontend-v1 PHPUnit suite and skips api-v1's (tests/phpunit.xml).
+  # The smoke test builds the whole compose stack, so any app, db/ or
+  # compose change runs it. Workflow changes and manual runs run
+  # everything; docs-only changes run none of the suites. Nothing in the
+  # repo's ruleset requires specific check names, so skipped jobs don't
+  # block a merge.
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      frontend-v1: ${{ steps.decide.outputs.frontend_v1 }}
+      api-v1: ${{ steps.decide.outputs.api_v1 }}
+      api-v2: ${{ steps.decide.outputs.api_v2 }}
+      frontend-v2: ${{ steps.decide.outputs.frontend_v2 }}
+      db: ${{ steps.decide.outputs.db }}
+      smoke: ${{ steps.decide.outputs.smoke }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: dorny/paths-filter@v4
+        id: filter
+        with:
+          filters: |
+            frontend_v1:
+              - 'frontend/v1/**'
+            api_v1:
+              - 'api/v1/**'
+            v1_shared:
+              - 'tests/**'
+              - 'tools/**'
+              - 'composer.json'
+              - 'composer.lock'
+            api_v2:
+              - 'api/v2/**'
+            frontend_v2:
+              - 'frontend/v2/**'
+            db:
+              - 'db/**'
+            compose:
+              - 'docker-compose.yml'
+              - 'deploy/**'
+            workflows:
+              - '.github/workflows/**'
+
+      - name: Decide which suites run
+        id: decide
+        env:
+          FRONTEND_V1: ${{ steps.filter.outputs.frontend_v1 }}
+          API_V1: ${{ steps.filter.outputs.api_v1 }}
+          V1_SHARED: ${{ steps.filter.outputs.v1_shared }}
+          API_V2: ${{ steps.filter.outputs.api_v2 }}
+          FRONTEND_V2: ${{ steps.filter.outputs.frontend_v2 }}
+          DB: ${{ steps.filter.outputs.db }}
+          COMPOSE: ${{ steps.filter.outputs.compose }}
+          WORKFLOWS: ${{ steps.filter.outputs.workflows }}
+          MANUAL: ${{ github.event_name == 'workflow_dispatch' }}
+        run: |
+          all=false
+          if [ "$WORKFLOWS" = true ] || [ "$MANUAL" = true ]; then all=true; fi
+          any() { for v in "$@"; do [ "$v" = true ] && { echo true; return; }; done; echo false; }
+          {
+            echo "api_v1=$(any "$API_V1" "$V1_SHARED" "$DB" "$all")"
+            echo "frontend_v1=$(any "$FRONTEND_V1" "$API_V1" "$V1_SHARED" "$DB" "$all")"
+            echo "api_v2=$(any "$API_V2" "$DB" "$all")"
+            echo "frontend_v2=$(any "$FRONTEND_V2" "$API_V2" "$all")"
+            echo "db=$(any "$DB" "$all")"
+            echo "smoke=$(any "$FRONTEND_V1" "$API_V1" "$V1_SHARED" "$API_V2" "$FRONTEND_V2" "$DB" "$COMPOSE" "$all")"
+          } | tee -a "$GITHUB_OUTPUT"
+
   build:
     runs-on: ubuntu-latest
     steps:
@@ -48,7 +133,12 @@ jobs:
   # images, so CI tests exactly what production runs. Bumping PHP is then
   # only the two FROM lines (api/v1/Dockerfile, frontend/v1/Dockerfile); CI
   # follows automatically. Fails if the two images disagree.
+  # Gates every v1 PHP job below: they all need it, so they're skipped
+  # with it when nothing v1 changed. It keys on the frontend-v1 output,
+  # which is true for every v1 change (api/v1 changes run frontend-v1 too).
   check-php-version:
+    needs: changes
+    if: needs.changes.outputs.frontend-v1 == 'true'
     runs-on: ubuntu-latest
     outputs:
       php: ${{ steps.read.outputs.php }}
@@ -182,7 +272,7 @@ jobs:
           fi
 
   phpunit:
-    needs: check-php-version
+    needs: [changes, check-php-version]
     runs-on: ubuntu-latest
     container: php:${{ needs.check-php-version.outputs.php }}-cli
     services:
@@ -242,8 +332,35 @@ jobs:
             PHP_CLI_SERVER_WORKERS=4 php -S 127.0.0.1:8000 -t . tests/fixtures/router.php >/tmp/php-server.log 2>&1 &
           until curl -sS -o /dev/null http://127.0.0.1:8000/; do sleep 1; done
 
+      # tests/phpunit.xml lists the api-v1 tests twice: as that suite's
+      # files and as frontend-v1's excludes. If the two lists drift, or
+      # name a file that doesn't exist, a test could run in neither suite.
+      - name: PHPUnit suites split cleanly
+        run: |
+          files=$(sed -nE 's#.*<file>(.*)</file>.*#\1#p' tests/phpunit.xml | sort)
+          excludes=$(sed -nE 's#.*<exclude>(.*)</exclude>.*#\1#p' tests/phpunit.xml | sort)
+          if [ "$files" != "$excludes" ]; then
+            echo "::error title=phpunit::tests/phpunit.xml: the api-v1 <file> list and the frontend-v1 <exclude> list must match"
+            diff <(echo "$files") <(echo "$excludes") || true
+            exit 1
+          fi
+          for f in $files; do
+            [ -f "tests/$f" ] || { echo "::error title=phpunit::tests/phpunit.xml lists tests/$f, which doesn't exist"; exit 1; }
+          done
+          echo "api-v1 suite: $(echo "$files" | wc -l) files; frontend-v1: the rest"
+        shell: bash
+
+      # Both suites (api-v1, frontend-v1) unless only frontend/v1 changed;
+      # then the api-v1 suite is skipped (see the `changes` job).
       - name: Run PHPUnit
-        run: vendor/bin/phpunit --configuration tests/phpunit.xml --colors=never
+        env:
+          API_V1: ${{ needs.changes.outputs.api-v1 }}
+        run: |
+          if [ "$API_V1" = true ]; then
+            vendor/bin/phpunit --configuration tests/phpunit.xml --colors=never
+          else
+            vendor/bin/phpunit --configuration tests/phpunit.xml --colors=never --testsuite frontend-v1
+          fi
 
       - name: Upload PHP server log
         if: failure()
@@ -252,6 +369,89 @@ jobs:
           name: phpunit-php-server-log
           path: /tmp/php-server.log
           retention-days: 7
+
+  # api-v2 (TypeScript, docs/agents/api-v2-stack.md): typecheck, generated
+  # database types in sync with db/schema.sql, build, and tests against a
+  # real MariaDB loaded with the same schema PHPUnit uses.
+  api-v2:
+    needs: changes
+    if: needs.changes.outputs.api-v2 == 'true'
+    runs-on: ubuntu-latest
+    container: node:26-bookworm-slim
+    services:
+      mariadb:
+        image: mariadb:11
+        env:
+          MARIADB_ROOT_PASSWORD: testrootpw
+          MARIADB_DATABASE: satstatus
+          MARIADB_USER: satstatus
+          MARIADB_PASSWORD: satstatus
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+    env:
+      TEST_DB_HOST: mariadb
+      TEST_DB_PORT: "3306"
+      TEST_DB_USER: satstatus
+      TEST_DB_PASS: satstatus
+      TEST_DB_NAME: satstatus
+      DATABASE_URL: mysql://satstatus:satstatus@mariadb:3306/satstatus
+    defaults:
+      run:
+        working-directory: api/v2
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install system dependencies
+        working-directory: .
+        run: |
+          apt-get update -yqq
+          apt-get install -yqq --no-install-recommends mariadb-client
+
+      - name: Wait for MariaDB and load the schema
+        working-directory: .
+        run: |
+          until mariadb -h mariadb -usatstatus -psatstatus --skip-ssl -e "SELECT 1" >/dev/null 2>&1; do sleep 1; done
+          mariadb -h mariadb -usatstatus -psatstatus --skip-ssl satstatus < db/schema.sql
+
+      # One-time bootstrap: the lockfile and generated types are produced
+      # here when missing, printed to the log, then committed.
+      - name: Bootstrap lockfile and database types (only when missing)
+        run: |
+          if [ -f package-lock.json ]; then exit 0; fi
+          npm install --no-audit --no-fund
+          echo "----- BEGIN package-lock.json (gzip+base64) -----"
+          gzip -9c package-lock.json | base64 -w0; echo
+          echo "----- END package-lock.json -----"
+          npm run db:types
+          echo "----- BEGIN src/db/types.ts (gzip+base64) -----"
+          gzip -9c src/db/types.ts | base64 -w0; echo
+          echo "----- END src/db/types.ts -----"
+          echo "::error title=api-v2::package-lock.json is missing; commit the generated one above."
+          exit 1
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Database types match db/schema.sql
+        run: |
+          cp src/db/types.ts /tmp/types.committed.ts
+          npm run db:types
+          if ! diff -u /tmp/types.committed.ts src/db/types.ts; then
+            echo "::error title=api-v2::src/db/types.ts is out of date with db/schema.sql. Run npm run db:types against a database loaded with db/schema.sql and commit the result (the diff above)."
+            exit 1
+          fi
+
+      - name: Build
+        run: npm run build
+
+      - name: Test
+        run: npm test
 
   # Runs in the deploy PHP version's official image (it used to run in the
   # Playwright image with Ubuntu's PHP 8.3 while production ran 8.5). Node
@@ -336,6 +536,8 @@ jobs:
           retention-days: 7
 
   migration-dry-run:
+    needs: changes
+    if: needs.changes.outputs.db == 'true'
     # Runs EVERY forward production migration in db/migrations/ (in file-
     # name order: #24's 2026_08_08_*, then #25's 2026_11_11_*, ...) against
     # the pre-#24 schema on the production MariaDB version, then proves the
@@ -416,6 +618,8 @@ jobs:
           [ "$got" = "1,1,1,1" ] || { echo "::error title=migration-dry-run::new insert: got '$got', expected '1,1,1,1' (day/hour/period NULL, submission_time set)"; exit 1; }
 
   docker-compose-smoke:
+    needs: changes
+    if: needs.changes.outputs.smoke == 'true'
     runs-on: ubuntu-latest
     env:
       # Production-shaped value (single host, https, no port) so the
@@ -449,6 +653,12 @@ jobs:
           BODY=$(curl -sf http://localhost:8081/api/v1/health.php)
           echo "$BODY"
           echo "$BODY" | jq -e '.data.status == "ok"'
+
+      - name: Smoke-test api-v2 health (built image, DB connectivity)
+        run: |
+          BODY=$(curl -sf http://localhost:8082/api/v2/health)
+          echo "$BODY"
+          echo "$BODY" | jq -e '.status == "ok" and .database == "ok"'
 
       - name: Smoke-test API data endpoint (schema seeded)
         run: |
