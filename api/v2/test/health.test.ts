@@ -3,7 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { buildApp } from '../src/app.js';
 import { createDatabase } from '../src/db/index.js';
 import { API_VERSION } from '../src/version.js';
-import { testApp, testDbConfig } from './helpers.js';
+import { TEST_SITE_URL, testApp, testDbConfig } from './helpers.js';
 
 describe('GET /api/v2/health', () => {
   let app: Awaited<ReturnType<typeof testApp>>;
@@ -39,7 +39,7 @@ describe('GET /api/v2/health without a database', () => {
   it('returns 503 and database: unavailable', async () => {
     // Nothing listens on port 1, so the connection fails fast.
     const db = createDatabase({ ...testDbConfig(), host: '127.0.0.1', port: 1 }, { connectTimeoutMs: 1000 });
-    const app = await buildApp({ db });
+    const app = await buildApp({ db, siteUrl: TEST_SITE_URL });
 
     try {
       const response = await app.inject({ method: 'GET', url: '/api/v2/health' });

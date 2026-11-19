@@ -16,6 +16,9 @@ export function testDbConfig() {
   };
 }
 
+/** SITE_URL for tests; any origin works, the links are built from it. */
+export const TEST_SITE_URL = 'https://status.example.org';
+
 export async function testApp() {
-  return buildApp({ db: createDatabase(testDbConfig()) });
+  return buildApp({ db: createDatabase(testDbConfig()), siteUrl: TEST_SITE_URL });
 }

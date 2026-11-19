@@ -3,7 +3,7 @@ import { loadConfig } from './config.js';
 import { createDatabase } from './db/index.js';
 
 const config = loadConfig();
-const app = await buildApp({ db: createDatabase(config.db), logger: true });
+const app = await buildApp({ db: createDatabase(config.db), siteUrl: config.siteUrl, logger: true });
 
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.once(signal, () => {

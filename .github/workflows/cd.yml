@@ -301,3 +301,19 @@ jobs:
             "${{ vars.SITE_URL }}/api/v2/health")
           echo "$BODY"
           echo "$BODY" | jq -e '.status == "ok"'
+
+      # The /api versions index is api-v2's (#38): Traefik must send exactly
+      # /api and /api/ there, and every link it advertises (v1's on the v1
+      # container, v2's here) must resolve through the public URL.
+      - name: Check the /api versions index and its links
+        run: |
+          SITE="${{ vars.SITE_URL }}"
+          for P in /api /api/; do
+            BODY=$(curl -sf --retry 6 --retry-delay 5 --retry-all-errors "$SITE$P")
+            echo "$P: $BODY"
+            echo "$BODY" | jq -e --arg s "$SITE" '.data.links.self == ($s + "/api/") and ([.data.versions[].version] | index("v2") != null)'
+          done
+          for U in $(echo "$BODY" | jq -r '.data.versions[] | .url, .docs, .openapi'); do
+            S=$(curl -s -L -o /dev/null -w "%{http_code}" "$U")
+            echo "$U -> $S"; [ "$S" = "200" ]
+          done

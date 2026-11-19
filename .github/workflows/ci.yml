@@ -723,20 +723,31 @@ jobs:
           # (exit 2 = aborted, as expected with this feed).
           docker compose exec -T -u www-data api php /opt/satellite-status/bin/gpdata-sync.php || [ $? -eq 2 ]
 
-      - name: Smoke-test /api front door (real Apache, not the PHP dev server)
-        # The PHPUnit harness can't exercise Apache config, so this is the
-        # only check that the AliasMatch for /api and /api/ to
-        # api/v1/api-root.php in api/v1/Dockerfile works. Bare /api must answer 200
-        # directly -- a 301 here means mod_dir is redirecting, which behind
-        # Traefik becomes an http:// hop.
+      - name: Smoke-test the /api versions index (api-v2) and v1's 404s
+        # /api and /api/ are api-v2's (#38). Its built image must answer
+        # both with 200 directly (no redirect) and links from SITE_URL. The
+        # v1 image must 404 them (a RedirectMatch in api/v1/Dockerfile),
+        # never 301 to /api/ or list the directory; the PHPUnit harness
+        # can't exercise Apache config, so this is the only check of it.
         run: |
           for P in /api /api/; do
-            STATUS=$(curl -s -o /tmp/api-root.json -w "%{http_code}" "http://localhost:8081$P")
-            echo "$P -> HTTP $STATUS"
-            cat /tmp/api-root.json
+            STATUS=$(curl -s -o /tmp/api-root.json -w "%{http_code}" "http://localhost:8082$P")
+            echo "api-v2 $P -> HTTP $STATUS"
+            cat /tmp/api-root.json; echo
             [ "$STATUS" = "200" ]
-            jq -e --arg u "${SITE_URL}/api/v1/" '.data.versions[] | select(.version == "v1") | .url == $u' /tmp/api-root.json
+            jq -e --arg s "$SITE_URL" '
+              .data.links.self == ($s + "/api/") and
+              ([.data.versions[] | select(.status == "current")] | length) == 1 and
+              (.data.versions[] | select(.version == "v1") | .url == ($s + "/api/v1/")) and
+              (.data.versions[] | select(.version == "v2") | .url == ($s + "/api/v2/"))
+            ' /tmp/api-root.json
+
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:8081$P")
+            echo "api v1 $P -> HTTP $STATUS"
+            [ "$STATUS" = "404" ]
           done
+          S=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:8082/api/v2/")
+          echo "api-v2 /api/v2/ -> HTTP $S"; [ "$S" = "200" ]
           # Build files must not be fetchable from the web root.
           for P in /api/Dockerfile /api/.dockerignore /api/v1/Dockerfile /api/v1/.dockerignore /api/v1/docker/crontab /api/v1/docker/docker-entrypoint.sh; do
             STATUS=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:8081$P")

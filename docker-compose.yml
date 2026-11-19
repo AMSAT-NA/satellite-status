@@ -94,6 +94,10 @@ services:
       MYSQL_USER: satellite
       MYSQL_PASSWORD: satellite
       MYSQL_DATABASE: satellite_status
+      # Links in the /api versions index are built from this. Locally there's
+      # no Traefik putting v1 and v2 under one host, so the index's v1 links
+      # (on this port) don't resolve; production's do (cd.yml checks).
+      SITE_URL: ${SITE_URL:-http://localhost:8082}
     depends_on:
       db:
         condition: service_healthy

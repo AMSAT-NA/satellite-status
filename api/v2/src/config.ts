@@ -1,9 +1,11 @@
 /**
  * Runtime configuration from the environment. Uses the same MYSQL_*
- * variables as the v1 API, so api-v2 reads the deploy `.env` unchanged.
+ * and SITE_URL variables as the v1 API, so api-v2 reads the deploy `.env` unchanged.
  */
 export interface Config {
   port: number;
+  /** Public base URL, scheme + host, no trailing slash, like v1's SITE_URL. */
+  siteUrl: string;
   db: {
     host: string;
     port: number;
@@ -21,6 +23,20 @@ function required(env: NodeJS.ProcessEnv, name: string): string {
   return value;
 }
 
+/** SITE_URL as v1 uses it: an http(s) origin; a trailing slash is dropped. */
+function siteUrl(value: string): string {
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    throw new Error(`SITE_URL must be a URL like https://status.amsat.org, got "${value}".`);
+  }
+  if ((url.protocol !== 'https:' && url.protocol !== 'http:') || url.pathname !== '/' || url.search || url.hash) {
+    throw new Error(`SITE_URL must be scheme + host only (e.g. https://status.amsat.org), got "${value}".`);
+  }
+  return url.origin;
+}
+
 function port(value: string | undefined, fallback: number, name: string): number {
   if (value === undefined || value === '') {
     return fallback;
@@ -35,6 +51,7 @@ function port(value: string | undefined, fallback: number, name: string): number
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   return {
     port: port(env['PORT'], 3000, 'PORT'),
+    siteUrl: siteUrl(required(env, 'SITE_URL')),
     db: {
       host: required(env, 'MYSQL_HOST'),
       port: port(env['MYSQL_PORT'], 3306, 'MYSQL_PORT'),
