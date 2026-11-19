@@ -43,6 +43,36 @@ services:
       - "traefik.http.routers.satellite-status-api.priority=20"
       - "traefik.http.services.satellite-status-api.loadbalancer.server.port=80"
 
+  # api-v2 (TypeScript, docs/agents/api-v2-stack.md). Served at
+  # status.amsat.org/api/v2. Its router outranks v1's PathPrefix(`/api`)
+  # router (priority 20) with priority 30; everything else under /api
+  # still goes to v1. No change needed in amsat-it-infra: Traefik picks
+  # this up from the labels.
+  api-v2:
+    image: amsatorg.azurecr.io/satellite-status-api-v2:latest
+    restart: unless-stopped
+    env_file: .env
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      # The slim Node image has no curl.
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/v2/health').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    networks:
+      - default
+      - traefik-public
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.satellite-status-api-v2.rule=Host(`status.amsat.org`) && PathPrefix(`/api/v2`)"
+      - "traefik.http.routers.satellite-status-api-v2.entrypoints=websecure"
+      - "traefik.http.routers.satellite-status-api-v2.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.satellite-status-api-v2.priority=30"
+      - "traefik.http.services.satellite-status-api-v2.loadbalancer.server.port=3000"
+
   db:
     image: mariadb:12.3
     restart: unless-stopped

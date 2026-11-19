@@ -477,7 +477,7 @@ CHANGE LOG:
       rebuilding it. No behavior change: /api, /api/ and /api/v1/* answer
       as before, and the image-only files still aren't web-accessible.
       (PR #80)
-TBD:
+2026-11-19:
     - api-v2 project setup (api/v2/): TypeScript on Node 26, Fastify with
       TypeBox schemas, and Kysely on mysql2, per the new decision record
       docs/agents/api-v2-stack.md. One endpoint so far, GET
@@ -500,3 +500,9 @@ TBD:
       Workflow changes and manual runs still run everything. Docs-only
       changes run no suites.
       (PR #78)
+    - api-v2 deploys to production at status.amsat.org/api/v2: CD builds
+      and pushes its image (when api/v2/ changes, or when ACR doesn't
+      have it yet), deploy/docker-compose.yml runs it behind Traefik with
+      a router that outranks v1's /api router for /api/v2 only, and each
+      deploy ends by checking /api/v2/health through the public URL.
+      (PR #79)

@@ -57,10 +57,26 @@ api-v2 is TypeScript (see `api-v1-v2-dividing-line.md`). Decided 2026-11-17.
   lockfile and the database types, prints them to its log and fails, so
   they can be committed. Agents without registry access use that path.
 
-## Not decided here
+## Production routing
 
-- Production deployment at `/api/v2` (image build, push, Traefik route):
-  a follow-up.
+api-v2 runs as its own container, `satellite-status-api-v2`, on azure193.
+Traefik routes `status.amsat.org/api/v2/*` to it from the container's
+labels (`deploy/docker-compose.yml`). Nothing changes in amsat-it-infra:
+its Traefik only routes containers that set `traefik.enable=true` on the
+`traefik-public` network, and has no central routes to edit.
+
+- **Priority:** v1's router is `PathPrefix(/api)` at priority 20, which
+  also matches `/api/v2`. api-v2's `PathPrefix(/api/v2)` router has
+  priority 30, so it wins for `/api/v2/*`. Everything else under `/api`
+  still goes to v1. The frontend is priority 10.
+- **First deploy:** CD builds the api-v2 image when `api/v2/**` changed
+  *or* when ACR doesn't have it yet. Otherwise `docker compose pull` would
+  fail on the missing image.
+- **After every deploy,** CD checks `${SITE_URL}/api/v2/health` through
+  the public URL, which proves the Traefik routing as well as the
+  container.
+
+## Not decided here
 - Linting (ESLint): left out for now. `typescript-eslint` doesn't yet
   support the latest TypeScript, and the strict typecheck covers the most
   important checks. Revisit when the codebase grows.
