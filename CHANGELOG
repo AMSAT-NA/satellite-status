@@ -500,7 +500,6 @@ CHANGE LOG:
       Workflow changes and manual runs still run everything. Docs-only
       changes run no suites.
       (PR #78)
-TBD:
     - api-v2 deploys to production at status.amsat.org/api/v2: CD builds
       and pushes its image (when api/v2/ changes, or when ACR doesn't
       have it yet), deploy/docker-compose.yml runs it behind Traefik with
