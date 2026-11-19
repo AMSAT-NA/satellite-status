@@ -25,8 +25,9 @@ the work explicitly says otherwise** for that PR.
 An entry should include, at minimum:
 
 - The date (`YYYY-MM-DD`): **the date the PR merges** (UTC), not the date the
-  entry was written. If the entry was written earlier, re-date it when
-  rebasing or just before merging, so the file stays in true merge order.
+  entry was written. Set it when the PR is marked ready, not after the
+  merge is announced (see "Dating the entry" below), and re-date it if the
+  PR is still open on a later day, so the file stays in true merge order.
 - A one-line description of what changed and why (not just what files
   moved — the existing entries in the file are the style guide)
 - **The PR number** — required, e.g. `(PR #40)` (see "Referencing the
@@ -83,6 +84,24 @@ git log --oneline --grep '(#40)'
 with the now-known PR number and push it to the same branch before
 merge. Don't guess the next PR number in advance; a concurrently opened
 issue or PR takes it.
+
+**Dating the entry: when the PR is marked ready, not when it merges.**
+The person directing the work merges the PR, often right after saying so,
+with no gap for a last agent push. So the merge date can't wait for "I'm
+merging":
+
+- While the PR is a draft or still changing, the entry sits under a
+  `TBD:` heading.
+- **When you mark the PR ready for review (or tell the person it's ready
+  to merge), replace `TBD:` with today's UTC date in the same push.** Use
+  the existing heading if the file already ends with today's date.
+- If it's still open on a later UTC day, re-date it before saying it's
+  ready again.
+- **If a PR merges with `TBD:` (or a stale date) anyway,** fix it in the
+  next PR: set it to the actual merge date (the PR's `merged_at`, UTC)
+  and say so in that PR's description. Don't open a PR just for the date.
+
+`TBD:` on `main` is always a mistake, never a placeholder to leave.
 
 **SHAs are optional extras.** Add one only when it's already known and
 final, i.e. when the entry is written *after* the change merged, as in

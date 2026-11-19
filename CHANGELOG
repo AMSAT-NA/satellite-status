@@ -506,7 +506,6 @@ CHANGE LOG:
       a router that outranks v1's /api router for /api/v2 only, and each
       deploy ends by checking /api/v2/health through the public URL.
       (PR #79)
-TBD:
     - The /api versions index moves from v1 to api-v2, and now lists v2
       (status "development") beside v1 (still "current"). Same document
       and links, same CORS and 405 behavior; v1's api-root.php is gone
@@ -518,3 +517,8 @@ TBD:
       deploy checks the index through the public URL and that every
       link it advertises resolves. No v1 API change.
       (PR #81)
+    - docs/agents/changelog-convention.md: date the CHANGELOG entry when a
+      PR is marked ready, not when the merge is announced, and fix any
+      entry that merged under TBD: in the next PR. This PR does that for
+      #81 (merged 2026-11-19).
+      (PR #NN)
