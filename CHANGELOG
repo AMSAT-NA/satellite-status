@@ -521,4 +521,4 @@ CHANGE LOG:
       PR is marked ready, not when the merge is announced, and fix any
       entry that merged under TBD: in the next PR. This PR does that for
       #81 (merged 2026-11-19).
-      (PR #NN)
+      (PR #82)
