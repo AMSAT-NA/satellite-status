@@ -506,7 +506,6 @@ CHANGE LOG:
       a router that outranks v1's /api router for /api/v2 only, and each
       deploy ends by checking /api/v2/health through the public URL.
       (PR #79)
-TBD:
     - The /api versions index moves from v1 to api-v2, and now lists v2
       (status "development") beside v1 (still "current"). Same document
       and links, same CORS and 405 behavior; v1's api-root.php is gone
