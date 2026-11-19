@@ -191,7 +191,7 @@ jobs:
 
   # ── Job 4: Configure server environment (main branch only, after job 3) ──────
   # Mirrors configure-env from amsat-discord-bot exactly. Runs even if job 3
-  # pushed no images (nothing under frontend/v1, api or api-v2 changed) since the
+  # pushed no images (nothing under frontend/v1, api/v1 or api/v2 changed) since the
   # .env or deploy/docker-compose.yml may still need to ship.
   configure-env:
     name: Configure Server Environment
