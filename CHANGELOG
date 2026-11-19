@@ -523,7 +523,6 @@ CHANGE LOG:
       entry that merged under TBD: in the next PR. This PR does that for
       #81 (merged 2026-11-19).
       (PR #82)
-TBD:
     - PHP 8.6: the frontend and API images move from php:8.5-apache to
       php:8.6-apache, and CI follows (it reads the version from the
       Dockerfiles). The official 8.6 images no longer include the
