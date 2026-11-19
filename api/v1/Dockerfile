@@ -3,7 +3,7 @@
 # api/v1/, so a change elsewhere (e.g. api/v2) never rebuilds this image.
 # The web code is api/v1/*.php and lib/; image-only files (the gpdata-sync
 # CLI job, its crontab, the entrypoint) are in api/v1/docker/. The /api
-# front door (#38) is api/v1/api-root.php.
+# versions index (#38) is served by api-v2 (api/v2/src/routes/versions.ts).
 FROM php:8.5-apache
 
 RUN docker-php-ext-install mysqli \
@@ -18,17 +18,16 @@ RUN docker-php-ext-install mysqli \
 # frontend submit.php). Errors still go to the container logs.
 RUN mv "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini"
 
-# Serve bare /api directly instead of letting mod_dir 301 it to /api/.
-# Behind Traefik, Apache only ever sees plain http, so that redirect
-# would be built as http://... and cost a second hop through Traefik's
-# https redirect.
+# /api and /api/ are api-v2's (the versions index; Traefik routes them
+# there). If they ever reach this container, 404 them: otherwise mod_dir
+# would 301 /api to /api/, and Apache could list the /api/ directory.
 #
 # Also 404 the build and image-only files under /api/v1/ (Dockerfile,
 # .dockerignore, docker/). The image removes them from the web root
 # below; this rule covers the local dev stack too, which bind-mounts
 # api/v1/ over the web root (docker-compose.yml).
 RUN printf '%s\n' \
-        'AliasMatch "^/api/?$" "/var/www/html/api/v1/api-root.php"' \
+        'RedirectMatch 404 "^/api/?$"' \
         'RedirectMatch 404 "^/api/v1/(Dockerfile|\.dockerignore|docker(/.*)?)$"' \
         > /etc/apache2/conf-available/api-root.conf \
     && a2enconf api-root

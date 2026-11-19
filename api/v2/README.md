@@ -10,7 +10,17 @@ In development: `/api/v1` remains the stable API.
 docker compose up -d --build        # from the repo root
 curl http://localhost:8082/api/v2/health
 open http://localhost:8082/api/v2/docs   # Swagger UI
+curl http://localhost:8082/api/          # the /api versions index (#38)
 ```
+
+## Endpoints
+
+| Path | What |
+|---|---|
+| `/api`, `/api/` | Versions index for the whole site (#38): v1 and v2, with status and links. api-v2 owns it, but it isn't part of v2's OpenAPI document. Edit `API_VERSIONS` in `src/routes/versions.ts` when a version's status changes. |
+| `/api/v2/` | v2's root: links to its docs, OpenAPI document and health check |
+| `/api/v2/health` | API and database status |
+| `/api/v2/docs` | Swagger UI; the OpenAPI document is `/api/v2/docs/json` |
 
 ## Scripts (from `api/v2/`)
 
@@ -29,5 +39,6 @@ loaded with the new schema and commit the result. CI fails if they differ.
 ## Configuration
 
 The same variables as the v1 API: `MYSQL_HOST`, `MYSQL_PORT` (default
-3306), `MYSQL_USER`, `MYSQL_PASSWORD`, `MYSQL_DATABASE`, plus `PORT`
-(default 3000).
+3306), `MYSQL_USER`, `MYSQL_PASSWORD`, `MYSQL_DATABASE` and `SITE_URL`
+(required; scheme + host, the base of the versions index's links), plus
+`PORT` (default 3000).

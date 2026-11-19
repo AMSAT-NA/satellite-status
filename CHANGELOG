@@ -506,3 +506,15 @@ CHANGE LOG:
       a router that outranks v1's /api router for /api/v2 only, and each
       deploy ends by checking /api/v2/health through the public URL.
       (PR #79)
+TBD:
+    - The /api versions index moves from v1 to api-v2, and now lists v2
+      (status "development") beside v1 (still "current"). Same document
+      and links, same CORS and 405 behavior; v1's api-root.php is gone
+      and the v1 image 404s /api and /api/ if they ever reach it.
+      Traefik sends exactly /api and /api/ to api-v2 (its router rule
+      adds Path(`/api`) || Path(`/api/`)); everything under /api/v1 still
+      goes to v1. api-v2 also answers /api/v2/ with links to its docs,
+      OpenAPI document and health check, and now reads SITE_URL. Each
+      deploy checks the index through the public URL and that every
+      link it advertises resolves. No v1 API change.
+      (PR #81)

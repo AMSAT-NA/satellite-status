@@ -18,10 +18,14 @@ $repoRoot = realpath(__DIR__ . '/../..');
 
 $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 
-// The /api front door (#38): Apache aliases /api and /api/ to
-// api/v1/api-root.php (api/v1/Dockerfile); do the same here.
-if ($path === '/api' || $path === '/api/') {
-    require $repoRoot . '/api/v1/api-root.php';
+// /api and /api/ (the versions index, #38) and everything under /api/v2
+// belong to api-v2, a separate container; Traefik routes them there. The
+// v1 image 404s /api and /api/ (api/v1/Dockerfile), so do the same here,
+// and don't serve api/v2's source files as if they were v1 pages.
+if ($path === '/api' || $path === '/api/' || $path === '/api/v2' || strpos($path, '/api/v2/') === 0) {
+    http_response_code(404);
+    header('Content-Type: text/plain');
+    echo '404 Not Found';
     exit;
 }
 

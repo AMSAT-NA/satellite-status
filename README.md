@@ -13,11 +13,10 @@ satellite-status/
 │   │   └── Dockerfile    # builds the frontend container
 │   └── v2/               # frontend-v2 placeholder (not built yet)
 ├── api/
-│   ├── v2/               # api-v2: TypeScript (Node, Fastify, Kysely); see its README
+│   ├── v2/               # api-v2: TypeScript (Node, Fastify, Kysely); also serves the /api versions index (#38)
 │   └── v1/               # PHP REST API: everything for the v1 API container
 │       ├── Dockerfile    # builds the API container (build context: api/v1)
 │       ├── docker/       # image-only files: gpdata-sync CLI job, crontab, entrypoint
-│       ├── api-root.php  # the /api versions index (#38)
 │       ├── overview.php  # HTML API documentation
 │       └── docs.php      # Swagger UI
 ├── db/schema.sql         # database schema
@@ -78,7 +77,8 @@ Then visit:
 | Service | URL |
 |---|---|
 | Frontend (status page) | http://localhost:8080 |
-| API versions index | http://localhost:8081/api/ |
+| API versions index (api-v2) | http://localhost:8082/api/ |
+| api-v2 health / Swagger UI | http://localhost:8082/api/v2/health, http://localhost:8082/api/v2/docs |
 | API documentation | http://localhost:8081/api/v1/overview.php |
 | API Swagger UI | http://localhost:8081/api/v1/docs.php |
 | API example | http://localhost:8081/api/v1/satellites.php |
@@ -120,7 +120,7 @@ npx playwright test --config tests/playwright.config.js
 - Utilize the API at `$SITE_URL/api/v1`.
 
 ## API
-The public API lives under `/api/v1` and is documented at `/api/v1/overview.php`. `/api/` is a machine-readable index of available API versions; it points at versioned base URLs and is never an alias for "the latest" version.
+The public API lives under `/api/v1` and is documented at `/api/v1/overview.php`. `/api/` is a machine-readable index of available API versions (served by api-v2, which is in development at `/api/v2`); it points at versioned base URLs and is never an alias for "the latest" version.
 Public Swagger documentation is available at `/api/v1/docs.php`.
 
 **Building on the API?** Read the [usage guidelines](https://status.amsat.org/api/v1/overview.php#usage) first: identify your client with a descriptive `User-Agent`, poll no more often than every 5 minutes, and submit only real observations made by the operator whose callsign the report carries (apps submitting on their users' behalf are welcome). Report data is available under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) with attribution.

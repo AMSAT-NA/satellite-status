@@ -5,6 +5,7 @@ import Fastify, { type FastifyServerOptions } from 'fastify';
 
 import type { Database } from './db/index.js';
 import { healthRoutes } from './routes/health.js';
+import { versionsRoutes } from './routes/versions.js';
 import { API_VERSION } from './version.js';
 
 declare module 'fastify' {
@@ -18,6 +19,8 @@ export const API_PREFIX = '/api/v2';
 
 export interface AppOptions {
   db: Database;
+  /** Public base URL, scheme + host, no trailing slash (SITE_URL). */
+  siteUrl: string;
   logger?: FastifyServerOptions['logger'];
 }
 
@@ -49,6 +52,8 @@ export async function buildApp(options: AppOptions) {
   await app.register(swaggerUi, { routePrefix: `${API_PREFIX}/docs` });
 
   await app.register(healthRoutes, { prefix: API_PREFIX });
+  // /api (versions index) and /api/v2/ (v2's root); see routes/versions.ts.
+  await app.register(versionsRoutes, { siteUrl: options.siteUrl });
 
   app.setNotFoundHandler((request, reply) => {
     void reply.code(404).send({

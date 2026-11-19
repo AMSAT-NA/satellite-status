@@ -44,10 +44,11 @@ services:
       - "traefik.http.services.satellite-status-api.loadbalancer.server.port=80"
 
   # api-v2 (TypeScript, docs/agents/api-v2-stack.md). Served at
-  # status.amsat.org/api/v2. Its router outranks v1's PathPrefix(`/api`)
-  # router (priority 20) with priority 30; everything else under /api
-  # still goes to v1. No change needed in amsat-it-infra: Traefik picks
-  # this up from the labels.
+  # status.amsat.org/api/v2, plus exactly /api and /api/ (the versions
+  # index, #38). Its router outranks v1's PathPrefix(`/api`) router
+  # (priority 20) with priority 30, so those paths come here and
+  # everything else under /api (all of /api/v1) still goes to v1. No
+  # change needed in amsat-it-infra: Traefik picks this up from the labels.
   api-v2:
     image: amsatorg.azurecr.io/satellite-status-api-v2:latest
     restart: unless-stopped
@@ -67,7 +68,7 @@ services:
       - traefik-public
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.satellite-status-api-v2.rule=Host(`status.amsat.org`) && PathPrefix(`/api/v2`)"
+      - "traefik.http.routers.satellite-status-api-v2.rule=Host(`status.amsat.org`) && (PathPrefix(`/api/v2`) || Path(`/api`) || Path(`/api/`))"
       - "traefik.http.routers.satellite-status-api-v2.entrypoints=websecure"
       - "traefik.http.routers.satellite-status-api-v2.tls.certresolver=letsencrypt"
       - "traefik.http.routers.satellite-status-api-v2.priority=30"
