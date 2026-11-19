@@ -85,7 +85,7 @@ services:
   # yet; production routing at /api/v2 comes in a follow-up.
   api-v2:
     build:
-      context: ./api-v2
+      context: ./api/v2
       dockerfile: Dockerfile
     ports:
       - "8082:3000"

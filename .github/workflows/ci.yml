@@ -12,24 +12,33 @@ on:
 jobs:
 
   # ── Which parts changed ──────────────────────────────────────────────────
-  # Each test suite runs only when something it covers changed:
+  # Each suite runs when something it covers changed, or something it
+  # depends on. The dependencies run one way, toward the consumers:
   #
-  #   v1      frontend/v1, api (v1), their PHP tests and tools, Composer
-  #   api-v2  api-v2
-  #   db      db/ (schema, migrations): runs BOTH API suites, since both
-  #           read the shared schema (api-v2's generated types included)
-  #   smoke   the compose stack: any app, db/, or the compose files
+  #   frontend/v1  -> frontend-v1 tests
+  #   api/v1       -> api-v1 tests AND frontend-v1 tests (the frontend
+  #                   reads through the v1 API)
+  #   api/v2       -> api-v2 (and frontend-v2 once it has a job)
+  #   frontend/v2  -> frontend-v2 (placeholder; no job yet)
+  #   db/          -> both APIs, frontend-v1 (its admin pages still read
+  #                   the database directly) and the migration dry run.
+  #                   frontend-v2 talks only to the API, so db/ skips it.
   #
-  # Changes to the workflows themselves, and manual runs, run everything.
-  # Docs-only changes run none of the suites. frontend-v2 gets its own
-  # filter when that project lands; it talks to the API, not the database,
-  # so db/ changes won't need to run it. Nothing in the repo's ruleset
-  # requires specific check names, so skipped jobs don't block a merge.
+  # tests/, tools/ and the Composer files are shared by all the v1 PHP
+  # jobs, so they run every v1 suite. A frontend-only change runs the
+  # frontend-v1 PHPUnit suite and skips api-v1's (tests/phpunit.xml).
+  # The smoke test builds the whole compose stack, so any app, db/ or
+  # compose change runs it. Workflow changes and manual runs run
+  # everything; docs-only changes run none of the suites. Nothing in the
+  # repo's ruleset requires specific check names, so skipped jobs don't
+  # block a merge.
   changes:
     runs-on: ubuntu-latest
     outputs:
-      v1: ${{ steps.decide.outputs.v1 }}
+      frontend-v1: ${{ steps.decide.outputs.frontend_v1 }}
+      api-v1: ${{ steps.decide.outputs.api_v1 }}
       api-v2: ${{ steps.decide.outputs.api_v2 }}
+      frontend-v2: ${{ steps.decide.outputs.frontend_v2 }}
       db: ${{ steps.decide.outputs.db }}
       smoke: ${{ steps.decide.outputs.smoke }}
     steps:
@@ -41,15 +50,19 @@ jobs:
         id: filter
         with:
           filters: |
-            v1:
+            frontend_v1:
               - 'frontend/v1/**'
-              - 'api/**'
+            api_v1:
+              - 'api/v1/**'
+            v1_shared:
               - 'tests/**'
               - 'tools/**'
               - 'composer.json'
               - 'composer.lock'
             api_v2:
-              - 'api-v2/**'
+              - 'api/v2/**'
+            frontend_v2:
+              - 'frontend/v2/**'
             db:
               - 'db/**'
             compose:
@@ -61,8 +74,11 @@ jobs:
       - name: Decide which suites run
         id: decide
         env:
-          V1: ${{ steps.filter.outputs.v1 }}
+          FRONTEND_V1: ${{ steps.filter.outputs.frontend_v1 }}
+          API_V1: ${{ steps.filter.outputs.api_v1 }}
+          V1_SHARED: ${{ steps.filter.outputs.v1_shared }}
           API_V2: ${{ steps.filter.outputs.api_v2 }}
+          FRONTEND_V2: ${{ steps.filter.outputs.frontend_v2 }}
           DB: ${{ steps.filter.outputs.db }}
           COMPOSE: ${{ steps.filter.outputs.compose }}
           WORKFLOWS: ${{ steps.filter.outputs.workflows }}
@@ -72,10 +88,12 @@ jobs:
           if [ "$WORKFLOWS" = true ] || [ "$MANUAL" = true ]; then all=true; fi
           any() { for v in "$@"; do [ "$v" = true ] && { echo true; return; }; done; echo false; }
           {
-            echo "v1=$(any "$V1" "$DB" "$all")"
+            echo "api_v1=$(any "$API_V1" "$V1_SHARED" "$DB" "$all")"
+            echo "frontend_v1=$(any "$FRONTEND_V1" "$API_V1" "$V1_SHARED" "$DB" "$all")"
             echo "api_v2=$(any "$API_V2" "$DB" "$all")"
+            echo "frontend_v2=$(any "$FRONTEND_V2" "$API_V2" "$all")"
             echo "db=$(any "$DB" "$all")"
-            echo "smoke=$(any "$V1" "$API_V2" "$DB" "$COMPOSE" "$all")"
+            echo "smoke=$(any "$FRONTEND_V1" "$API_V1" "$V1_SHARED" "$API_V2" "$FRONTEND_V2" "$DB" "$COMPOSE" "$all")"
           } | tee -a "$GITHUB_OUTPUT"
 
   build:
@@ -116,10 +134,11 @@ jobs:
   # only the two FROM lines (api/v1/Dockerfile, frontend/v1/Dockerfile); CI
   # follows automatically. Fails if the two images disagree.
   # Gates every v1 PHP job below: they all need it, so they're skipped
-  # with it when nothing v1 changed.
+  # with it when nothing v1 changed. It keys on the frontend-v1 output,
+  # which is true for every v1 change (api/v1 changes run frontend-v1 too).
   check-php-version:
     needs: changes
-    if: needs.changes.outputs.v1 == 'true'
+    if: needs.changes.outputs.frontend-v1 == 'true'
     runs-on: ubuntu-latest
     outputs:
       php: ${{ steps.read.outputs.php }}
@@ -253,7 +272,7 @@ jobs:
           fi
 
   phpunit:
-    needs: check-php-version
+    needs: [changes, check-php-version]
     runs-on: ubuntu-latest
     container: php:${{ needs.check-php-version.outputs.php }}-cli
     services:
@@ -313,8 +332,35 @@ jobs:
             PHP_CLI_SERVER_WORKERS=4 php -S 127.0.0.1:8000 -t . tests/fixtures/router.php >/tmp/php-server.log 2>&1 &
           until curl -sS -o /dev/null http://127.0.0.1:8000/; do sleep 1; done
 
+      # tests/phpunit.xml lists the api-v1 tests twice: as that suite's
+      # files and as frontend-v1's excludes. If the two lists drift, or
+      # name a file that doesn't exist, a test could run in neither suite.
+      - name: PHPUnit suites split cleanly
+        run: |
+          files=$(sed -nE 's#.*<file>(.*)</file>.*#\1#p' tests/phpunit.xml | sort)
+          excludes=$(sed -nE 's#.*<exclude>(.*)</exclude>.*#\1#p' tests/phpunit.xml | sort)
+          if [ "$files" != "$excludes" ]; then
+            echo "::error title=phpunit::tests/phpunit.xml: the api-v1 <file> list and the frontend-v1 <exclude> list must match"
+            diff <(echo "$files") <(echo "$excludes") || true
+            exit 1
+          fi
+          for f in $files; do
+            [ -f "tests/$f" ] || { echo "::error title=phpunit::tests/phpunit.xml lists tests/$f, which doesn't exist"; exit 1; }
+          done
+          echo "api-v1 suite: $(echo "$files" | wc -l) files; frontend-v1: the rest"
+        shell: bash
+
+      # Both suites (api-v1, frontend-v1) unless only frontend/v1 changed;
+      # then the api-v1 suite is skipped (see the `changes` job).
       - name: Run PHPUnit
-        run: vendor/bin/phpunit --configuration tests/phpunit.xml --colors=never
+        env:
+          API_V1: ${{ needs.changes.outputs.api-v1 }}
+        run: |
+          if [ "$API_V1" = true ]; then
+            vendor/bin/phpunit --configuration tests/phpunit.xml --colors=never
+          else
+            vendor/bin/phpunit --configuration tests/phpunit.xml --colors=never --testsuite frontend-v1
+          fi
 
       - name: Upload PHP server log
         if: failure()
@@ -354,7 +400,7 @@ jobs:
       DATABASE_URL: mysql://satstatus:satstatus@mariadb:3306/satstatus
     defaults:
       run:
-        working-directory: api-v2
+        working-directory: api/v2
     steps:
       - uses: actions/checkout@v6
 

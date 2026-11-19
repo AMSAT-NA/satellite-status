@@ -1,7 +1,7 @@
-# api-v2
+# api-v2 (`api/v2/`)
 
 Version 2 of the AMSAT satellite status API, in TypeScript. Stack and
-reasoning: [`docs/agents/api-v2-stack.md`](../docs/agents/api-v2-stack.md).
+reasoning: [`docs/agents/api-v2-stack.md`](../../docs/agents/api-v2-stack.md).
 In development: `/api/v1` remains the stable API.
 
 ## Run locally
@@ -12,7 +12,7 @@ curl http://localhost:8082/api/v2/health
 open http://localhost:8082/api/v2/docs   # Swagger UI
 ```
 
-## Scripts (from `api-v2/`)
+## Scripts (from `api/v2/`)
 
 | Command | What it does |
 |---|---|
