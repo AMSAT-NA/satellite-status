@@ -460,6 +460,7 @@ CHANGE LOG:
       (scrolling within that height) instead of a fixed 500px, so there's
       no dead space under the Submit button.
       (PR #74)
+2026-11-16:
     - docs/agents: the v1/v2 dividing-line decision record now records
       that the frontend-v2 admin ships before the public frontend-v2,
       together with the #26 schema redesign (Issue #75). New
@@ -522,3 +523,11 @@ CHANGE LOG:
       entry that merged under TBD: in the next PR. This PR does that for
       #81 (merged 2026-11-19).
       (PR #82)
+    - PHP 8.6: the frontend and API images move from php:8.5-apache to
+      php:8.6-apache, and CI follows (it reads the version from the
+      Dockerfiles). The official 8.6 images no longer include the
+      mbstring extension, which the frontend needs for banner rendering
+      (Parsedown) and CI needs for PHPUnit, so both now install it, without
+      the deprecated mb_ereg_* functions. A new smoke test checks the
+      frontend image has it.
+      (Issue #37, PR #77)

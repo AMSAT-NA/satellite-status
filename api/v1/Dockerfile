@@ -4,7 +4,7 @@
 # The web code is api/v1/*.php and lib/; image-only files (the gpdata-sync
 # CLI job, its crontab, the entrypoint) are in api/v1/docker/. The /api
 # versions index (#38) is served by api-v2 (api/v2/src/routes/versions.ts).
-FROM php:8.5-apache
+FROM php:8.6-apache
 
 RUN docker-php-ext-install mysqli \
     && apt-get update \
